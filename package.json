@@ -1,60 +1,56 @@
 {
   "name": "Udeler",
-  "version": "2.0.0",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/FaisalUmair/udemy-downloader-gui.git"
-  },
+  "version": "dev-3.0.0",
   "description": "A cross platform (Windows, Mac, Linux) desktop application for downloading Udemy Courses.",
-  "scripts": {
-    "start": "electron .",
-    "postinstall": "electron-builder install-app-deps",
-    "build": "electron-builder -wml",
-    "build-win": "electron-builder -w",
-    "build-mac": "electron-builder -m",
-    "build-linux": "electron-builder -l",
-    "dist": "build"
-  },
-  "build": {
-    "files": [
-      "index.html",
-      "index.js",
-      "assets/**/*",
-      "locale/**/*"
-    ],
-    "directories": {
-      "buildResources": "assets/images/build"
-    },
-    "win": {
-      "icon": "assets/images/build/icon.ico"
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true
-    },
-    "linux": {
-      "category": "Utility"
-    }
-  },
+  "main": "./out/main/index.js",
   "author": {
     "name": "M3rcena",
     "url": "https://github.com/M3rcena"
   },
-  "license": "ISC",
-  "devDependencies": {
-    "electron": "^9.4.4",
-    "electron-builder": "^22.14.13",
-    "electron-download-tf": "^4.3.4"
+  "homepage": "https://m3rcena.github.io/",
+  "scripts": {
+    "format": "prettier --write .",
+    "lint": "eslint --cache .",
+    "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
+    "typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",
+    "typecheck": "npm run typecheck:node && npm run typecheck:web",
+    "start": "electron-vite preview",
+    "dev": "electron-vite dev",
+    "build": "npm run typecheck && electron-vite build",
+    "postinstall": "electron-builder install-app-deps",
+    "build:unpack": "npm run build && electron-builder --dir",
+    "build:win": "npm run build && electron-builder --win",
+    "build:mac": "electron-vite build && electron-builder --mac",
+    "build:linux": "electron-vite build && electron-builder --linux"
   },
   "dependencies": {
-    "dialogs": "^2.0.1",
-    "electron-settings": "^3.2.0",
-    "jquery": "^3.7.1",
-    "mkdirp": "^1.0.4",
-    "moment": "^2.30.1",
-    "mt-files-downloader": "^0.2.5",
-    "node-vtt-to-srt": "^1.0.1",
-    "sanitize-filename": "^1.6.3",
-    "socket.io": "^2.5.1"
+    "@electron-toolkit/preload": "^3.0.2",
+    "@electron-toolkit/utils": "^4.0.0",
+    "electron-store": "^11.0.2",
+    "electron-updater": "^6.3.9"
+  },
+  "devDependencies": {
+    "@electron-toolkit/eslint-config-prettier": "^3.0.0",
+    "@electron-toolkit/eslint-config-ts": "^3.1.0",
+    "@electron-toolkit/tsconfig": "^2.0.0",
+    "@types/node": "^22.19.1",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.1",
+    "autoprefixer": "^10.5.0",
+    "electron": "^39.2.6",
+    "electron-builder": "^26.0.12",
+    "electron-vite": "^5.0.0",
+    "eslint": "^9.39.1",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "postcss": "^8.5.14",
+    "prettier": "^3.7.4",
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1",
+    "tailwindcss": "^3.4.19",
+    "typescript": "^5.9.3",
+    "vite": "^7.2.6"
   }
 }
