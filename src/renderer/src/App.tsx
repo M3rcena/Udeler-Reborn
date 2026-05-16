@@ -5,6 +5,8 @@ import { LoginView } from './views/LoginView'
 import { Sidebar } from './components/Sidebar'
 import { PathAlertModal } from './components/PathAlertModal'
 import { SettingsTab } from './views/SettingsTab'
+import { AboutTab } from './views/AboutTab'
+import { UpdateToast } from './components/UpdateToast'
 
 declare global {
   interface Window {
@@ -478,16 +480,7 @@ function App(): React.JSX.Element {
         {activeTab === 'settings' && <SettingsTab />}
 
         {/* About View */}
-        {activeTab === 'about' && (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-6">About</h2>
-            <div className="p-8 bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-[2rem] shadow-xl text-center">
-              <p className="text-gray-500 dark:text-gray-400">
-                App info and your &apos;Remade By&apos; links will go here...
-              </p>
-            </div>
-          </div>
-        )}
+        {activeTab === 'about' && <AboutTab />}
 
         {/* --- CURRICULUM MODAL --- */}
         {selectedCourse && (
@@ -989,6 +982,9 @@ function App(): React.JSX.Element {
         isOpen={isPathAlertOpen} 
         onClose={() => setIsPathAlertOpen(false)} 
       />
+
+      {/* --- GLOBAL NOTIFICATIONS --- */}
+      <UpdateToast />
     </div>
   )
 }
