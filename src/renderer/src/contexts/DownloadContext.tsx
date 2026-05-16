@@ -100,15 +100,15 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
     course: Course,
     curriculum: CurriculumItem[],
     currentChapterTitle: string
-  ): Promise<void> => {
-    if (!course || curriculum.length === 0) return
+  ): Promise<number> => {
+    if (!course || curriculum.length === 0) return 0
 
     const isValid = await validateDownloadPath()
-    if (!isValid) return
+    if (!isValid) return 0
 
     let trackingTitle = currentChapterTitle
     let lectureCounter = 1
-    const newQueue: typeof downloadQueue.current = []
+    const newTasks: typeof downloadQueue.current = []
 
     for (const item of curriculum) {
       if (item._class === 'chapter') {
@@ -120,18 +120,25 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
       if (item._class === 'quiz') continue
 
       const status = downloadProgress[item.id]
-      if (status === 'downloading' || status === 'success') continue
 
-      newQueue.push({ course, item, chapterTitle: trackingTitle, index: currentIndex })
+      const isAlreadyQueued = downloadQueue.current.some((q) => q.item.id === item.id)
+      if (status === 'downloading' || status === 'success' || isAlreadyQueued) continue
+
+      newTasks.push({ course, item, chapterTitle: trackingTitle, index: currentIndex })
     }
 
-    downloadQueue.current = newQueue
+    if (newTasks.length === 0) return 0 // Stop early if there is nothing new to add
+
+    downloadQueue.current = [...downloadQueue.current, ...newTasks]
     isQueuePaused.current = false
     setQueueStatus('running')
 
-    setTimeout(processQueue, 0)
-    setTimeout(processQueue, 500)
-    setTimeout(processQueue, 1000)
+    const availableWorkers = Math.max(0, 3 - activeWorkers.current)
+    for (let i = 0; i < availableWorkers; i++) {
+      setTimeout(processQueue, i * 500)
+    }
+
+    return newTasks.length // Return the total items queued
   }
 
   const pauseQueue = (): void => {

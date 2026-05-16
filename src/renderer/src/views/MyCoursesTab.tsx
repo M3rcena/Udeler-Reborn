@@ -28,6 +28,8 @@ export const MyCoursesTab: React.FC = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState<boolean>(false)
   const [hasLocalFiles, setHasLocalFiles] = useState<boolean>(true)
 
+  const [queuedCount, setQueuedCount] = useState<number | null>(null)
+
   // --- DATA FETCHING ---
   const loadCourses = useCallback(async (): Promise<void> => {
     setIsFetchingCourses(true)
@@ -211,7 +213,12 @@ export const MyCoursesTab: React.FC = () => {
 
       {/* --- CURRICULUM MODAL --- */}
       {selectedCourse && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-8 bg-black/50 dark:bg-black/80 backdrop-blur-md transition-opacity">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-8 bg-black/50 dark:bg-black/80 backdrop-blur-md transition-opacity"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSelectedCourse(null)
+          }}
+        >
           <div className="relative flex flex-col bg-white dark:bg-[#0b0b14] border border-gray-200 dark:border-white/10 rounded-[2rem] w-full max-w-5xl h-[90vh] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-300">
             {/* Modal Header */}
             <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-white/10 bg-gray-50/50 dark:bg-white/5 backdrop-blur-xl z-10">
@@ -232,29 +239,37 @@ export const MyCoursesTab: React.FC = () => {
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
                 {/* Queue Controls */}
-                {queueStatus === 'idle' && (
-                  <button
-                    onClick={() => startDownloadQueue(selectedCourse, curriculum, 'Uncategorized')}
-                    className="group flex items-center h-11 max-w-[44px] hover:max-w-[200px] bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl text-sm transition-all duration-300 ease-out shadow-lg hover:shadow-blue-500/30 overflow-hidden cursor-pointer px-3 whitespace-nowrap gap-2"
+                <button
+                  onClick={async () => {
+                    const addedCount = await startDownloadQueue(
+                      selectedCourse,
+                      curriculum,
+                      'Uncategorized'
+                    )
+                    if (addedCount > 0) {
+                      setQueuedCount(addedCount)
+                      setTimeout(() => setQueuedCount(null), 3000)
+                    }
+                  }}
+                  className="group flex items-center h-11 max-w-[44px] hover:max-w-[200px] bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl text-sm transition-all duration-300 ease-out shadow-lg hover:shadow-blue-500/30 overflow-hidden cursor-pointer px-3 whitespace-nowrap gap-2"
+                >
+                  <svg
+                    className="w-5 h-5 min-w-[20px]"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
                   >
-                    <svg
-                      className="w-5 h-5 min-w-[20px]"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                      ></path>
-                    </svg>
-                    <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 delay-75">
-                      Download All
-                    </span>
-                  </button>
-                )}
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                    ></path>
+                  </svg>
+                  <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 delay-75">
+                    {queueStatus === 'idle' ? 'Download All' : 'Add to Queue'}
+                  </span>
+                </button>
 
                 {queueStatus === 'running' && (
                   <button
@@ -597,7 +612,12 @@ export const MyCoursesTab: React.FC = () => {
 
             {/* DELETE MODAL */}
             {isDeleteModalOpen && (
-              <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
+              <div
+                className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200"
+                onClick={(e) => {
+                  if (e.target === e.currentTarget) setIsDeleteModalOpen(false)
+                }}
+              >
                 <div className="w-full max-w-md p-8 bg-white/95 dark:bg-[#0f0f18]/95 border border-gray-200 dark:border-white/10 rounded-[2rem] shadow-2xl flex flex-col items-center text-center animate-in zoom-in-95 duration-200">
                   {hasLocalFiles ? (
                     <>
@@ -681,6 +701,49 @@ export const MyCoursesTab: React.FC = () => {
                       </button>
                     </>
                   )}
+                </div>
+              </div>
+            )}
+
+            {/* --- SUCCESS TOAST --- */}
+            {queuedCount !== null && (
+              <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[110] animate-in slide-in-from-bottom-8 fade-in duration-300">
+                <div className="flex items-center gap-3 px-6 py-4 bg-white/95 dark:bg-[#12121a]/95 backdrop-blur-xl border border-green-200 dark:border-green-500/30 rounded-2xl shadow-2xl shadow-green-500/10 max-w-md w-full">
+                  <div className="flex-shrink-0 w-10 h-10 bg-green-100 dark:bg-green-500/20 rounded-full flex items-center justify-center text-green-600 dark:text-green-400 shadow-inner">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="3"
+                        d="M5 13l4 4L19 7"
+                      ></path>
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="text-gray-900 dark:text-white font-bold text-sm">
+                      Successfully Queued
+                    </h4>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 leading-relaxed">
+                      Added{' '}
+                      <span className="font-bold text-green-600 dark:text-green-400">
+                        {queuedCount}
+                      </span>{' '}
+                      new item{queuedCount !== 1 ? 's' : ''} to the background queue.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setQueuedCount(null)}
+                    className="text-gray-400 hover:text-green-500 dark:hover:text-green-400 transition-colors cursor-pointer"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M6 18L18 6M6 6l12 12"
+                      ></path>
+                    </svg>
+                  </button>
                 </div>
               </div>
             )}

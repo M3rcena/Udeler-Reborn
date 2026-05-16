@@ -7,6 +7,7 @@ import { SettingsTab } from './views/SettingsTab'
 import { AboutTab } from './views/AboutTab'
 import { UpdateToast } from './components/UpdateToast'
 import { MyCoursesTab } from './views/MyCoursesTab'
+import { DownloadsTab } from './views/DownloadsTab'
 
 declare global {
   interface Window {
@@ -22,6 +23,15 @@ declare global {
       checkLocalDownloads: (courseTitle: string) => Promise<Record<number, string>>
       deleteCourseFolder: (courseTitle: string) => Promise<boolean>
       moveDownloadsFolder: (oldPath: string, newPath: string) => Promise<boolean>
+      getAllDownloads: () => Promise<
+        {
+          course: string
+          chapter: string
+          file: string
+          path: string
+          type: 'Video' | 'Article' | 'File'
+        }[]
+      >
     }
   }
 }
@@ -103,16 +113,7 @@ function App(): React.JSX.Element {
         {activeTab === 'courses' && <MyCoursesTab />}
 
         {/* Downloads View */}
-        {activeTab === 'downloads' && (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-6">Downloads</h2>
-            <div className="p-8 bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-[2rem] shadow-xl text-center">
-              <p className="text-gray-500 dark:text-gray-400">
-                Download stats and list will go here...
-              </p>
-            </div>
-          </div>
-        )}
+        {activeTab === 'downloads' && <DownloadsTab />}
 
         {/* Settings View */}
         {activeTab === 'settings' && <SettingsTab />}

@@ -70,10 +70,18 @@ export interface DownloadContextType {
     course: Course,
     curriculum: CurriculumItem[],
     currentChapterTitle: string
-  ) => Promise<void>
+  ) => Promise<number>
   pauseQueue: () => void
   resumeQueue: () => void
   cancelQueue: () => void
+}
+
+export interface DownloadedFile {
+  course: string
+  chapter: string
+  file: string
+  path: string
+  type: 'Video' | 'Article' | 'File'
 }
 
 export interface CurriculumModalProps {

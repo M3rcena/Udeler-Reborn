@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, dialog, protocol } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
@@ -12,6 +12,14 @@ interface SafeStore {
   get: (key: string) => unknown
   set: (key: string, value: unknown) => void
   delete: (key: string) => void
+}
+
+interface DownloadedFile {
+  course: string
+  chapter: string
+  file: string
+  path: string
+  type: 'Video' | 'Article' | 'File'
 }
 
 interface AppSettings {
@@ -107,7 +115,10 @@ app.whenReady().then(() => {
 
   ipcMain.handle(
     'start-download',
-    async (_event, req: Omit<DownloadRequest, 'token' | 'downloadPath'>): Promise<string> => {
+    async (
+      _event,
+      req: Omit<DownloadRequest, 'token' | 'downloadPath' | 'videoQuality'>
+    ): Promise<string> => {
       const token = store.get('udemy_token') as string | undefined
       const settings = store.get('app_settings') as AppSettings | undefined
 
@@ -117,12 +128,45 @@ app.whenReady().then(() => {
       const fullRequest: DownloadRequest = {
         ...req,
         token,
-        downloadPath: settings.downloadPath
+        downloadPath: settings.downloadPath,
+        videoQuality: settings.videoQuality || 'Auto'
       }
 
       return await processDownload(fullRequest)
     }
   )
+
+  ipcMain.handle('get-all-downloads', async () => {
+    const settings = store.get('app_settings') as AppSettings | undefined
+    if (!settings || !settings.downloadPath) return []
+
+    const results: DownloadedFile[] = []
+    if (!fs.existsSync(settings.downloadPath)) return results
+
+    const courses = fs.readdirSync(settings.downloadPath)
+    for (const course of courses) {
+      const coursePath = path.join(settings.downloadPath, course)
+      if (!fs.statSync(coursePath).isDirectory()) continue
+
+      const chapters = fs.readdirSync(coursePath)
+      for (const chapter of chapters) {
+        const chapterPath = path.join(coursePath, chapter)
+        if (!fs.statSync(chapterPath).isDirectory()) continue
+
+        const files = fs.readdirSync(chapterPath)
+        for (const file of files) {
+          results.push({
+            course,
+            chapter,
+            file,
+            path: path.join(chapterPath, file),
+            type: file.endsWith('.mp4') ? 'Video' : file.endsWith('.html') ? 'Article' : 'File'
+          })
+        }
+      }
+    }
+    return results
+  })
 
   ipcMain.handle(
     'check-local-downloads',
@@ -162,6 +206,12 @@ app.whenReady().then(() => {
       console.error('Failed to move directory:', error)
       throw error
     }
+  })
+
+  protocol.registerFileProtocol('local', (request, callback) => {
+    const url = request.url.slice('local://'.length)
+    const decodedPath = decodeURIComponent(url)
+    callback({ path: decodedPath })
   })
 
   createWindow()

@@ -21,7 +21,8 @@ const api = {
   deleteCourseFolder: (courseTitle: string): Promise<boolean> =>
     ipcRenderer.invoke('delete-course-folder', courseTitle),
   moveDownloadsFolder: (oldPath: string, newPath: string) =>
-    ipcRenderer.invoke('moveDownloadsFolder', oldPath, newPath)
+    ipcRenderer.invoke('moveDownloadsFolder', oldPath, newPath),
+  getAllDownloads: () => ipcRenderer.invoke('get-all-downloads')
 }
 
 if (process.contextIsolated) {

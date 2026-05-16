@@ -16,6 +16,7 @@ const sanitizeName = (name: string): string => {
 export interface DownloadRequest {
   token: string
   downloadPath: string
+  videoQuality: string
   courseId: number
   courseTitle: string
   chapterTitle: string
@@ -32,7 +33,7 @@ interface UdemyAssetResponse {
     filename?: string
     external_url?: string
     download_urls?: {
-      Video?: { file: string }[]
+      Video?: { file: string; label: string }[]
       File?: { file: string }[]
       'E-Book'?: { file: string }[]
     }
@@ -95,25 +96,25 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
   if (req.type === 'Article') {
     const filePath = path.join(targetDir, `${cleanLecture}.html`)
     const articleHtml = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>${req.lectureTitle}</title>
-        <style>
-          body { font-family: system-ui, sans-serif; line-height: 1.6; max-width: 800px; margin: 40px auto; padding: 20px; color: #333; }
-          @media (prefers-color-scheme: dark) { body { background: #111; color: #eee; } }
-          img { max-width: 100%; height: auto; border-radius: 8px; }
-          pre { background: #f4f4f4; padding: 15px; border-radius: 8px; overflow-x: auto; }
-          @media (prefers-color-scheme: dark) { pre { background: #222; } }
-        </style>
-      </head>
-      <body>
-        <h1>${req.lectureTitle}</h1>
-        <hr/>
-        ${asset.body || '<p>No text content provided.</p>'}
-      </body>
-      </html>
-    `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8"> <title>${req.lectureTitle}</title>
+          <style>
+            body { font-family: system-ui, sans-serif; line-height: 1.6; max-width: 800px; margin: 40px auto; padding: 20px; color: #333; }
+            @media (prefers-color-scheme: dark) { body { background: #111; color: #eee; } }
+            img { max-width: 100%; height: auto; border-radius: 8px; }
+            pre { background: #f4f4f4; padding: 15px; border-radius: 8px; overflow-x: auto; }
+            @media (prefers-color-scheme: dark) { pre { background: #222; } }
+          </style>
+        </head>
+        <body>
+          <h1>${req.lectureTitle}</h1>
+          <hr/>
+          ${asset.body || '<p>No text content provided.</p>'}
+        </body>
+        </html>
+      `
     fs.writeFileSync(filePath, articleHtml)
     return filePath
   }
@@ -122,10 +123,21 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
   let fileExtension = '.mp4'
 
   if (asset.download_urls) {
-    const urls =
-      asset.download_urls.Video || asset.download_urls.File || asset.download_urls['E-Book']
-    if (urls && urls.length > 0) {
-      downloadUrl = urls[0].file
+    const videoUrls = asset.download_urls.Video
+    if (videoUrls && videoUrls.length > 0) {
+      const sortedVideos = [...videoUrls].sort((a, b) => parseInt(b.label) - parseInt(a.label))
+
+      if (req.videoQuality === 'Highest' || req.videoQuality === 'Auto') {
+        downloadUrl = sortedVideos[0].file
+      } else if (req.videoQuality === 'Lowest') {
+        downloadUrl = sortedVideos[sortedVideos.length - 1].file
+      } else {
+        const exactMatch = sortedVideos.find((v) => v.label === req.videoQuality)
+        downloadUrl = exactMatch ? exactMatch.file : sortedVideos[0].file
+      }
+    } else {
+      const otherUrls = asset.download_urls.File || asset.download_urls['E-Book']
+      if (otherUrls && otherUrls.length > 0) downloadUrl = otherUrls[0].file
     }
   } else if (asset.external_url) {
     downloadUrl = asset.external_url
@@ -151,32 +163,34 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
             .get(res.headers.location!, (redirectRes) => {
               redirectRes.pipe(file)
               redirectRes.on('end', () => {
-                activeStreams.delete(req.lectureId) // Clear from map on success
+                file.close()
+                activeStreams.delete(req.lectureId)
                 resolve(filePath)
               })
             })
             .on('error', (err) => {
+              file.close()
               activeStreams.delete(req.lectureId)
               reject(err)
             })
 
-          // Update the active stream map with the new redirected stream
           activeStreams.set(req.lectureId, { req: redirectStream, file, filePath })
         } else {
           res.pipe(file)
           res.on('end', () => {
-            activeStreams.delete(req.lectureId) // Clear from map on success
+            file.close()
+            activeStreams.delete(req.lectureId)
             resolve(filePath)
           })
         }
       })
       .on('error', (err) => {
+        file.close()
         activeStreams.delete(req.lectureId)
-        fs.unlink(filePath, () => {}) // Delete corrupted file on error
+        fs.unlink(filePath, () => {}) // Delete corrupted file
         reject(err)
       })
 
-    // Register this download as active
     activeStreams.set(req.lectureId, { req: requestStream, file, filePath })
   })
 }
