@@ -59,21 +59,21 @@ export interface DownloadContextType {
   queueStatus: 'idle' | 'running' | 'paused'
   isPathAlertOpen: boolean
   setIsPathAlertOpen: React.Dispatch<React.SetStateAction<boolean>>
-  startDownloadQueue: (
-    curriculum: CurriculumItem[],
+  validateDownloadPath: () => Promise<boolean>
+  handleDownloadItem: (
     course: Course,
-    startChapter: string
+    item: CurriculumItem,
+    chapterTitle: string,
+    lectureIndex: number
+  ) => Promise<void>
+  startDownloadQueue: (
+    course: Course,
+    curriculum: CurriculumItem[],
+    currentChapterTitle: string
   ) => Promise<void>
   pauseQueue: () => void
   resumeQueue: () => void
   cancelQueue: () => void
-  handleDownloadSingle: (
-    item: CurriculumItem,
-    chapterTitle: string,
-    index: number,
-    course: Course
-  ) => Promise<void>
-  validateDownloadPath: () => Promise<boolean>
 }
 
 export interface CurriculumModalProps {
