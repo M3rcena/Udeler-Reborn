@@ -14,6 +14,8 @@ const api = {
 
   selectFolder: (): Promise<string | null> => ipcRenderer.invoke('select-folder'),
   startDownload: (req: unknown): Promise<string> => ipcRenderer.invoke('start-download', req),
+  cancelDownload: (lectureId: number): Promise<boolean> =>
+    ipcRenderer.invoke('cancel-download', lectureId),
   checkLocalDownloads: (courseTitle: string): Promise<Record<number, string>> =>
     ipcRenderer.invoke('check-local-downloads', courseTitle),
   deleteCourseFolder: (courseTitle: string): Promise<boolean> =>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 
 declare global {
   interface Window {
@@ -10,13 +10,13 @@ declare global {
       fetchCurriculum: (courseId: number) => Promise<unknown>
       selectFolder: () => Promise<string | null>
       startDownload: (req: unknown) => Promise<string>
+      cancelDownload: (lectureId: number) => Promise<boolean>
       checkLocalDownloads: (courseTitle: string) => Promise<Record<number, string>>
       deleteCourseFolder: (courseTitle: string) => Promise<boolean>
     }
   }
 }
 
-// TODO: DOWNLOAD ALL BUTTON SHOULD BE ABLE TO DOWNLOAD 2~3 AT THE SAME TIME + IT SHOULD HAVE PAUSE BUTTON AND RESUME AND CANCEL TO STP
 // TODO: WHEN YOU CHANGE THE FOLDER ON THE SETTING MOVE ALL THE DOWNLOADED THERE IF USER WANTS OTHERWISE KEEP IT THERE
 
 interface Course {
@@ -61,7 +61,15 @@ function App(): React.JSX.Element {
 
   const [downloadProgress, setDownloadProgress] = useState<Record<number, string>>({})
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState<boolean>(false)
+  const [isPathAlertOpen, setIsPathAlertOpen] = useState<boolean>(false)
   const [hasLocalFiles, setHasLocalFiles] = useState<boolean>(true)
+
+  // --- QUEUE MANAGER STATES ---
+  const [queueStatus, setQueueStatus] = useState<'idle' | 'running' | 'paused'>('idle')
+
+  const downloadQueue = useRef<{ item: CurriculumItem; chapterTitle: string; index: number }[]>([])
+  const activeWorkers = useRef<number>(0)
+  const isQueuePaused = useRef<boolean>(false)
 
   // --- SETTINGS STATE ---
   const [appSettings, setAppSettings] = useState({
@@ -106,13 +114,21 @@ function App(): React.JSX.Element {
     setDownloadProgress({})
 
     try {
-      const [serverCurriculum, localDiskState] = await Promise.all([
+      const [serverCurriculum, localDiskState, drmState] = await Promise.all([
         window.api.fetchCurriculum(course.id) as Promise<CurriculumItem[]>,
-        window.api.checkLocalDownloads(course.title) as Promise<Record<number, string>>
+        window.api.checkLocalDownloads(course.title) as Promise<Record<number, string>>,
+        window.api.getStore(`drm_${course.id}`) as Promise<Record<string, boolean> | undefined>
       ])
 
+      const mergedState = { ...localDiskState }
+      if (drmState) {
+        Object.keys(drmState).forEach((lectureIdStr) => {
+          mergedState[parseInt(lectureIdStr)] = 'drm'
+        })
+      }
+
       setCurriculum(serverCurriculum)
-      setDownloadProgress(localDiskState)
+      setDownloadProgress(mergedState)
     } catch (error) {
       console.error('Failed to load curriculum or sync local state', error)
     } finally {
@@ -151,15 +167,60 @@ function App(): React.JSX.Element {
       setDownloadProgress((prev) => ({ ...prev, [item.id]: 'success' }))
     } catch (error) {
       console.error('Download Failed:', error)
-      setDownloadProgress((prev) => ({ ...prev, [item.id]: 'error' }))
+
+      const errorMessage = error instanceof Error ? error.message : String(error)
+
+      if (errorMessage.includes('DRM protected')) {
+        setDownloadProgress((prev) => ({ ...prev, [item.id]: 'drm' }))
+
+        window.api.setStore(`drm_${selectedCourse.id}.${item.id}`, true)
+      } else {
+        setDownloadProgress((prev) => ({ ...prev, [item.id]: 'error' }))
+      }
     }
   }
 
-  const handleDownloadAll = async (currentChapterTitle: string): Promise<void> => {
+  // The Worker Engine (Runs recursively up to 3 concurrent limits)
+  const processQueue = async (): Promise<void> => {
+    // Stop conditions
+    if (isQueuePaused.current) return
+    if (activeWorkers.current >= 3) return // MAX CONCURRENCY = 3
+
+    // Get next item
+    const nextTask = downloadQueue.current.shift()
+
+    if (!nextTask) {
+      if (activeWorkers.current === 0) setQueueStatus('idle') // Queue finished
+      return
+    }
+
+    // Spin up a worker
+    activeWorkers.current++
+
+    // Immediately attempt to spin up another worker to fill the 3-slot concurrency limit
+    processQueue()
+
+    try {
+      await handleDownloadItem(nextTask.item, nextTask.chapterTitle, nextTask.index)
+    } catch {
+      console.error('Worker failed on item', nextTask.item.id)
+    } finally {
+      activeWorkers.current--
+      // Worker finished, grab the next item in line
+      processQueue()
+    }
+  }
+
+  const startDownloadQueue = async (currentChapterTitle: string): Promise<void> => {
     if (!selectedCourse || isFetchingCurriculum) return
 
+    const isValid = await validateDownloadPath()
+    if (!isValid) return
+
+    // Populate the Queue
     let trackingTitle = currentChapterTitle
     let lectureCounter = 1
+    const newQueue: typeof downloadQueue.current = []
 
     for (const item of curriculum) {
       if (item._class === 'chapter') {
@@ -167,14 +228,66 @@ function App(): React.JSX.Element {
         continue
       }
 
-      const currentLectureIndex = lectureCounter++
+      const currentIndex = lectureCounter++
       if (item._class === 'quiz') continue
 
       const status = downloadProgress[item.id]
       if (status === 'downloading' || status === 'success') continue
 
-      await handleDownloadItem(item, trackingTitle, currentLectureIndex)
+      newQueue.push({ item, chapterTitle: trackingTitle, index: currentIndex })
     }
+
+    downloadQueue.current = newQueue
+    isQueuePaused.current = false
+    setQueueStatus('running')
+
+    // Kick off 3 workers, but stagger their start times by 500ms
+    setTimeout(processQueue, 0)
+    setTimeout(processQueue, 500)
+    setTimeout(processQueue, 1000)
+  }
+
+  const pauseQueue = (): void => {
+    isQueuePaused.current = true
+    setQueueStatus('paused')
+  }
+
+  const resumeQueue = (): void => {
+    isQueuePaused.current = false
+    setQueueStatus('running')
+    processQueue() // Kickstart idle workers
+  }
+
+  const cancelQueue = (): void => {
+    isQueuePaused.current = true
+    setQueueStatus('idle')
+    downloadQueue.current = [] // Empty the queue
+
+    // Abort all currently downloading items!
+    Object.entries(downloadProgress).forEach(([idStr, status]) => {
+      if (status === 'downloading') {
+        const id = parseInt(idStr)
+        window.api.cancelDownload(id)
+        setDownloadProgress((prev) => {
+          const newMap = { ...prev }
+          delete newMap[id] // Reset UI status to idle
+          return newMap
+        })
+      }
+    })
+    activeWorkers.current = 0
+  }
+
+  // Helper: Check if download path exists before starting any operations
+  const validateDownloadPath = async (): Promise<boolean> => {
+    const settings = (await window.api.getStore('app_settings')) as
+      | { downloadPath?: string }
+      | undefined
+    if (!settings || !settings.downloadPath) {
+      setIsPathAlertOpen(true)
+      return false
+    }
+    return true
   }
 
   useEffect((): void => {
@@ -812,32 +925,120 @@ function App(): React.JSX.Element {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    <button
-                      onClick={() => handleDownloadAll('Uncategorized')}
-                      className="group flex items-center h-11 max-w-[44px] hover:max-w-[200px] bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl text-sm transition-all duration-300 ease-out shadow-lg hover:shadow-blue-500/30 overflow-hidden cursor-pointer px-3 whitespace-nowrap gap-2"
-                    >
-                      <svg
-                        className="w-5 h-5 min-w-[20px]"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
+                    {/* Queue Controls */}
+                    {queueStatus === 'idle' && (
+                      <button
+                        onClick={() => startDownloadQueue('Uncategorized')}
+                        className="group flex items-center h-11 max-w-[44px] hover:max-w-[200px] bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl text-sm transition-all duration-300 ease-out shadow-lg hover:shadow-blue-500/30 overflow-hidden cursor-pointer px-3 whitespace-nowrap gap-2"
                       >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="2"
-                          d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                        ></path>
-                      </svg>
-                      <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 delay-75">
-                        Download All
-                      </span>
-                    </button>
+                        <svg
+                          className="w-5 h-5 min-w-[20px]"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                          ></path>
+                        </svg>
+                        <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 delay-75">
+                          Download All
+                        </span>
+                      </button>
+                    )}
+
+                    {queueStatus === 'running' && (
+                      <button
+                        onClick={pauseQueue}
+                        className="group flex items-center h-11 max-w-[44px] hover:max-w-[200px] bg-yellow-500 hover:bg-yellow-400 text-white font-semibold rounded-xl text-sm transition-all duration-300 ease-out shadow-lg shadow-yellow-500/30 overflow-hidden cursor-pointer px-3 whitespace-nowrap gap-2"
+                      >
+                        <svg
+                          className="w-5 h-5 min-w-[20px]"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                          ></path>
+                        </svg>
+                        <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 delay-75">
+                          Pause Downloads
+                        </span>
+                      </button>
+                    )}
+
+                    {queueStatus === 'paused' && (
+                      <button
+                        onClick={resumeQueue}
+                        className="group flex items-center h-11 max-w-[44px] hover:max-w-[200px] bg-green-500 hover:bg-green-400 text-white font-semibold rounded-xl text-sm transition-all duration-300 ease-out shadow-lg shadow-green-500/30 overflow-hidden cursor-pointer px-3 whitespace-nowrap gap-2"
+                      >
+                        <svg
+                          className="w-5 h-5 min-w-[20px]"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
+                          ></path>
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                          ></path>
+                        </svg>
+                        <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 delay-75">
+                          Resume Downloads
+                        </span>
+                      </button>
+                    )}
+
+                    {/* The Cancel Button (Only shows if queue is actively running or paused) */}
+                    {queueStatus !== 'idle' && (
+                      <button
+                        onClick={cancelQueue}
+                        className="group flex items-center h-11 max-w-[44px] hover:max-w-[200px] bg-red-600 hover:bg-red-500 text-white font-semibold rounded-xl text-sm transition-all duration-300 ease-out shadow-lg shadow-red-600/30 overflow-hidden cursor-pointer px-3 whitespace-nowrap gap-2"
+                      >
+                        <svg
+                          className="w-5 h-5 min-w-[20px]"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                          ></path>
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M9 10l6 6m0-6l-6 6"
+                          ></path>
+                        </svg>
+                        <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 delay-75">
+                          Stop Queue
+                        </span>
+                      </button>
+                    )}
 
                     <button
                       onClick={() => {
                         const filesExist = Object.values(downloadProgress).some(
-                          (status) => status === 'success'
+                          (status) => status === 'success' || status === 'drm'
                         )
                         setHasLocalFiles(filesExist)
                         setIsDeleteModalOpen(true)
@@ -1026,23 +1227,32 @@ function App(): React.JSX.Element {
                                   </button>
                                 ) : (
                                   <button
-                                    onClick={() =>
-                                      handleDownloadItem(
-                                        item,
-                                        chapterForThisItem,
-                                        currentLectureIndex
-                                      )
+                                    onClick={async () => {
+                                      const isValid = await validateDownloadPath()
+                                      if (isValid) {
+                                        handleDownloadItem(
+                                          item,
+                                          chapterForThisItem,
+                                          currentLectureIndex
+                                        )
+                                      }
+                                    }}
+                                    disabled={
+                                      status === 'downloading' ||
+                                      status === 'success' ||
+                                      status === 'drm'
                                     }
-                                    disabled={status === 'downloading' || status === 'success'}
                                     className={`px-4 py-2 font-semibold rounded-lg text-sm transition-all shadow-sm flex items-center gap-2
                                       ${
                                         status === 'downloading'
                                           ? 'bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 cursor-wait opacity-100'
                                           : status === 'success'
                                             ? 'bg-green-500/10 dark:bg-green-500/20 text-green-600 dark:text-green-400 cursor-default opacity-100'
-                                            : status === 'error'
-                                              ? 'bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400 opacity-100'
-                                              : 'bg-gray-100 dark:bg-white/10 hover:bg-blue-600 hover:text-white text-gray-700 dark:text-gray-300 opacity-0 group-hover:opacity-100 focus:opacity-100 cursor-pointer'
+                                            : status === 'drm'
+                                              ? 'bg-gray-200 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed opacity-100'
+                                              : status === 'error'
+                                                ? 'bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400 cursor-pointer opacity-100'
+                                                : 'bg-gray-100 dark:bg-white/10 hover:bg-blue-600 hover:text-white text-gray-700 dark:text-gray-300 opacity-0 group-hover:opacity-100 focus:opacity-100 cursor-pointer'
                                       }
                                     `}
                                   >
@@ -1065,6 +1275,27 @@ function App(): React.JSX.Element {
                                       </>
                                     )}
                                     {status === 'success' && '✓ Saved'}
+
+                                    {/* DRM Locked State */}
+                                    {status === 'drm' && (
+                                      <>
+                                        <svg
+                                          className="w-4 h-4"
+                                          fill="none"
+                                          stroke="currentColor"
+                                          viewBox="0 0 24 24"
+                                        >
+                                          <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth="2"
+                                            d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                                          ></path>
+                                        </svg>{' '}
+                                        DRM Protected
+                                      </>
+                                    )}
+
                                     {status === 'error' && 'Retry'}
                                     {!status &&
                                       (item.asset?.asset_type === 'Video' ? 'Download' : 'Save')}
@@ -1119,12 +1350,9 @@ function App(): React.JSX.Element {
                             <button
                               onClick={async () => {
                                 setIsDeleteModalOpen(false)
-                                const wasDeleted = await window.api.deleteCourseFolder(
-                                  selectedCourse.title
-                                )
-                                if (wasDeleted) {
-                                  setDownloadProgress({})
-                                }
+                                await window.api.deleteCourseFolder(selectedCourse.title)
+                                await window.api.deleteStore(`drm_${selectedCourse.id}`)
+                                setDownloadProgress({})
                               }}
                               className="py-3 px-4 bg-red-600 hover:bg-red-500 text-white font-semibold rounded-xl transition-all shadow-lg hover:shadow-red-600/30 cursor-pointer"
                             >
@@ -1174,6 +1402,45 @@ function App(): React.JSX.Element {
             </div>
           )}
         </main>
+
+        {/* ---MISSING PATH ALERT MODAL --- */}
+        {isPathAlertOpen && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
+            <div className="w-full max-w-md p-8 bg-white/95 dark:bg-[#0f0f18]/95 border border-gray-200 dark:border-white/10 rounded-[2rem] shadow-2xl flex flex-col items-center text-center animate-in zoom-in-95 duration-200">
+              {/* Warning Icon */}
+              <div className="p-4 bg-yellow-100 dark:bg-yellow-500/20 text-yellow-600 dark:text-yellow-500 rounded-2xl mb-5 shadow-inner">
+                <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                  ></path>
+                </svg>
+              </div>
+
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
+                Setup Required
+              </h3>
+
+              <p className="text-gray-500 dark:text-gray-400 text-sm leading-relaxed mb-6">
+                You need to select a{' '}
+                <span className="font-semibold text-gray-800 dark:text-gray-200">
+                  Download Folder
+                </span>{' '}
+                in the Settings menu before you can save course content to your computer.
+              </p>
+
+              {/* Action Button */}
+              <button
+                onClick={() => setIsPathAlertOpen(false)}
+                className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl transition-all shadow-lg hover:shadow-blue-500/30 cursor-pointer"
+              >
+                Got it
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     )
   }

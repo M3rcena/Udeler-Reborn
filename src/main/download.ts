@@ -2,6 +2,12 @@ import { net } from 'electron'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as https from 'https'
+import type { ClientRequest } from 'http'
+
+const activeStreams = new Map<
+  number,
+  { req: ClientRequest; file: fs.WriteStream; filePath: string }
+>()
 
 const sanitizeName = (name: string): string => {
   return name.replace(/[<>:"/\\|?*]+/g, '-').trim()
@@ -58,12 +64,30 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
 
   const apiUrl = `https://www.udemy.com/api-2.0/users/me/subscribed-courses/${req.courseId}/lectures/${req.lectureId}/?fields[lecture]=asset&fields[asset]=@min,download_urls,external_url,body,filename`
 
-  const response = await net.fetch(apiUrl, {
-    headers: { Authorization: `Bearer ${req.token}` }
-  })
+  let response: Response | null = null
+  let attempt = 0
+  const maxAttempts = 3
 
-  if (!response.ok) throw new Error(`Failed to fetch lecture details: ${response.status}`)
-  const data = (await response.json()) as UdemyAssetResponse
+  while (attempt < maxAttempts) {
+    response = await net.fetch(apiUrl, {
+      headers: { Authorization: `Bearer ${req.token}` }
+    })
+
+    if (response.ok) break
+
+    if (response.status === 429 || response.status >= 500) {
+      attempt++
+      if (attempt >= maxAttempts)
+        throw new Error(`API failed after ${maxAttempts} retries: ${response.status}`)
+
+      await new Promise((resolve) => setTimeout(resolve, attempt * 2000))
+      continue
+    }
+
+    throw new Error(`Failed to fetch lecture details: ${response.status}`)
+  }
+
+  const data = (await response!.json()) as UdemyAssetResponse
   const asset = data.asset
 
   if (!asset) throw new Error('No asset found for this lecture')
@@ -119,25 +143,41 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
   return new Promise((resolve, reject) => {
     const file = fs.createWriteStream(filePath)
 
-    https
+    const requestStream = https
       .get(downloadUrl, (res) => {
         if (res.statusCode === 301 || res.statusCode === 302) {
           // Handle redirects if Udemy sends one
-          https
+          const redirectStream = https
             .get(res.headers.location!, (redirectRes) => {
               redirectRes.pipe(file)
-              redirectRes.on('end', () => resolve(filePath))
+              redirectRes.on('end', () => {
+                activeStreams.delete(req.lectureId) // Clear from map on success
+                resolve(filePath)
+              })
             })
-            .on('error', reject)
+            .on('error', (err) => {
+              activeStreams.delete(req.lectureId)
+              reject(err)
+            })
+
+          // Update the active stream map with the new redirected stream
+          activeStreams.set(req.lectureId, { req: redirectStream, file, filePath })
         } else {
           res.pipe(file)
-          res.on('end', () => resolve(filePath))
+          res.on('end', () => {
+            activeStreams.delete(req.lectureId) // Clear from map on success
+            resolve(filePath)
+          })
         }
       })
       .on('error', (err) => {
+        activeStreams.delete(req.lectureId)
         fs.unlink(filePath, () => {}) // Delete corrupted file on error
         reject(err)
       })
+
+    // Register this download as active
+    activeStreams.set(req.lectureId, { req: requestStream, file, filePath })
   })
 }
 
@@ -173,4 +213,20 @@ export function scanExistingDownloads(
   }
 
   return syncMap
+}
+
+export function cancelDownload(lectureId: number): boolean {
+  const active = activeStreams.get(lectureId)
+  if (active) {
+    active.req.destroy()
+    active.file.close()
+
+    if (fs.existsSync(active.filePath)) {
+      fs.unlinkSync(active.filePath)
+    }
+
+    activeStreams.delete(lectureId)
+    return true
+  }
+  return false
 }

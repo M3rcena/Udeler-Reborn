@@ -4,10 +4,9 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import Store from 'electron-store'
 import { fetchCourseCurriculum, fetchSubscribedCourses } from './udemy'
-import { DownloadRequest, processDownload, scanExistingDownloads } from './download'
+import { cancelDownload, DownloadRequest, processDownload, scanExistingDownloads } from './download'
 import * as fs from 'fs'
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-import path = require('path')
+import * as path from 'path'
 
 interface SafeStore {
   get: (key: string) => unknown
@@ -147,6 +146,10 @@ app.whenReady().then(() => {
       return true
     }
     return false
+  })
+
+  ipcMain.handle('cancel-download', async (_event, lectureId: number): Promise<boolean> => {
+    return cancelDownload(lectureId)
   })
 
   createWindow()
