@@ -19,7 +19,9 @@ const api = {
   checkLocalDownloads: (courseTitle: string): Promise<Record<number, string>> =>
     ipcRenderer.invoke('check-local-downloads', courseTitle),
   deleteCourseFolder: (courseTitle: string): Promise<boolean> =>
-    ipcRenderer.invoke('delete-course-folder', courseTitle)
+    ipcRenderer.invoke('delete-course-folder', courseTitle),
+  moveDownloadsFolder: (oldPath: string, newPath: string) =>
+    ipcRenderer.invoke('moveDownloadsFolder', oldPath, newPath)
 }
 
 if (process.contextIsolated) {

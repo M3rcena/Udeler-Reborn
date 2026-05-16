@@ -5,7 +5,7 @@ import icon from '../../resources/icon.png?asset'
 import Store from 'electron-store'
 import { fetchCourseCurriculum, fetchSubscribedCourses } from './udemy'
 import { cancelDownload, DownloadRequest, processDownload, scanExistingDownloads } from './download'
-import * as fs from 'fs'
+import * as fs from 'fs-extra'
 import * as path from 'path'
 
 interface SafeStore {
@@ -150,6 +150,18 @@ app.whenReady().then(() => {
 
   ipcMain.handle('cancel-download', async (_event, lectureId: number): Promise<boolean> => {
     return cancelDownload(lectureId)
+  })
+
+  ipcMain.handle('moveDownloadsFolder', async (_, oldPath: string, newPath: string) => {
+    try {
+      if (await fs.pathExists(oldPath)) {
+        await fs.move(oldPath, newPath, { overwrite: true })
+      }
+      return true
+    } catch (error) {
+      console.error('Failed to move directory:', error)
+      throw error
+    }
   })
 
   createWindow()

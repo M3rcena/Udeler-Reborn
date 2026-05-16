@@ -12,6 +12,11 @@ export const SettingsTab: React.FC = () => {
   const [isSavingSettings, setIsSavingSettings] = useState<boolean>(false)
   const [isQualityMenuOpen, setIsQualityMenuOpen] = useState<boolean>(false)
 
+  const [isMoveModalOpen, setIsMoveModalOpen] = useState<boolean>(false)
+  const [pendingPath, setPendingPath] = useState<string>('')
+  const [isMovingFiles, setIsMovingFiles] = useState<boolean>(false)
+  const [moveError, setMoveError] = useState<string | null>(null)
+
   const qualityOptions = [
     { id: 'Auto', label: 'Auto (Best Available)' },
     { id: 'Highest', label: 'Highest Resolution' },
@@ -37,10 +42,45 @@ export const SettingsTab: React.FC = () => {
 
   // --- HANDLERS ---
   const handleSelectFolder = async (): Promise<void> => {
-    const path = await window.api.selectFolder()
-    if (path) {
-      setAppSettings((prev) => ({ ...prev, downloadPath: path }))
+    const newPath = await window.api.selectFolder()
+    if (!newPath) return
+
+    const currentPath = appSettings.downloadPath
+
+    if (currentPath && currentPath !== newPath) {
+      setPendingPath(newPath)
+      setIsMoveModalOpen(true)
+    } else {
+      setAppSettings((prev) => ({ ...prev, downloadPath: newPath }))
     }
+  }
+
+  const handleConfirmMove = async (shouldMove: boolean): Promise<void> => {
+    if (shouldMove) {
+      setIsMovingFiles(true)
+      try {
+        await window.api.moveDownloadsFolder(appSettings.downloadPath, pendingPath)
+      } catch (error) {
+        console.error('Failed to move files:', error)
+        setMoveError(
+          error instanceof Error ? error.message : 'An unknown error occurred while moving files.'
+        )
+
+        setTimeout(() => setMoveError(null), 5000)
+
+        setIsMovingFiles(false)
+        return
+      } finally {
+        setIsMovingFiles(false)
+      }
+    }
+
+    const updatedSettings = { ...appSettings, downloadPath: pendingPath }
+    setAppSettings(updatedSettings)
+    setIsMoveModalOpen(false)
+    setPendingPath('')
+
+    await window.api.setStore('app_settings', updatedSettings)
   }
 
   const handleSaveSettings = async (): Promise<void> => {
@@ -244,6 +284,118 @@ export const SettingsTab: React.FC = () => {
           {isSavingSettings ? 'Settings Saved Successfully!' : 'Save All Settings'}
         </button>
       </div>
+
+      {/* --- FOLDER MIGRATION MODAL --- */}
+      {isMoveModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="w-full max-w-md p-8 bg-white/95 dark:bg-[#0f0f18]/95 border border-gray-200 dark:border-white/10 rounded-[2rem] shadow-2xl flex flex-col items-center text-center animate-in zoom-in-95 duration-200">
+            <div className="p-4 bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 rounded-2xl mb-5 shadow-inner">
+              <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
+                ></path>
+              </svg>
+            </div>
+
+            <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
+              Move Downloaded Files?
+            </h3>
+            <p className="text-gray-500 dark:text-gray-400 text-sm leading-relaxed mb-6">
+              You changed your download location. Would you like to migrate all previously
+              downloaded courses to the new folder?
+            </p>
+
+            <div className="flex flex-col gap-3 w-full">
+              <button
+                onClick={() => handleConfirmMove(true)}
+                disabled={isMovingFiles}
+                className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl transition-all shadow-lg hover:shadow-blue-500/30 cursor-pointer disabled:opacity-70 disabled:cursor-wait flex justify-center items-center gap-2"
+              >
+                {isMovingFiles ? (
+                  <>
+                    <svg
+                      className="w-5 h-5 animate-spin"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                      ></path>
+                    </svg>{' '}
+                    Moving Files...
+                  </>
+                ) : (
+                  'Yes, Move Files'
+                )}
+              </button>
+
+              {!isMovingFiles && (
+                <>
+                  <button
+                    onClick={() => handleConfirmMove(false)}
+                    className="w-full py-3 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-800 dark:text-white font-semibold rounded-xl transition-all cursor-pointer"
+                  >
+                    No, Leave Them There
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsMoveModalOpen(false)
+                      setPendingPath('')
+                    }}
+                    className="w-full py-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 font-medium transition-colors cursor-pointer text-sm"
+                  >
+                    Cancel Change
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- ERROR TOAST --- */}
+      {moveError && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[110] animate-in slide-in-from-bottom-8 fade-in duration-300">
+          <div className="flex items-center gap-3 px-6 py-4 bg-white/95 dark:bg-[#12121a]/95 backdrop-blur-xl border border-red-200 dark:border-red-500/30 rounded-2xl shadow-2xl shadow-red-500/10 max-w-md w-full">
+            <div className="flex-shrink-0 w-10 h-10 bg-red-100 dark:bg-red-500/20 rounded-full flex items-center justify-center text-red-600 dark:text-red-400 shadow-inner">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                ></path>
+              </svg>
+            </div>
+            <div className="flex-1">
+              <h4 className="text-gray-900 dark:text-white font-bold text-sm">Migration Failed</h4>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 leading-relaxed line-clamp-2">
+                {moveError}
+              </p>
+            </div>
+            <button
+              onClick={() => setMoveError(null)}
+              className="text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M6 18L18 6M6 6l12 12"
+                ></path>
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

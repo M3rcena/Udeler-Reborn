@@ -21,11 +21,10 @@ declare global {
       cancelDownload: (lectureId: number) => Promise<boolean>
       checkLocalDownloads: (courseTitle: string) => Promise<Record<number, string>>
       deleteCourseFolder: (courseTitle: string) => Promise<boolean>
+      moveDownloadsFolder: (oldPath: string, newPath: string) => Promise<boolean>
     }
   }
 }
-
-// TODO: WHEN YOU CHANGE THE FOLDER ON THE SETTING MOVE ALL THE DOWNLOADED THERE IF USER WANTS OTHERWISE KEEP IT THERE
 
 function App(): React.JSX.Element {
   const { isLoggedIn, isAuthLoading, handleLogout } = useAuth()
@@ -292,7 +291,9 @@ function App(): React.JSX.Element {
     }
   }
 
-  {/* --- LOADING --- */}
+  {
+    /* --- LOADING --- */
+  }
   if (isAuthLoading || isAppLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center dark:bg-gray-900 dark:text-white">
@@ -301,7 +302,9 @@ function App(): React.JSX.Element {
     )
   }
 
-  {/* --- LOGIN ---*/}
+  {
+    /* --- LOGIN ---*/
+  }
   if (!isLoggedIn) {
     return <LoginView toggleTheme={toggleTheme} isDarkMode={isDarkMode} />
   }
@@ -978,10 +981,7 @@ function App(): React.JSX.Element {
       </main>
 
       {/* --- MISSING PATH ALERT MODAL --- */}
-      <PathAlertModal 
-        isOpen={isPathAlertOpen} 
-        onClose={() => setIsPathAlertOpen(false)} 
-      />
+      <PathAlertModal isOpen={isPathAlertOpen} onClose={() => setIsPathAlertOpen(false)} />
 
       {/* --- GLOBAL NOTIFICATIONS --- */}
       <UpdateToast />
