@@ -1,3 +1,18 @@
+// ---- Sidebar Types
+interface SidebarProps {
+  activeTab: 'courses' | 'downloads' | 'settings' | 'about'
+  setActiveTab: React.Dispatch<React.SetStateAction<'courses' | 'downloads' | 'settings' | 'about'>>
+  isDarkMode: boolean
+  toggleTheme: () => Promise<void>
+  handleLogout: () => Promise<void>
+}
+
+// ---- Path Alert Modal
+export interface PathAlertModalProps {
+  isOpen: boolean
+  onClose: () => void
+}
+
 // ---- Auth Types
 export interface AuthContextType {
   token: string
