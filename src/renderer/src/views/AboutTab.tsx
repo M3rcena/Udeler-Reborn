@@ -58,10 +58,6 @@ export const AboutTab: React.FC = () => {
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-4xl mx-auto pb-10">
-      <h2 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 mb-8">
-        About Udeler Pro
-      </h2>
-
       <div className="flex flex-col gap-6">
         {/* Top Banner / Logo Section */}
         <div className="relative p-10 bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-[2rem] shadow-xl overflow-hidden flex flex-col items-center text-center">
@@ -137,7 +133,7 @@ export const AboutTab: React.FC = () => {
             <h1 className="relative z-10 text-3xl font-black tracking-tight text-gray-900 dark:text-white mb-2">
               Udeler{' '}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-purple-600 dark:from-blue-400 dark:to-purple-500">
-                Pro
+                Reborn
               </span>
             </h1>
             <p className="relative z-10 text-gray-500 dark:text-gray-400 font-medium font-mono text-sm mb-8">
@@ -213,7 +209,7 @@ export const AboutTab: React.FC = () => {
                   </div>
 
                   <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">
-                    Udeler Pro {appVersion} is the latest version available.
+                    Udeler Reborn {appVersion} is the latest version available.
                   </p>
 
                   <button

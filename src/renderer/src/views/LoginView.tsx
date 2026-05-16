@@ -25,7 +25,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ toggleTheme, isDarkMode })
           <h1 className="text-4xl font-extrabold mb-2 tracking-tight text-gray-900 dark:text-white transition-colors duration-300">
             Udeler{' '}
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-purple-600 dark:from-blue-400 dark:to-purple-500">
-              Pro
+              Reborn
             </span>
           </h1>
           <p className="text-gray-500 dark:text-gray-400 font-medium transition-colors duration-300">

@@ -14,7 +14,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <h1 className="text-2xl font-extrabold tracking-tight text-gray-900 dark:text-white">
           Udeler{' '}
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-purple-600 dark:from-blue-400 dark:to-purple-500">
-            Pro
+            Reborn
           </span>
         </h1>
       </div>

@@ -82,7 +82,7 @@ export const UpdateToast: React.FC = () => {
           <div className="flex-1 pt-0.5">
             <h4 className="text-gray-900 dark:text-white font-bold text-sm">Update Available</h4>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">
-              Udeler Pro{' '}
+              Udeler Reborn{' '}
               <span className="font-semibold text-blue-600 dark:text-blue-400">
                 {latestVersion}
               </span>{' '}
