@@ -22,7 +22,11 @@ const api = {
     ipcRenderer.invoke('delete-course-folder', courseTitle),
   moveDownloadsFolder: (oldPath: string, newPath: string) =>
     ipcRenderer.invoke('moveDownloadsFolder', oldPath, newPath),
-  getAllDownloads: () => ipcRenderer.invoke('get-all-downloads')
+  getAllDownloads: () => ipcRenderer.invoke('get-all-downloads'),
+  deleteLecture: (courseTitle: string, lectureId: number): Promise<boolean> =>
+    ipcRenderer.invoke('delete-lecture', courseTitle, lectureId),
+  deleteFileByPath: (filePath: string): Promise<boolean> =>
+    ipcRenderer.invoke('delete-file-by-path', filePath)
 }
 
 if (process.contextIsolated) {

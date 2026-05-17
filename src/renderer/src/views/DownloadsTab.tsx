@@ -3,11 +3,22 @@ import { DownloadedFile } from '@renderer/types'
 import { useEffect, useMemo, useState } from 'react'
 
 export const DownloadsTab: React.FC = () => {
-  const { downloadProgress, queueStatus, pauseQueue, resumeQueue, cancelQueue } = useDownload()
+  const {
+    downloadProgress,
+    queueStatus,
+    queueCount,
+    pauseQueue,
+    resumeQueue,
+    cancelQueue,
+    setDownloadProgress
+  } = useDownload()
 
   const [downloadedFiles, setDownloadedFiles] = useState<DownloadedFile[]>([])
   const [isScanning, setIsScanning] = useState(true)
   const [selectedMedia, setSelectedMedia] = useState<DownloadedFile | null>(null)
+
+  const [isDeleteAllModalOpen, setIsDeleteAllModalOpen] = useState<boolean>(false)
+  const [isDeletingAll, setIsDeletingAll] = useState<boolean>(false)
 
   // --- CALCULATE LIVE STATS ---
   const stats = useMemo(() => {
@@ -163,7 +174,13 @@ export const DownloadsTab: React.FC = () => {
         </div>
 
         {/* --- LIVE STATISTICS GRID --- */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-6">
+          <div className="p-6 bg-white/60 dark:bg-white/5 border border-purple-200 dark:border-purple-500/20 rounded-[2rem] shadow-xl">
+            <h3 className="font-bold text-gray-600 dark:text-gray-300 mb-2 flex items-center gap-2">
+              Waiting
+            </h3>
+            <p className="text-4xl font-black text-gray-900 dark:text-white">{queueCount}</p>
+          </div>
           <div className="p-6 bg-white/60 dark:bg-white/5 border border-blue-200 dark:border-blue-500/20 rounded-[2rem] shadow-xl">
             <h3 className="font-bold text-gray-600 dark:text-gray-300 mb-2">In Progress</h3>
             <p className="text-4xl font-black text-gray-900 dark:text-white">{stats.downloading}</p>
@@ -186,30 +203,53 @@ export const DownloadsTab: React.FC = () => {
         <div className="flex-1 bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-[2rem] shadow-xl p-8 flex flex-col overflow-hidden">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-2xl font-bold text-gray-900 dark:text-white">Downloaded Files</h3>
-            <button
-              onClick={async () => {
-                setIsScanning(true)
-                const files = await window.api.getAllDownloads()
-                setDownloadedFiles(files)
-                setIsScanning(false)
-              }}
-              className="text-sm text-blue-600 hover:text-blue-500 dark:text-blue-400 font-semibold cursor-pointer flex items-center gap-2"
-            >
-              <svg
-                className={`w-4 h-4 ${isScanning ? 'animate-spin' : ''}`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+            <div className="flex items-center gap-4">
+              {downloadedFiles.length > 0 && (
+                <button
+                  onClick={() => setIsDeleteAllModalOpen(true)}
+                  className="text-sm text-red-600 hover:text-red-500 dark:text-red-400 font-semibold cursor-pointer flex items-center gap-1.5 transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                    ></path>
+                  </svg>
+                  Remove All
+                </button>
+              )}
+
+              {downloadedFiles.length > 0 && (
+                <div className="w-px h-4 bg-gray-300 dark:bg-white/10"></div>
+              )}
+
+              <button
+                onClick={async () => {
+                  setIsScanning(true)
+                  const files = await window.api.getAllDownloads()
+                  setDownloadedFiles(files)
+                  setIsScanning(false)
+                }}
+                className="text-sm text-blue-600 hover:text-blue-500 dark:text-blue-400 font-semibold cursor-pointer flex items-center gap-2 transition-colors"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                ></path>
-              </svg>
-              Refresh Disk
-            </button>
+                <svg
+                  className={`w-4 h-4 ${isScanning ? 'animate-spin' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                  ></path>
+                </svg>
+                Refresh Disk
+              </button>
+            </div>
           </div>
 
           <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 flex flex-col gap-3">
@@ -227,7 +267,7 @@ export const DownloadsTab: React.FC = () => {
                   key={index}
                   className="flex items-center justify-between p-4 bg-white dark:bg-black/20 border border-gray-100 dark:border-white/5 rounded-xl hover:border-blue-500/30 transition-all group"
                 >
-                  <div className="flex items-center gap-4 truncate">
+                  <div className="flex items-center gap-4 flex-1 min-w-0 pr-4">
                     <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 flex-shrink-0">
                       {item.type === 'Video' ? (
                         <svg
@@ -269,12 +309,47 @@ export const DownloadsTab: React.FC = () => {
                     </div>
                   </div>
 
-                  <button
-                    onClick={() => setSelectedMedia(item)}
-                    className="flex-shrink-0 ml-4 px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg text-sm transition-all shadow-md cursor-pointer opacity-0 group-hover:opacity-100 focus:opacity-100"
-                  >
-                    {item.type === 'Video' ? 'Play Video' : 'Read Content'}
-                  </button>
+                  <div className="flex-shrink-0 flex items-center gap-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                    <button
+                      onClick={() => setSelectedMedia(item)}
+                      className="flex-shrink-0 ml-4 px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg text-sm transition-all shadow-md cursor-pointer opacity-0 group-hover:opacity-100 focus:opacity-100"
+                    >
+                      {item.type === 'Video' ? 'Play Video' : 'Read Content'}
+                    </button>
+                    <button
+                      onClick={async () => {
+                        const success = await window.api.deleteFileByPath(item.path)
+                        if (success) {
+                          const match = item.file.match(/\[ID_(\d+)\]/)
+                          if (match) {
+                            const lectureId = parseInt(match[1], 10)
+                            setDownloadProgress((prev) => {
+                              const newMap = { ...prev }
+                              delete newMap[lectureId]
+                              return newMap
+                            })
+                          }
+                          setDownloadedFiles((prev) => prev.filter((f) => f.path !== item.path))
+                        }
+                      }}
+                      className="p-2 text-red-500 hover:text-white hover:bg-red-500 bg-red-500/10 rounded-lg transition-colors cursor-pointer shadow-md"
+                      title="Delete File"
+                    >
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                        ></path>
+                      </svg>
+                    </button>
+                  </div>
                 </div>
               ))
             )}
@@ -326,6 +401,89 @@ export const DownloadsTab: React.FC = () => {
                   className="w-full h-full bg-white rounded-xl m-4 mt-16"
                 />
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- DELETE ALL MODAL --- */}
+      {isDeleteAllModalOpen && (
+        <div
+          className="absolute inset-0 z-[120] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !isDeletingAll) setIsDeleteAllModalOpen(false)
+          }}
+        >
+          <div className="w-full max-w-md p-8 bg-white/95 dark:bg-[#0f0f18]/95 border border-gray-200 dark:border-white/10 rounded-[2rem] shadow-2xl flex flex-col items-center text-center animate-in zoom-in-95 duration-200">
+            <div className="p-4 bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400 rounded-2xl mb-5 shadow-inner">
+              <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                ></path>
+              </svg>
+            </div>
+
+            <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
+              Delete All Library Files?
+            </h3>
+            <p className="text-gray-500 dark:text-gray-400 text-sm leading-relaxed mb-6">
+              You are about to permanently erase{' '}
+              <span className="font-bold text-gray-800 dark:text-gray-200">
+                {downloadedFiles.length} files
+              </span>{' '}
+              from your local disk. This will clear your entire downloaded library.
+            </p>
+
+            <div className="grid grid-cols-2 gap-3 w-full">
+              <button
+                onClick={() => setIsDeleteAllModalOpen(false)}
+                disabled={isDeletingAll}
+                className="py-3 px-4 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 font-semibold rounded-xl transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  setIsDeletingAll(true)
+                  const uniqueCourses = Array.from(new Set(downloadedFiles.map((f) => f.course)))
+
+                  for (const course of uniqueCourses) {
+                    await window.api.deleteCourseFolder(course)
+                  }
+
+                  setDownloadedFiles([])
+                  setDownloadProgress({})
+
+                  setIsDeletingAll(false)
+                  setIsDeleteAllModalOpen(false)
+                }}
+                disabled={isDeletingAll}
+                className="flex items-center justify-center gap-2 py-3 px-4 bg-red-600 hover:bg-red-500 text-white font-semibold rounded-xl transition-all shadow-lg hover:shadow-red-600/30 cursor-pointer disabled:opacity-70 disabled:cursor-wait"
+              >
+                {isDeletingAll ? (
+                  <>
+                    <svg
+                      className="w-4 h-4 animate-spin"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                      ></path>
+                    </svg>{' '}
+                    Deleting...
+                  </>
+                ) : (
+                  'Yes, Delete All'
+                )}
+              </button>
             </div>
           </div>
         </div>

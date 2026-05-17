@@ -4,7 +4,13 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import Store from 'electron-store'
 import { fetchCourseCurriculum, fetchSubscribedCourses } from './udemy'
-import { cancelDownload, DownloadRequest, processDownload, scanExistingDownloads } from './download'
+import {
+  cancelDownload,
+  deleteLectureFile,
+  DownloadRequest,
+  processDownload,
+  scanExistingDownloads
+} from './download'
 import * as fs from 'fs-extra'
 import * as path from 'path'
 
@@ -212,6 +218,23 @@ app.whenReady().then(() => {
     const url = request.url.slice('local://'.length)
     const decodedPath = decodeURIComponent(url)
     callback({ path: decodedPath })
+  })
+
+  ipcMain.handle(
+    'delete-lecture',
+    async (_event, courseTitle: string, lectureId: number): Promise<boolean> => {
+      const settings = store.get('app_settings') as AppSettings | undefined
+      if (!settings || !settings.downloadPath) return false
+      return deleteLectureFile(settings.downloadPath, courseTitle, lectureId)
+    }
+  )
+
+  ipcMain.handle('delete-file-by-path', async (_event, filePath: string): Promise<boolean> => {
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath)
+      return true
+    }
+    return false
   })
 
   createWindow()

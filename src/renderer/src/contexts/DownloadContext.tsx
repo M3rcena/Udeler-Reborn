@@ -7,6 +7,7 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
   // --- GLOBAL STATES ---
   const [downloadProgress, setDownloadProgress] = useState<Record<number, string>>({})
   const [queueStatus, setQueueStatus] = useState<'idle' | 'running' | 'paused'>('idle')
+  const [queueCount, setQueueCount] = useState<number>(0)
   const [isPathAlertOpen, setIsPathAlertOpen] = useState<boolean>(false)
 
   // --- QUEUE WORKERS ---
@@ -73,6 +74,8 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
     if (activeWorkers.current >= 3) return // Max 3 concurrent
 
     const nextTask = downloadQueue.current.shift()
+    setQueueCount(downloadQueue.current.length)
+
     if (!nextTask) {
       if (activeWorkers.current === 0) setQueueStatus('idle')
       return
@@ -130,6 +133,7 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
     if (newTasks.length === 0) return 0 // Stop early if there is nothing new to add
 
     downloadQueue.current = [...downloadQueue.current, ...newTasks]
+    setQueueCount(downloadQueue.current.length)
     isQueuePaused.current = false
     setQueueStatus('running')
 
@@ -156,6 +160,7 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
     isQueuePaused.current = true
     setQueueStatus('idle')
     downloadQueue.current = []
+    setQueueCount(0)
 
     Object.entries(downloadProgress).forEach(([idStr, status]) => {
       if (status === 'downloading') {
@@ -177,6 +182,7 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
         downloadProgress,
         setDownloadProgress,
         queueStatus,
+        queueCount,
         isPathAlertOpen,
         setIsPathAlertOpen,
         validateDownloadPath,

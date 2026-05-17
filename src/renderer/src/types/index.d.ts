@@ -57,6 +57,7 @@ export interface DownloadContextType {
   downloadProgress: Record<number, string>
   setDownloadProgress: React.Dispatch<React.SetStateAction<Record<number, string>>>
   queueStatus: 'idle' | 'running' | 'paused'
+  queueCount: number
   isPathAlertOpen: boolean
   setIsPathAlertOpen: React.Dispatch<React.SetStateAction<boolean>>
   validateDownloadPath: () => Promise<boolean>

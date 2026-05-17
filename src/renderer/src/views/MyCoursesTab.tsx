@@ -57,7 +57,6 @@ export const MyCoursesTab: React.FC = () => {
   const handleViewContent = async (course: Course): Promise<void> => {
     setSelectedCourse(course)
     setIsFetchingCurriculum(true)
-    setDownloadProgress({})
 
     try {
       const [serverCurriculum, localDiskState, drmState] = await Promise.all([
@@ -74,7 +73,16 @@ export const MyCoursesTab: React.FC = () => {
       }
 
       setCurriculum(serverCurriculum)
-      setDownloadProgress(mergedState)
+      setDownloadProgress((prev) => {
+        const newState = { ...prev }
+        Object.keys(mergedState).forEach((idStr) => {
+          const id = parseInt(idStr)
+          if (newState[id] !== 'downloading') {
+            newState[id] = mergedState[id]
+          }
+        })
+        return newState
+      })
     } catch (error) {
       console.error('Failed to load curriculum or sync local state', error)
     } finally {
@@ -540,29 +548,87 @@ export const MyCoursesTab: React.FC = () => {
                                 Quiz
                               </button>
                             ) : (
-                              <button
-                                onClick={async () => {
-                                  const isValid = await validateDownloadPath()
-                                  if (isValid)
-                                    handleDownloadItem(
-                                      selectedCourse,
-                                      item,
-                                      chapterForThisItem,
-                                      currentLectureIndex
-                                    )
-                                }}
-                                disabled={
-                                  status === 'downloading' ||
-                                  status === 'success' ||
-                                  status === 'drm'
-                                }
-                                className={`px-4 py-2 font-semibold rounded-lg text-sm transition-all shadow-sm flex items-center gap-2
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={async () => {
+                                    const isValid = await validateDownloadPath()
+                                    if (isValid)
+                                      handleDownloadItem(
+                                        selectedCourse,
+                                        item,
+                                        chapterForThisItem,
+                                        currentLectureIndex
+                                      )
+                                  }}
+                                  disabled={
+                                    status === 'downloading' ||
+                                    status === 'success' ||
+                                    status === 'drm'
+                                  }
+                                  className={`px-4 py-2 font-semibold rounded-lg text-sm transition-all shadow-sm flex items-center gap-2
                                     ${status === 'downloading' ? 'bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 cursor-wait opacity-100' : status === 'success' ? 'bg-green-500/10 dark:bg-green-500/20 text-green-600 dark:text-green-400 cursor-default opacity-100' : status === 'drm' ? 'bg-gray-200 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed opacity-100' : status === 'error' ? 'bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400 cursor-pointer opacity-100' : 'bg-gray-100 dark:bg-white/10 hover:bg-blue-600 hover:text-white text-gray-700 dark:text-gray-300 opacity-0 group-hover:opacity-100 focus:opacity-100 cursor-pointer'}`}
-                              >
-                                {status === 'downloading' && (
-                                  <>
+                                >
+                                  {status === 'downloading' && (
+                                    <>
+                                      <svg
+                                        className="w-4 h-4 animate-spin"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          strokeWidth="2"
+                                          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                                        ></path>
+                                      </svg>{' '}
+                                      Fetching...
+                                    </>
+                                  )}
+                                  {status === 'success' && '✓ Saved'}
+                                  {status === 'drm' && (
+                                    <>
+                                      <svg
+                                        className="w-4 h-4"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          strokeWidth="2"
+                                          d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                                        ></path>
+                                      </svg>{' '}
+                                      DRM Protected
+                                    </>
+                                  )}
+                                  {status === 'error' && 'Retry'}
+                                  {!status &&
+                                    (item.asset?.asset_type === 'Video' ? 'Download' : 'Save')}
+                                </button>
+                                {(status === 'success' ||
+                                  status === 'drm' ||
+                                  status === 'error') && (
+                                  <button
+                                    onClick={async () => {
+                                      await window.api.deleteLecture(selectedCourse.title, item.id)
+                                      await window.api.deleteStore(
+                                        `drm_${selectedCourse.id}.${item.id}`
+                                      )
+                                      setDownloadProgress((prev) => {
+                                        const newMap = { ...prev }
+                                        delete newMap[item.id]
+                                        return newMap
+                                      })
+                                    }}
+                                    className="p-2 text-red-500 hover:text-white hover:bg-red-500 bg-red-500/10 rounded-lg transition-colors cursor-pointer"
+                                    title="Delete File"
+                                  >
                                     <svg
-                                      className="w-4 h-4 animate-spin"
+                                      className="w-5 h-5"
                                       fill="none"
                                       stroke="currentColor"
                                       viewBox="0 0 24 24"
@@ -571,35 +637,12 @@ export const MyCoursesTab: React.FC = () => {
                                         strokeLinecap="round"
                                         strokeLinejoin="round"
                                         strokeWidth="2"
-                                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
                                       ></path>
-                                    </svg>{' '}
-                                    Fetching...
-                                  </>
+                                    </svg>
+                                  </button>
                                 )}
-                                {status === 'success' && '✓ Saved'}
-                                {status === 'drm' && (
-                                  <>
-                                    <svg
-                                      className="w-4 h-4"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      viewBox="0 0 24 24"
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth="2"
-                                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                                      ></path>
-                                    </svg>{' '}
-                                    DRM Protected
-                                  </>
-                                )}
-                                {status === 'error' && 'Retry'}
-                                {!status &&
-                                  (item.asset?.asset_type === 'Video' ? 'Download' : 'Save')}
-                              </button>
+                              </div>
                             )}
                           </div>
                         </div>
@@ -658,7 +701,13 @@ export const MyCoursesTab: React.FC = () => {
                             setIsDeleteModalOpen(false)
                             await window.api.deleteCourseFolder(selectedCourse.title)
                             await window.api.deleteStore(`drm_${selectedCourse.id}`)
-                            setDownloadProgress({})
+                            setDownloadProgress((prev) => {
+                              const newMap = { ...prev }
+                              curriculum.forEach((item) => {
+                                delete newMap[item.id]
+                              })
+                              return newMap
+                            })
                           }}
                           className="py-3 px-4 bg-red-600 hover:bg-red-500 text-white font-semibold rounded-xl transition-all shadow-lg hover:shadow-red-600/30 cursor-pointer"
                         >

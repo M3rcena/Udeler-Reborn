@@ -32,6 +32,8 @@ declare global {
           type: 'Video' | 'Article' | 'File'
         }[]
       >
+      deleteLecture: (courseTitle: string, lectureId: number) => Promise<boolean>
+      deleteFileByPath: (filePath: string) => Promise<boolean>
     }
   }
 }

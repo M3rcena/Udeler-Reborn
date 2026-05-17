@@ -244,3 +244,30 @@ export function cancelDownload(lectureId: number): boolean {
   }
   return false
 }
+
+export function deleteLectureFile(
+  downloadPath: string,
+  courseTitle: string,
+  lectureId: number
+): boolean {
+  const cleanCourse = courseTitle.replace(/[<>:"/\\|?*]+/g, '-').trim()
+  const courseFullPath = path.join(downloadPath, cleanCourse)
+
+  if (!fs.existsSync(courseFullPath)) return false
+
+  const chapters = fs.readdirSync(courseFullPath)
+  for (const chapter of chapters) {
+    const chapterPath = path.join(courseFullPath, chapter)
+    if (fs.statSync(chapterPath).isDirectory()) {
+      const files = fs.readdirSync(chapterPath)
+      for (const file of files) {
+        const match = file.match(/\[ID_(\d+)\]\.[^.]+$/)
+        if (match && parseInt(match[1], 10) === lectureId) {
+          fs.unlinkSync(path.join(chapterPath, file))
+          return true
+        }
+      }
+    }
+  }
+  return false
+}
