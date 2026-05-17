@@ -390,11 +390,22 @@ export const DownloadsTab: React.FC = () => {
             <div className="flex-1 bg-black flex items-center justify-center">
               {selectedMedia.type === 'Video' ? (
                 <video
+                  key={selectedMedia.path}
                   src={`local://${encodeURIComponent(selectedMedia.path)}`}
                   controls
                   autoPlay
                   className="w-full h-full object-contain"
-                />
+                >
+                  {selectedMedia.subtitles?.map((sub, idx) => (
+                    <track
+                      key={idx}
+                      kind="captions"
+                      label={sub.label}
+                      srcLang={sub.srcLang}
+                      src={sub.path}
+                    />
+                  ))}
+                </video>
               ) : (
                 <iframe
                   src={`local://${encodeURIComponent(selectedMedia.path)}`}

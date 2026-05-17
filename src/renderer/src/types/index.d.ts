@@ -77,12 +77,19 @@ export interface DownloadContextType {
   cancelQueue: () => void
 }
 
+interface SubtitleTrack {
+  label: string
+  srcLang: string
+  path: string
+}
+
 export interface DownloadedFile {
   course: string
   chapter: string
   file: string
   path: string
   type: 'Video' | 'Article' | 'File'
+  subtitles?: SubtitleTrack[]
 }
 
 export interface CurriculumModalProps {

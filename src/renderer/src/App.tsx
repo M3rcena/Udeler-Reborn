@@ -30,6 +30,7 @@ declare global {
           file: string
           path: string
           type: 'Video' | 'Article' | 'File'
+          subtitles?: { label: string; srcLang: string; path: string }[]
         }[]
       >
       deleteLecture: (courseTitle: string, lectureId: number) => Promise<boolean>

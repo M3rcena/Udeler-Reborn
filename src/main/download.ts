@@ -17,6 +17,9 @@ export interface DownloadRequest {
   token: string
   downloadPath: string
   videoQuality: string
+  skipAttachments: boolean
+  skipSubtitles: boolean
+  autoRetry: boolean
   courseId: number
   courseTitle: string
   chapterTitle: string
@@ -37,7 +40,45 @@ interface UdemyAssetResponse {
       File?: { file: string }[]
       'E-Book'?: { file: string }[]
     }
+    captions?: { file?: string; url?: string; locale?: string; title?: string }[]
   }
+  supplementary_assets?: {
+    filename: string
+    download_urls?: { File?: { file: string }[] }
+  }[]
+}
+
+function downloadExtraFile(url: string, destPath: string): Promise<void> {
+  return new Promise((resolve) => {
+    const file = fs.createWriteStream(destPath)
+    https
+      .get(url, (res) => {
+        if (res.statusCode === 301 || res.statusCode === 302) {
+          https
+            .get(res.headers.location!, (redirectRes) => {
+              redirectRes.pipe(file)
+              redirectRes.on('end', () => {
+                file.close()
+                resolve()
+              })
+            })
+            .on('error', () => {
+              file.close()
+              resolve()
+            })
+        } else {
+          res.pipe(file)
+          res.on('end', () => {
+            file.close()
+            resolve()
+          })
+        }
+      })
+      .on('error', () => {
+        file.close()
+        resolve()
+      })
+  })
 }
 
 export async function processDownload(req: DownloadRequest): Promise<string> {
@@ -63,11 +104,11 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
     return filePath
   }
 
-  const apiUrl = `https://www.udemy.com/api-2.0/users/me/subscribed-courses/${req.courseId}/lectures/${req.lectureId}/?fields[lecture]=asset&fields[asset]=@min,download_urls,external_url,body,filename`
+  const apiUrl = `https://www.udemy.com/api-2.0/users/me/subscribed-courses/${req.courseId}/lectures/${req.lectureId}/?fields[lecture]=asset,supplementary_assets&fields[asset]=@min,download_urls,external_url,body,filename,captions`
 
   let response: Response | null = null
   let attempt = 0
-  const maxAttempts = 3
+  const maxAttempts = req.autoRetry ? 5 : 1
 
   while (attempt < maxAttempts) {
     response = await net.fetch(apiUrl, {
@@ -92,6 +133,39 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
   const asset = data.asset
 
   if (!asset) throw new Error('No asset found for this lecture')
+
+  if (!req.skipSubtitles && asset.captions && asset.captions.length > 0) {
+    for (const cap of asset.captions) {
+      try {
+        const subtitleUrl = cap.url || cap.file
+
+        let localeName = cap.locale || cap.title || 'unknown'
+        localeName = localeName.replace(/\.vtt$/i, '').replace(/[<>:"/\\|?*]+/g, '-')
+
+        if (!subtitleUrl) {
+          console.warn(`No URL found for subtitle: ${localeName}`)
+          continue
+        }
+
+        const capRes = await net.fetch(subtitleUrl)
+        if (capRes.ok) {
+          const capText = await capRes.text()
+          fs.writeFileSync(path.join(targetDir, `${cleanLecture}_${localeName}.vtt`), capText)
+        }
+      } catch (err) {
+        console.warn(`Failed to download subtitle: ${cap.locale || cap.title}`, err)
+      }
+    }
+  }
+
+  if (!req.skipAttachments && data.supplementary_assets && data.supplementary_assets.length > 0) {
+    for (const supp of data.supplementary_assets) {
+      const fileUrl = supp.download_urls?.File?.[0]?.file
+      if (fileUrl && supp.filename) {
+        await downloadExtraFile(fileUrl, path.join(targetDir, supp.filename))
+      }
+    }
+  }
 
   if (req.type === 'Article') {
     const filePath = path.join(targetDir, `${cleanLecture}.html`)
