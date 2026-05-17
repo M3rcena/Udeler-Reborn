@@ -1,4 +1,5 @@
 import { SidebarProps } from '@renderer/types'
+import brandLogo from '../assets/brand.png?url'
 
 export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
@@ -11,12 +12,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <aside className="relative w-64 flex flex-col bg-white/40 dark:bg-white/5 backdrop-blur-xl border-r border-gray-200 dark:border-white/10 z-10 transition-all duration-300">
       {/* Logo Area */}
       <div className="h-24 flex items-center justify-center border-b border-gray-200/50 dark:border-white/5">
-        <h1 className="text-2xl font-extrabold tracking-tight text-gray-900 dark:text-white">
-          Udeler{' '}
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-purple-600 dark:from-blue-400 dark:to-purple-500">
-            Reborn
-          </span>
-        </h1>
+        <img
+          src={brandLogo}
+          alt="Udeler Reborn - Logo"
+          className="h-14 md:h-16 w-auto object-contain drop-shadow-sm transition-transform hover:scale-105 cursor-pointer"
+        />
       </div>
 
       {/* Navigation Links */}

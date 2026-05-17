@@ -1,5 +1,5 @@
-appId: com.electron.app
-productName: udeler-pro
+appId: com.m3rcena.udeler
+productName: Udeler Reborn
 directories:
   buildResources: build
 files:
@@ -12,13 +12,15 @@ files:
 asarUnpack:
   - resources/**
 win:
-  executableName: udeler-pro
+  executableName: udeler-reborn
+  icon: resources/icon.ico
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
 mac:
+  icon: resources/icon.icns
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
     - NSCameraUsageDescription: Application requests access to the device's camera.
@@ -29,6 +31,7 @@ mac:
 dmg:
   artifactName: ${name}-${version}.${ext}
 linux:
+  icon: resources/icon.png
   target:
     - AppImage
     - snap
