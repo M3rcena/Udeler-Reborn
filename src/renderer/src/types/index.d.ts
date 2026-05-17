@@ -89,6 +89,7 @@ export interface DownloadedFile {
   file: string
   path: string
   type: 'Video' | 'Article' | 'File'
+  size: number
   subtitles?: SubtitleTrack[]
 }
 

@@ -29,6 +29,7 @@ declare global {
           chapter: string
           file: string
           path: string
+          size: number
           type: 'Video' | 'Article' | 'File'
           subtitles?: { label: string; srcLang: string; path: string }[]
         }[]

@@ -31,6 +31,7 @@ interface DownloadedFile {
   file: string
   path: string
   type: 'Video' | 'Article' | 'File'
+  size: number
   subtitles?: SubtitleTrack[]
 }
 
@@ -174,13 +175,19 @@ app.whenReady().then(() => {
         for (const file of files) {
           if (file.endsWith('.vtt')) continue
 
+          const filePath = path.join(chapterPath, file)
           const type = file.endsWith('.mp4') ? 'Video' : file.endsWith('.html') ? 'Article' : 'File'
+
+          const stat = fs.statSync(filePath)
+          const sizeMB = Math.round(stat.size / (1024 * 1024))
+
           const item: DownloadedFile = {
             course,
             chapter,
             file,
-            path: path.join(chapterPath, file),
-            type
+            path: filePath,
+            type,
+            size: sizeMB
           }
 
           if (type === 'Video') {
