@@ -1,138 +1,77 @@
-# Contributing
+# Contributing to Udeler Reborn
 
-👍 🎉 Thanks for taking the time to contribute! 🎉 👍
+First off, thank you for taking the time to contribute! 🎉 
 
-Any contributions to this repository are most welcome. If you are planning to contribute, please take time to read this file and follow the guidelines.
+Udeler Reborn is an community-driven project aiming to provide a high-performance, modern, and reliable desktop course management application. Contributions from developers like you help make this tool better for everyone.
 
-## How to
+Please read through these guidelines to understand how to best interact with the project and submit your modifications.
 
-#### There are quite a few ways to contribute, but following is the recommended approach.
+---
 
-`1. Fork this repository`
+## 🌿 Our Branching Model
 
-When you fork this repository you will have a personal copy of the repository where you will have complete access to edit any file. 
-Edit the files you want to and commit the changes.
+All active development for the version 3 framework line happens on the `v3` branch. 
 
-`2. Make a Pull request`
+* **`v3`**: The main development branch for modern updates, TypeScript features, and bug fixes. All feature branches should target `v3`.
 
-When you are done editing the file(s) and have commited the changes to the fork, you can now make a pull request to this repository.
-You will see a Pull request option alongside compare just above the Latest commit message in your fork. 
-Please beaware making a pull request to your own repository and making a pull request to this repository are two different things.
-You need to click on the `Pull request button` and not the `Pull requests tab`. 
+---
 
-`3. Wait for the changes to get approved`
+## 🐛 Reporting Bugs & Suggesting Features
 
-After making a Pull request you will see your pull request listed in the `Pull requests section` in the original repository.
-Your changes will be reviewed and once the changes are approved they will be merged and hence will get applied to the original repository.
-You might be asked to improve or make further changes, if the the commits you made could not be approved for some reason. In that case, you will need to edit the files again. 
-Please note that, you do not have to make another pull request, just make the changes you are supposed to in the fork and it will get reflected in the already made pull request.
+We track everything using **GitHub Issues**. Before creating a new issue, please search existing issues to see if it has already been reported or discussed.
 
+### Writing a Good Bug Report:
+* **Use a descriptive title:** Summarize the issue clearly.
+* **Provide environment details:** Mention your OS (Windows, macOS, Linux) and Node.js version.
+* **Steps to reproduce:** Detail exactly how someone else can replicate the behavior.
+* **Error logs:** Paste relevant frontend console errors or backend terminal outputs.
 
-## Adding translation
+> ⚠️ **Security Vulnerabilities:** Do not report security vulnerabilities or data leaks through public GitHub issues. Please use the **Private Vulnerability Reporting** feature under the **Security** tab of this repository.
 
-This application aims to be available in multiple (as many as we can) languages. 
-The task could have been achieved by using a translation tool, but in order to maintain accuracy and context, this repository provides an easy way for the contributors native to different languges to add their language to the application.
+---
 
-### Adding/Updating a language
+## 🛠️ Local Development Setup
 
-To add or update a language, follow the `Step 1` of  How to section above. 
-Once you have your fork ready, you can edit the required files.  
+To set up the development environment locally, follow these steps:
 
-#### Adding new language 
+1. Fork this repository and clone your fork:
+   ```bash
+   git clone -b v3 https://github.com/YOUR_USERNAME/udeler_gui.git
+   cd udeler_gui
+   ```
 
-`1. Edit meta.json file`
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
 
-You will find a meta.json file inside `locale` folder in your copy of repository. 
-The file contains language names and corresponding file name which has the actual translation data. In order to add a new language you simply have to add another field (key/value pair) to the file.
+3. Start the application in development mode with Hot-Reloading:
+   ```bash
+   npm run dev
+   ```
 
-Example:
+---
 
-```javascript
-{
-  "Italian"       : "it.json",
-  "Español"       : "es.json", 
-  "LANGUAGE_NAME" : "LANGUAGE_SHORTNAME.json"
-}
-```
+## 📥 Submitting a Pull Request (PR)
 
-#### Note: 
-LANGUAGE_NAME is the name of the language that will be displayed in the application and LANGUAGE_SHORTNAME is the shortname of the language and it will also be the name of the file that will contain the translation. 
-Please use appropriate shortnames (ISO 639-1 Code) and try not to use more than two alphabets to maintain consistency. 
-Do not add duplicate names, you may add a 3rd alphabet (use ISO 639-2 Code) in LANGUAGE_SHORTNAME to separate it from any existing one. 
+When you are ready to submit your changes, follow this workflow:
 
-There is no `comma ','` after the last pair in the file however there is one before that. 
-You would have to add a comma yourself since you will be adding the pair to the end of the file.
+1. **Create a feature branch** off of `v3`:
+   ```bash
+   git checkout -b feature/your-awesome-feature
+   ```
+2. **Commit your changes:** Keep commits focused, modular, and use meaningful commit messages.
+3. **Format your code:** Ensure your code matches the existing style rules by running the formatting scripts if configured.
+4. **Push your branch:**
+   ```bash
+   git push origin feature/your-awesome-feature
+   ```
+5. **Open a Pull Request:** Target the **`v3`** branch of the main repository. Provide a thorough summary of what your code does, what issues it addresses, and any testing notes.
 
-Example:
-LANGUAGE_NAME = "Dutch" LANGUAGE_SHORTNAME = "nl"
+---
 
-```javascript
-{
-  "Italian" : "it.json",
-  "Español" : "es.json", 
-  "Dutch"   : "nl.json"
-}
-```
-#### Reference:
-https://www.loc.gov/standards/iso639-2/php/code_list.php
-https://www.w3schools.com/tags/ref_language_codes.asp
+## 📜 Code Style Guidelines
 
-`2. Create a new file "LANGUAGE_SHORTNAME.json"`
-
-Now that you have added the new language name and its corresponding shortname to the `meta.json` file, Next step will be to create the LANGUAGE_SHORTNAME.json file inside the `locale` folder.
-You will also find `template.json` file inside the same `locale` folder, just copy the contents of the template file and put them inside the LANGUAGE_SHORTNAME.json file.
-
-You should have something like this inside your LANGUAGE_SHORTNAME.json file.
-```javascript
-{
-  "Udemy Login": "",
-  "Email": "",
-  "Password": "",
-  "Login": "",
-  "Type Username/Password": "",
-  "Incorrect Username/Password": "",
-  "Logging in": "",
-  "Loading Courses": "",
-  "You have not enrolled in any course": "",
-  "Getting Info": "",
-  "Courses": ""
-}
-```
-Notice that you are aleady given the words that you need to add translation for. Just add the translation inside the empty quotes given next to each English word.
-Please do not add any new words as the words given are the only words that the app will look for.
-
-`3. Commit your changes and make a Pull request`
-
-Now that you have added the translation file, you can commit the changes and make a Pull request. (Follow Step 2 of How to Section)
-
-#### Updating existing translation.
-
-If you want to update an existing translation whether you are the one who created the translation file or not, follow the steps:
-
-##### Updating the LANGUAGE_NAME or LANGUAGE_SHORTNAME
-
-`1. Edit meta.json file` 
-
-Edit meta.json file and update the LANGUAGE_NAME or LANGUAGE_SHORTNAME.
-
-Beaware that any change in LANGUAGE_SHORTNAME might also require to rename the actual file in the `locale` folder.
-
-`2. Commit changes and make Pull request`
-Follow Step 2 of How to Section
-
-
-##### Updating the translation
-
-You may want to update a translation file if you notice something is not correctly translated or a translation is missing either because it has missing value of the word was not added at all possibly because the `contributor` didn't add it or the `template.json` file was updated
-
-`1. Edit the translation file (LANGUAGE_SHORTNAME.json)` 
-
-Make the changes you want to. Do not add a word that is not present in template.json file. If you see a word that is not present in template.json file, you can remove it.
-
-`2. Commit changes and make Pull request`
-
-Follow Step 2 of How to Section
-
-
-### Note: 
-Please do not use any translation tools as it would defeat the purpose of the contribution. 
+* **TypeScript Type Safety:** Ensure strict typing across both the Electron main process and React renderer process. Avoid using `any` whenever possible.
+* **Tailwind & UI:** Keep the layout fluid, fully accessible, and responsive. If your element is an interactive clickable target, include the `cursor-pointer` utility class.
+* **Context Bridge Separation:** Do not attempt to run Node.js core modules (`fs`, `path`, etc.) directly inside the React frontend components. Expose these safe mappings via `src/preload/index.ts` using IPC handlers.

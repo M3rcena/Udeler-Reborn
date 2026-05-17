@@ -1,4 +1,9 @@
-.DS_Store
 node_modules
 dist
-.idea
+out
+.DS_Store
+.eslintcache
+*.log*
+
+old/
+build/

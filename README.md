@@ -1,236 +1,144 @@
-# Udeler GUI - Udemy Course Downloader
-
-A modern, cross-platform desktop application for downloading Udemy courses with a beautiful dark theme interface.
-
-## ✨ Features
-
-- **🎨 Modern Dark Theme** - Beautiful cyan-accented dark interface
-- **📱 Cross-Platform** - Windows, macOS, and Linux support
-- **🎥 Multiple Content Types** - Videos, articles, files, e-books, and audio
-- **⚡ Individual Downloads** - Download specific lectures or entire courses
-- **📊 Download Management** - Track and manage all your downloads
-- **🌍 Multi-language Support** - Available in multiple languages
-- **🔧 Customizable Settings** - Video quality, download paths, and more
-- **⏸️ Pause/Resume** - Interrupt and resume downloads anytime
-- **📁 Organized Downloads** - Automatic course and section organization
-
-## 🚀 Quick Start
-
-### 1. Download & Install
-
-Download the latest version for your platform:
-
-| Platform | Download |
-|----------|----------|
-| Windows | [Download Windows x64](https://github.com/M3rcena/Udeler_GUI/releases/latest) |
-| macOS | [Download macOS](https://github.com/M3rcena/Udeler_GUI/releases/latest) |
-| Linux | [Download Linux](https://github.com/M3rcena/Udeler_GUI/releases/latest) |
-
-### 2. Get Your Udemy Access Token
-
-Since Udemy has updated their authentication system, you'll need to manually obtain your access token:
-
-#### Method 1: Using Browser Developer Tools (Recommended)
-
-1. **Open your web browser** (Chrome, Firefox, Edge, etc.)
-2. **Go to [Udemy.com](https://www.udemy.com)** and log in to your account
-3. **Open Developer Tools**:
-   - **Chrome/Edge**: Press `F12` or `Ctrl+Shift+I` (Windows/Linux) / `Cmd+Option+I` (Mac)
-   - **Firefox**: Press `F12` or `Ctrl+Shift+I` (Windows/Linux) / `Cmd+Option+I` (Mac)
-4. **Go to the Network tab** in Developer Tools
-5. **Refresh the page** or navigate to any course page
-6. **Look for API requests** - filter by "api-2.0" or search for requests to `udemy.com/api-2.0`
-7. **Click on any API request** and look for the "Authorization" header
-8. **Copy the token** - it will look like: `Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9...`
-
-#### Method 2: Using Browser Console
-
-1. **Log in to Udemy** in your browser
-2. **Open Developer Tools** and go to the **Console** tab
-3. **Run this command**:
-   ```javascript
-   console.log(localStorage.getItem('access_token') || 'Token not found in localStorage');
-   ```
-4. **Copy the token** if found
-
-#### Method 3: Using Browser Extensions
-
-1. **Install a cookie/header viewer extension** like "Cookie Editor" or "Header Editor"
-2. **Navigate to Udemy.com** and log in
-3. **Use the extension** to view request headers and find the Authorization token
-
-### 3. Use the Access Token
-
-1. **Open Udeler GUI**
-2. **Click "Login with Access Token"**
-3. **Paste your access token** when prompted
-4. **Click "Login"** to access your courses
-
-## 📖 Detailed Usage Guide
-
-### Getting Started
-
-1. **Launch the application** after installation
-2. **Enter your access token** using the methods above
-3. **Browse your courses** - all your enrolled courses will appear
-4. **Click "Download"** on any course to see available content
-5. **Select individual lectures** or use "Download All" for entire courses
-
-### Download Options
-
-- **Video Quality**: Choose from available qualities (720p, 1080p, etc.)
-- **Download Range**: Set start and end points for course downloads
-- **File Types**: Download videos, articles, PDFs, and other course materials
-- **Organization**: Files are automatically organized by course and section
-
-### Settings
-
-Access settings via the gear icon to configure:
-- **Download Path**: Choose where files are saved
-- **Video Quality**: Set default quality preference
-- **Language**: Change interface language
-- **Download Options**: Configure retry, subtitle, and attachment settings
-
-## 🛠️ For Developers
-
-### Prerequisites
-
-- Node.js (v20 or higher)
-- npm or yarn
-
-### Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/M3rcena/Udeler_GUI.git
-cd Udeler_GUI
-
-# Install dependencies
-npm install
-
-# Start the application
-npm start
-```
-
-### Building
-
-```bash
-# Build for current platform
-npm run dist
-
-# Build for specific platforms
-npm run build-win    # Windows
-npm run build-mac    # macOS
-npm run build-linux  # Linux
-
-# Build for all platforms
-npm run build
-```
-
-### Development
-
-```bash
-# Start in development mode
-npm start
-
-# Run with hot reload
-npm run dev
-```
-
-## 🔧 Troubleshooting
-
-### Common Issues
-
-**"Invalid Access Token" Error**
-- Ensure you're copying the full token (starts with `Bearer `)
-- Check that your Udemy account is active
-- Try logging out and back into Udemy, then get a fresh token
-
-**"No Courses Found" Error**
-- Verify your access token is correct
-- Ensure you have enrolled courses in your Udemy account
-- Check your internet connection
-
-**Download Failures**
-- Some videos may be DRM-protected and cannot be downloaded
-- Check your download path has sufficient space
-- Verify your internet connection is stable
-
-**Login Issues**
-- Clear browser cache and cookies
-- Try using a different browser
-- Ensure you're not using a VPN that blocks Udemy
-
-### Getting Help
-
-1. **Check existing issues** on GitHub
-2. **Search for similar problems** in the discussions
-3. **Create a new issue** with detailed information:
-   - Your operating system and version
-   - Udeler GUI version
-   - Steps to reproduce the problem
-   - Error messages (if any)
-
-## 📋 System Requirements
-
-- **Windows**: Windows 10 or later (64-bit recommended)
-- **macOS**: macOS 10.14 or later
-- **Linux**: Ubuntu 18.04+, Fedora 28+, or similar
-- **RAM**: 4GB minimum, 8GB recommended
-- **Storage**: 1GB free space for application + space for downloads
-
-## 🔒 Privacy & Security
-
-- **No data collection**: Udeler GUI doesn't collect or transmit any personal data
-- **Local storage**: All settings and data are stored locally on your device
-- **Secure authentication**: Uses official Udemy API with your access token
-- **Open source**: Full transparency with publicly available source code
-
-## ⚖️ Legal Disclaimer
-
-This software is intended for **personal use only** to download courses you have legally purchased on Udemy. 
-
-**Important:**
-- Only download courses you have enrolled in
-- Do not share downloaded content with others
-- Respect Udemy's Terms of Service and copyright laws
-- This tool automates the same process you could do manually in a browser
-
-## 🤝 Contributing
-
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
-
-### How to Contribute
-
-1. **Fork the repository**
-2. **Create a feature branch**: `git checkout -b feature/amazing-feature`
-3. **Make your changes** and test thoroughly
-4. **Commit your changes**: `git commit -m 'Add amazing feature'`
-5. **Push to the branch**: `git push origin feature/amazing-feature`
-6. **Open a Pull Request**
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- **Original Developer**: Faisal Umair for creating the initial Udeler project
-- **Contributors**: All community members who have contributed to this project
-- **Udemy**: For providing the platform and API that makes this possible
-
-## 💝 Support the Project
-
-If you find this project helpful, please consider:
-
-- ⭐ **Starring the repository**
-- 🐛 **Reporting bugs** and issues
-- 💡 **Suggesting new features**
-- 📝 **Contributing code** or documentation
-- 🗣️ **Sharing with others** who might find it useful
+<div align="center">
+  <br />
+  <img src="https://raw.githubusercontent.com/m3rcena/udeler_gui/v3/src/renderer/src/assets/brand.svg" alt="Udeler Reborn Logo" width="480" />
+  <br />
+  <h3><b>Udeler Reborn (v3)</b></h3>
+  <p>An advanced, high-performance, asynchronous desktop platform for offline course management.</p>
+  
+  <p>
+    <img src="https://img.shields.io/github/v/release/m3rcena/udeler_gui?include_prereleases&style=for-the-badge&color=2563eb" alt="Release" />
+    <img src="https://img.shields.io/github/license/m3rcena/udeler_gui?style=for-the-badge&color=7e22ce" alt="License" />
+    <img src="https://img.shields.io/github/stars/m3rcena/udeler_gui?style=for-the-badge&color=00e5ff" alt="Stars" />
+  </p>
+  
+  <br />
+</div>
 
 ---
 
-**Note**: This is a community-maintained fork of the original Udeler project, updated with modern features and improved user experience while maintaining the core functionality.
+## ✨ Features
 
-**Made with ❤️ by M3rcena**
+* **📦 Centralized Background Execution Engine**
+  * Downloads process non-blocking in the native backend thread while navigating the UI.
+  * Adaptive state tracking prevents queue reset when closing or shifting tabs.
+  * Global master controls allow pausing, resuming, or stopping the active pool safely.
+* **📂 Explorer-Style Library View**
+  * Automated directory aggregation that maps your downloaded files into interactive nested collections (`Library > Course > Chapter`).
+  * Built-in dynamic storage computation reading precise allocations per file directly from native disk.
+* **🎥 Secure Media Streaming**
+  * Custom `local://` safe streaming protocol to bypass standard Chromium media-sandboxing rules.
+  * Decoupled subtitle engine sanitizing, cleaning, and compiling `.vtt` tracks dynamically on-the-fly into embedded Data URIs to eliminate strict browser Cross-Origin Resource Sharing (CORS) faults.
+* **⚙️ Complete Settings Synchronization**
+  * Automated retries for failed downloads (up to 5 continuous passes).
+  * Conditional synchronization configurations to filter supplementary attachments, asset structures, and localized caption languages.
+  * Native asynchronous file migration when paths change on disk.
+
+---
+
+## 🛠️ Technology Stack
+
+* **Core Framework:** Electron (Native Asynchronous Desktop Bridging)
+* **Frontend Layer:** React 18, TypeScript (TSX), Tailwind CSS
+* **Build System:** Vite, `electron-vite`
+* **Data Management:** `electron-store` (Persistent Encrypted App Settings & DRM Mappings)
+* **Packaging Toolchain:** `electron-builder`
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+Ensure you have [Node.js](https://nodejs.org/) (v18 or higher) and `npm` installed on your development workstation.
+
+### Installation & Initialization
+
+1. Clone your active development branch:
+   ```bash
+   git clone -b v3 https://github.com/m3rcena/udeler_gui.git
+   cd udeler_gui
+   ```
+
+2. Provision configuration dependencies:
+   ```bash
+   npm install
+   ```
+
+3. Launch the development environment (Hot-Reload Enabled):
+   ```bash
+   npm run dev
+   ```
+
+### Packaging & Compilation
+
+To compile and pack the production binary distribution executable for your corresponding desktop operating platform:
+
+```bash
+# Windows Distribution Compile (.exe)
+npm run build:win
+
+# macOS Distribution Compile (.dmg / .app)
+npm run build:mac
+
+# Linux Distribution Compile (.AppImage / .deb)
+npm run build:linux
+```
+The output distribution binaries will be written seamlessly to your root `/dist` or `/out` packaging paths.
+
+---
+
+## 📘 Detailed Usage Architecture
+
+### 1. Authentication Layer
+Upon system initialization, securely capture and apply your authentication bearer access token into the application portal. The application validates endpoints asynchronously against your profile and provisions access tokens directly inside automated localized configurations.
+
+### 2. Synchronization Settings
+Before running mass execution pools, navigate directly to the **Settings** configuration tab:
+* **Storage Location:** Declare your primary output directory path. Moving paths triggers an instantaneous file migration script safely adjusting existing targets.
+* **Conditional Synchronization:** Choose whether the background worker processes or drops external captions and structural documents (`.pdf`, `.zip`, etc.).
+
+### 3. Background Processing Queue
+Once you select a course module and append files to your actively working pipeline:
+* The **Waiting** telemetry module displays absolute metrics remaining in the queue array.
+* The **In Progress** counter tracks active background processes.
+* The processing matrix updates state metrics seamlessly even if you return to alternative navigational tabs.
+
+---
+
+## 📐 Project Directory Structure
+
+```text
+├── .github/                 # Repository metadata profiles
+├── build/                   # OS entitlement rules & distribution parameters
+├── resources/               # Application-wide icons (.ico, .icns, .png, .svg)
+├── src/
+│   ├── main/                # Primary Electron Application Backend Process
+│   │   ├── index.ts         # Window lifecycle and sandboxed IPC listeners
+│   │   ├── download.ts      # Multi-stage request processor, file system sync
+│   │   └── udemy.ts         # Course extraction mappings
+│   ├── preload/             # Electron Context Bridge Isolation Layer
+│   └── renderer/            # React Client Frontend Layer
+│       ├── index.html       # Client viewport with hardened Content Security Profile (CSP)
+│       └── src/
+│           ├── assets/      # Vector design definitions and global CSS styles
+│           ├── components/  # Modular overlays and notification components
+│           ├── contexts/    # React context state engine pipelines
+│           ├── views/       # Application views (Library Explorer, Settings)
+│           └── App.tsx      # Main state routers
+├── electron-builder.yml     # Desktop compilation assembly rules
+└── electron.vite.config.ts  # Vite bundler parameters
+```
+
+---
+
+## 🔒 Security Posture & Hardening
+
+Udeler Reborn is designed to adhere to standard enterprise Electron application security metrics:
+* **Strict Context Isolation:** Electron render engines are locked away from the bare operating system. Node APIs like `fs` and `child_process` are fully isolated to the backend layer and exposed safely via the Electron Context Bridge layer.
+* **Hardened Content Security Policy (CSP):** The embedded `index.html` file employs a modern CSP directive policy limiting external injection patterns while carefully authorizing local file streaming configurations via `media-src 'self' local: blob: data:`.
+
+---
+
+## 📄 License
+
+This software is distributed under the terms of the **MIT License**. Check the root `LICENSE` profile for comprehensive parameters.
