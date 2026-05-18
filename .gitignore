@@ -4,6 +4,3 @@ out
 .DS_Store
 .eslintcache
 *.log*
-
-old/
-build/
