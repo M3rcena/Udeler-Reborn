@@ -21,17 +21,15 @@ jobs:
       - name: Initialize Node.js Environment
         uses: actions/setup-node@v4
         with:
-          node-level: 20
+          node-level: 24
           cache: 'npm'
 
       - name: Install Dependencies
-        run: '''
+        run: |
           npm ci
-        '''
 
       - name: Compile and Release Distribution Packages
-        run: '''
+        run: |
           npm run build
-        '''
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
