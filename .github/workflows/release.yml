@@ -5,6 +5,9 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
 jobs:
   release:
     name: Build and Publish App Binaries
@@ -21,7 +24,7 @@ jobs:
       - name: Initialize Node.js Environment
         uses: actions/setup-node@v4
         with:
-          node-level: 24
+          node-version: 24
           cache: 'npm'
 
       - name: Install Dependencies
