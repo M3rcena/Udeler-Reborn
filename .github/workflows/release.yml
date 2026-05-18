@@ -5,6 +5,9 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
 jobs:
   release:
     name: Build and Publish App Binaries
@@ -18,10 +21,22 @@ jobs:
       - name: Checkout Source Code
         uses: actions/checkout@v4
 
+      - name: Remove local .npmrc to prevent mirror overrides in CI
+        shell: bash
+        run: |
+          rm -f .npmrc
+
+      - name: Install Linux Build Dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm libarchive-tools
+          sudo snap install snapcraft --classic
+
       - name: Initialize Node.js Environment
         uses: actions/setup-node@v4
         with:
-          node-level: 24
+          node-version: 24
           cache: 'npm'
 
       - name: Install Dependencies
