@@ -21,6 +21,11 @@ jobs:
       - name: Checkout Source Code
         uses: actions/checkout@v4
 
+      - name: Remove local .npmrc to prevent mirror overrides in CI
+        shell: bash
+        run: |
+          rm -f .npmrc
+
       - name: Initialize Node.js Environment
         uses: actions/setup-node@v4
         with:
@@ -36,5 +41,3 @@ jobs:
           npm run build
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ELECTRON_BUILDER_BINARIES_MIRROR: "https://github.com/electron-userland/electron-builder-binaries/releases/download/"
-          ELECTRON_MIRROR: "https://github.com/electron/electron/releases/download/"
