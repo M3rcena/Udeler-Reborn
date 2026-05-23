@@ -8,6 +8,7 @@ import { AboutTab } from './views/AboutTab'
 import { UpdateToast } from './components/UpdateToast'
 import { MyCoursesTab } from './views/MyCoursesTab'
 import { DownloadsTab } from './views/DownloadsTab'
+import { GlobalDownloadWidget } from './components/GlobalDownloadWidget'
 
 declare global {
   interface Window {
@@ -20,6 +21,7 @@ declare global {
       selectFolder: () => Promise<string | null>
       startDownload: (req: unknown) => Promise<string>
       cancelDownload: (lectureId: number) => Promise<boolean>
+      pauseDownload: (lectureId: number) => Promise<boolean>
       checkLocalDownloads: (courseTitle: string) => Promise<Record<number, string>>
       deleteCourseFolder: (courseTitle: string) => Promise<boolean>
       moveDownloadsFolder: (oldPath: string, newPath: string) => Promise<boolean>
@@ -134,6 +136,9 @@ function App(): React.JSX.Element {
 
       {/* --- GLOBAL NOTIFICATIONS --- */}
       <UpdateToast />
+
+      {/* --- GLOBAL DOWNLOADS MANAGER WIDGET */}
+      <GlobalDownloadWidget />
     </div>
   )
 }

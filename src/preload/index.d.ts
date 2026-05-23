@@ -9,6 +9,7 @@ export interface ApiBridge {
   selectFolder: () => Promise<string | null>
   startDownload: (req: unknown) => Promise<string>
   cancelDownload: (lectureId: number) => Promise<boolean>
+  pauseDownload: (lectureId: number) => Promise<boolean>
   checkLocalDownloads: (courseTitle: string) => Promise<Record<number, string>>
   deleteCourseFolder: (courseTitle: string) => Promise<boolean>
   moveDownloadsFolder: (oldPath: string, newPath: string) => Promise<unknown>

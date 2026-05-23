@@ -8,6 +8,7 @@ import {
   cancelDownload,
   deleteLectureFile,
   DownloadRequest,
+  pauseDownload,
   processDownload,
   scanExistingDownloads
 } from './download'
@@ -264,6 +265,8 @@ app.whenReady().then(() => {
   ipcMain.handle('cancel-download', async (_event, lectureId: number): Promise<boolean> => {
     return cancelDownload(lectureId)
   })
+
+  ipcMain.handle('pause-download', (_, lectureId) => pauseDownload(lectureId))
 
   ipcMain.handle('moveDownloadsFolder', async (_, oldPath: string, newPath: string) => {
     try {

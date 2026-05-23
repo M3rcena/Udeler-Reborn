@@ -8,6 +8,7 @@ const activeStreams = new Map<
   number,
   { req: ClientRequest; file: fs.WriteStream; filePath: string }
 >()
+const canceledDownloads = new Set<number>()
 
 const sanitizeName = (name: string): string => {
   return name.replace(/[<>:"/\\|?*]+/g, '-').trim()
@@ -84,6 +85,8 @@ function downloadExtraFile(url: string, destPath: string): Promise<void> {
 }
 
 export async function processDownload(req: DownloadRequest): Promise<string> {
+  canceledDownloads.delete(req.lectureId)
+
   const minutes = req.timeEstimation ? ` (${Math.ceil(req.timeEstimation / 60)}m)` : ''
   const cleanCourse = sanitizeName(req.courseTitle)
   const cleanChapter = sanitizeName(req.chapterTitle)
@@ -113,6 +116,8 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
   const maxAttempts = req.autoRetry ? 5 : 1
 
   while (attempt < maxAttempts) {
+    if (canceledDownloads.has(req.lectureId)) return 'USER_CANCELED'
+
     response = await net.fetch(apiUrl, {
       headers: { Authorization: `Bearer ${req.token}` }
     })
@@ -135,9 +140,11 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
   const asset = data.asset
 
   if (!asset) throw new Error('No asset found for this lecture')
+  if (canceledDownloads.has(req.lectureId)) return 'USER_CANCELED'
 
   if (!req.skipSubtitles && asset.captions && asset.captions.length > 0) {
     for (const cap of asset.captions) {
+      if (canceledDownloads.has(req.lectureId)) return 'USER_CANCELED'
       try {
         const subtitleUrl = cap.url || cap.file
 
@@ -162,6 +169,7 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
 
   if (!req.skipAttachments && data.supplementary_assets && data.supplementary_assets.length > 0) {
     for (const supp of data.supplementary_assets) {
+      if (canceledDownloads.has(req.lectureId)) return 'USER_CANCELED'
       const fileUrl = supp.download_urls?.File?.[0]?.file
       if (fileUrl && supp.filename) {
         await downloadExtraFile(fileUrl, path.join(targetDir, supp.filename))
@@ -229,33 +237,67 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
   const filePath = path.join(targetDir, `${cleanLecture}${fileExtension}`)
 
   return new Promise((resolve, reject) => {
-    const file = fs.createWriteStream(filePath)
-    const requestOptions = { agent: false }
+    if (canceledDownloads.has(req.lectureId)) return resolve('USER_CANCELED')
+
+    let downloadedBytes = 0
+    let fileOptions: { flags: 'w' | 'a' } = { flags: 'w' }
+
+    if (fs.existsSync(filePath)) {
+      const stats = fs.statSync(filePath)
+      if (stats.size > 0) {
+        downloadedBytes = stats.size
+        fileOptions = { flags: 'a' }
+      }
+    }
+
+    const requestOptions = {
+      agent: false,
+      headers: downloadedBytes > 0 ? { Range: `bytes=${downloadedBytes}-` } : {}
+    }
+
+    const file = fs.createWriteStream(filePath, fileOptions)
 
     const requestStream = https
       .get(downloadUrl, requestOptions, (res) => {
-        const totalBytes = parseInt(res.headers['content-length'] || '0', 10)
-        let downloadedBytes = 0
+        if (res.statusCode === 200 && downloadedBytes > 0) {
+          downloadedBytes = 0
+          fs.truncateSync(filePath, 0)
+        }
+
+        const totalBytes = parseInt(res.headers['content-length'] || '0', 10) + downloadedBytes
 
         if (res.statusCode === 301 || res.statusCode === 302) {
-          // Handle redirects if Udemy sends one
           const redirectStream = https
             .get(res.headers.location!, requestOptions, (redirectRes) => {
-              const redirectTotalBytes = parseInt(redirectRes.headers['content-length'] || '0', 10)
-              let redirectDownloadedBytes = 0
+              if (redirectRes.statusCode === 200 && downloadedBytes > 0) {
+                downloadedBytes = 0
+                fs.truncateSync(filePath, 0)
+              }
+
+              const redirectTotalBytes =
+                parseInt(redirectRes.headers['content-length'] || '0', 10) + downloadedBytes
 
               redirectRes.on('data', (chunk) => {
-                redirectDownloadedBytes += chunk.length
+                downloadedBytes += chunk.length
                 const percentage = redirectTotalBytes
-                  ? Math.round((redirectDownloadedBytes / redirectTotalBytes) * 100)
+                  ? Math.round((downloadedBytes / redirectTotalBytes) * 100)
                   : 0
-
                 const mainWindow = BrowserWindow.getAllWindows()[0]
-                if (mainWindow) {
+                if (mainWindow)
                   mainWindow.webContents.send('download-progress', {
                     lectureId: req.lectureId,
                     percentage
                   })
+              })
+
+              redirectRes.on('error', (err) => {
+                file.close()
+                activeStreams.delete(req.lectureId)
+                if (err.message === 'USER_PAUSED') resolve('USER_PAUSED')
+                else if (err.message === 'USER_CANCELED') resolve('USER_CANCELED')
+                else {
+                  fs.unlink(filePath, () => {})
+                  reject(err)
                 }
               })
 
@@ -263,14 +305,18 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
               redirectRes.on('end', () => {
                 file.close()
                 activeStreams.delete(req.lectureId)
-                fs.unlink(filePath, () => {})
                 resolve(filePath)
               })
             })
             .on('error', (err) => {
               file.close()
               activeStreams.delete(req.lectureId)
-              reject(err)
+              if (err.message === 'USER_PAUSED') resolve('USER_PAUSED')
+              else if (err.message === 'USER_CANCELED') resolve('USER_CANCELED')
+              else {
+                fs.unlink(filePath, () => {})
+                reject(err)
+              }
             })
 
           activeStreams.set(req.lectureId, { req: redirectStream, file, filePath })
@@ -278,21 +324,23 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
           res.on('data', (chunk) => {
             downloadedBytes += chunk.length
             const percentage = totalBytes ? Math.round((downloadedBytes / totalBytes) * 100) : 0
-
             const mainWindow = BrowserWindow.getAllWindows()[0]
-            if (mainWindow) {
+            if (mainWindow)
               mainWindow.webContents.send('download-progress', {
                 lectureId: req.lectureId,
                 percentage
               })
-            }
           })
 
           res.on('error', (err) => {
             file.close()
             activeStreams.delete(req.lectureId)
-            fs.unlink(filePath, () => {})
-            reject(err)
+            if (err.message === 'USER_PAUSED') resolve('USER_PAUSED')
+            else if (err.message === 'USER_CANCELED') resolve('USER_CANCELED')
+            else {
+              fs.unlink(filePath, () => {})
+              reject(err)
+            }
           })
 
           res.pipe(file)
@@ -306,8 +354,12 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
       .on('error', (err) => {
         file.close()
         activeStreams.delete(req.lectureId)
-        fs.unlink(filePath, () => {}) // Delete corrupted file
-        reject(err)
+        if (err.message === 'USER_PAUSED') resolve('USER_PAUSED')
+        else if (err.message === 'USER_CANCELED') resolve('USER_CANCELED')
+        else {
+          fs.unlink(filePath, () => {})
+          reject(err)
+        }
       })
 
     activeStreams.set(req.lectureId, { req: requestStream, file, filePath })
@@ -349,15 +401,28 @@ export function scanExistingDownloads(
 }
 
 export function cancelDownload(lectureId: number): boolean {
+  canceledDownloads.add(lectureId)
+
   const active = activeStreams.get(lectureId)
   if (active) {
-    active.req.destroy()
+    active.req.destroy(new Error('USER_CANCELED'))
     active.file.close()
 
     if (fs.existsSync(active.filePath)) {
       fs.unlinkSync(active.filePath)
     }
 
+    activeStreams.delete(lectureId)
+    return true
+  }
+  return false
+}
+
+export function pauseDownload(lectureId: number): boolean {
+  const active = activeStreams.get(lectureId)
+  if (active) {
+    active.req.destroy(new Error('USER_PAUSED'))
+    active.file.close()
     activeStreams.delete(lectureId)
     return true
   }

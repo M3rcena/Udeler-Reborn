@@ -15,6 +15,9 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
     { course: Course; item: CurriculumItem; chapterTitle: string; index: number }[]
   >([])
   const [downloadPercentages, setDownloadPercentages] = useState<Record<number, number>>({})
+  const [activeDownloads, setActiveDownloads] = useState<
+    Record<number, { title: string; courseTitle: string }>
+  >({})
   const activeWorkers = useRef<number>(0)
   const isQueuePaused = useRef<boolean>(false)
 
@@ -51,6 +54,11 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
     if (!course) return
     setDownloadProgress((prev) => ({ ...prev, [item.id]: 'downloading' }))
 
+    setActiveDownloads((prev) => ({
+      ...prev,
+      [item.id]: { title: item.title, courseTitle: course.title }
+    }))
+
     let downloadType = 'Video'
     if (item._class === 'quiz') downloadType = 'Quiz'
     else if (item.asset?.asset_type === 'Article') downloadType = 'Article'
@@ -68,17 +76,37 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
       timeEstimation: item.asset?.time_estimation
     }
 
+    let isPaused = false
+
     try {
-      await window.api.startDownload(request)
+      const result = await window.api.startDownload(request)
+
+      if (result === 'USER_PAUSED') throw new Error('USER_PAUSED')
+      if (result === 'USER_CANCELED') throw new Error('USER_CANCELED')
+
       setDownloadProgress((prev) => ({ ...prev, [item.id]: 'success' }))
     } catch (error) {
-      console.error('Download Failed:', error)
       const errorMessage = error instanceof Error ? error.message : String(error)
-      if (errorMessage.includes('DRM protected')) {
+      if (errorMessage.includes('USER_PAUSED')) {
+        setDownloadProgress((prev) => ({ ...prev, [item.id]: 'paused' }))
+        downloadQueue.current.unshift({ course, item, chapterTitle, index: lectureIndex })
+        isPaused = true
+      } else if (errorMessage.includes('USER_CANCELED')) {
+        isPaused = true
+      } else if (errorMessage.includes('DRM protected')) {
         setDownloadProgress((prev) => ({ ...prev, [item.id]: 'drm' }))
         window.api.setStore(`drm_${course.id}.${item.id}`, true)
       } else {
+        console.error('Download Failed:', error)
         setDownloadProgress((prev) => ({ ...prev, [item.id]: 'error' }))
+      }
+    } finally {
+      if (!isPaused) {
+        setActiveDownloads((prev) => {
+          const newMap = { ...prev }
+          delete newMap[item.id]
+          return newMap
+        })
       }
     }
   }
@@ -162,12 +190,23 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
   const pauseQueue = (): void => {
     isQueuePaused.current = true
     setQueueStatus('paused')
+
+    Object.entries(downloadProgress).forEach(([idStr, status]) => {
+      if (status === 'downloading') {
+        const id = parseInt(idStr)
+        window.api.pauseDownload(id)
+      }
+    })
   }
 
   const resumeQueue = (): void => {
     isQueuePaused.current = false
     setQueueStatus('running')
-    processQueue()
+
+    const availableWorkers = Math.max(0, 3 - activeWorkers.current)
+    for (let i = 0; i < availableWorkers; i++) {
+      setTimeout(processQueue, i * 500)
+    }
   }
 
   const cancelQueue = (): void => {
@@ -180,14 +219,20 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
       if (status === 'downloading') {
         const id = parseInt(idStr)
         window.api.cancelDownload(id)
+
+        // Clear it cleanly
         setDownloadProgress((prev) => {
+          const newMap = { ...prev }
+          delete newMap[id]
+          return newMap
+        })
+        setActiveDownloads((prev) => {
           const newMap = { ...prev }
           delete newMap[id]
           return newMap
         })
       }
     })
-    activeWorkers.current = 0
   }
 
   return (
@@ -196,6 +241,7 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
         downloadProgress,
         setDownloadProgress,
         downloadPercentages,
+        activeDownloads,
         queueStatus,
         queueCount,
         isPathAlertOpen,

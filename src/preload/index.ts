@@ -16,6 +16,8 @@ const api = {
   startDownload: (req: unknown): Promise<string> => ipcRenderer.invoke('start-download', req),
   cancelDownload: (lectureId: number): Promise<boolean> =>
     ipcRenderer.invoke('cancel-download', lectureId),
+  pauseDownload: (lectureId: number): Promise<boolean> =>
+    ipcRenderer.invoke('pause-download', lectureId),
   checkLocalDownloads: (courseTitle: string): Promise<Record<number, string>> =>
     ipcRenderer.invoke('check-local-downloads', courseTitle),
   deleteCourseFolder: (courseTitle: string): Promise<boolean> =>

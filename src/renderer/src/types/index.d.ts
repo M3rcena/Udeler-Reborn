@@ -57,6 +57,7 @@ export interface DownloadContextType {
   downloadProgress: Record<number, string>
   setDownloadProgress: React.Dispatch<React.SetStateAction<Record<number, string>>>
   downloadPercentages?: Record<number, number>
+  activeDownloads: Record<number, { title: string; courseTitle: string }>
   queueStatus: 'idle' | 'running' | 'paused'
   queueCount: number
   isPathAlertOpen: boolean
