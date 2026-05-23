@@ -26,7 +26,23 @@ const api = {
   deleteLecture: (courseTitle: string, lectureId: number): Promise<boolean> =>
     ipcRenderer.invoke('delete-lecture', courseTitle, lectureId),
   deleteFileByPath: (filePath: string): Promise<boolean> =>
-    ipcRenderer.invoke('delete-file-by-path', filePath)
+    ipcRenderer.invoke('delete-file-by-path', filePath),
+  onDownloadProgress: (
+    callback: (data: { lectureId: number; percentage: number }) => void
+  ): (() => void) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      data: { lectureId: number; percentage: number }
+    ): void => {
+      callback(data)
+    }
+
+    ipcRenderer.on('download-progress', listener)
+
+    return (): void => {
+      ipcRenderer.removeListener('download-progress', listener)
+    }
+  }
 }
 
 if (process.contextIsolated) {

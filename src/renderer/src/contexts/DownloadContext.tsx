@@ -1,5 +1,5 @@
 import { Course, CurriculumItem, DownloadContextType } from '@renderer/types'
-import { createContext, ReactNode, useContext, useRef, useState } from 'react'
+import { createContext, ReactNode, useContext, useEffect, useRef, useState } from 'react'
 
 const DownloadContext = createContext<DownloadContextType | undefined>(undefined)
 
@@ -14,8 +14,22 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
   const downloadQueue = useRef<
     { course: Course; item: CurriculumItem; chapterTitle: string; index: number }[]
   >([])
+  const [downloadPercentages, setDownloadPercentages] = useState<Record<number, number>>({})
   const activeWorkers = useRef<number>(0)
   const isQueuePaused = useRef<boolean>(false)
+
+  useEffect(() => {
+    const unsubscribe = window.api.onDownloadProgress((data) => {
+      setDownloadPercentages((prev) => ({
+        ...prev,
+        [data.lectureId]: data.percentage
+      }))
+    })
+
+    return () => {
+      unsubscribe()
+    }
+  }, [])
 
   const validateDownloadPath = async (): Promise<boolean> => {
     const settings = (await window.api.getStore('app_settings')) as
@@ -181,6 +195,7 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
       value={{
         downloadProgress,
         setDownloadProgress,
+        downloadPercentages,
         queueStatus,
         queueCount,
         isPathAlertOpen,

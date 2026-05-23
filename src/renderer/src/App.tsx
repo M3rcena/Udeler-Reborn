@@ -36,6 +36,9 @@ declare global {
       >
       deleteLecture: (courseTitle: string, lectureId: number) => Promise<boolean>
       deleteFileByPath: (filePath: string) => Promise<boolean>
+      onDownloadProgress: (
+        callback: (data: { lectureId: number; percentage: number }) => void
+      ) => () => void
     }
   }
 }

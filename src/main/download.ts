@@ -1,4 +1,4 @@
-import { net } from 'electron'
+import { net, BrowserWindow } from 'electron'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as https from 'https'
@@ -51,11 +51,13 @@ interface UdemyAssetResponse {
 function downloadExtraFile(url: string, destPath: string): Promise<void> {
   return new Promise((resolve) => {
     const file = fs.createWriteStream(destPath)
+    const requestOptions = { agent: false }
+
     https
-      .get(url, (res) => {
+      .get(url, requestOptions, (res) => {
         if (res.statusCode === 301 || res.statusCode === 302) {
           https
-            .get(res.headers.location!, (redirectRes) => {
+            .get(res.headers.location!, requestOptions, (redirectRes) => {
               redirectRes.pipe(file)
               redirectRes.on('end', () => {
                 file.close()
@@ -228,17 +230,40 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
 
   return new Promise((resolve, reject) => {
     const file = fs.createWriteStream(filePath)
+    const requestOptions = { agent: false }
 
     const requestStream = https
-      .get(downloadUrl, (res) => {
+      .get(downloadUrl, requestOptions, (res) => {
+        const totalBytes = parseInt(res.headers['content-length'] || '0', 10)
+        let downloadedBytes = 0
+
         if (res.statusCode === 301 || res.statusCode === 302) {
           // Handle redirects if Udemy sends one
           const redirectStream = https
-            .get(res.headers.location!, (redirectRes) => {
+            .get(res.headers.location!, requestOptions, (redirectRes) => {
+              const redirectTotalBytes = parseInt(redirectRes.headers['content-length'] || '0', 10)
+              let redirectDownloadedBytes = 0
+
+              redirectRes.on('data', (chunk) => {
+                redirectDownloadedBytes += chunk.length
+                const percentage = redirectTotalBytes
+                  ? Math.round((redirectDownloadedBytes / redirectTotalBytes) * 100)
+                  : 0
+
+                const mainWindow = BrowserWindow.getAllWindows()[0]
+                if (mainWindow) {
+                  mainWindow.webContents.send('download-progress', {
+                    lectureId: req.lectureId,
+                    percentage
+                  })
+                }
+              })
+
               redirectRes.pipe(file)
               redirectRes.on('end', () => {
                 file.close()
                 activeStreams.delete(req.lectureId)
+                fs.unlink(filePath, () => {})
                 resolve(filePath)
               })
             })
@@ -250,6 +275,26 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
 
           activeStreams.set(req.lectureId, { req: redirectStream, file, filePath })
         } else {
+          res.on('data', (chunk) => {
+            downloadedBytes += chunk.length
+            const percentage = totalBytes ? Math.round((downloadedBytes / totalBytes) * 100) : 0
+
+            const mainWindow = BrowserWindow.getAllWindows()[0]
+            if (mainWindow) {
+              mainWindow.webContents.send('download-progress', {
+                lectureId: req.lectureId,
+                percentage
+              })
+            }
+          })
+
+          res.on('error', (err) => {
+            file.close()
+            activeStreams.delete(req.lectureId)
+            fs.unlink(filePath, () => {})
+            reject(err)
+          })
+
           res.pipe(file)
           res.on('end', () => {
             file.close()
