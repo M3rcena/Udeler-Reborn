@@ -104,6 +104,18 @@ export interface LoginViewProps {
   isDarkMode: boolean
 }
 
+// ---- Media Player
+export interface WatchProgress {
+  currentTime: number
+  duration: number
+  isCompleted: boolean
+}
+
+interface WatchProgressControls {
+  handleTimeUpdate: () => Promise<void>
+  forceSave: () => Promise<void>
+}
+
 // ---- Ipc Types
 
 export interface IpcChannels {

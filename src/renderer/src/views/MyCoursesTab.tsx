@@ -1,6 +1,6 @@
 import { useDownload } from '@renderer/contexts/DownloadContext'
 import { useCallback, useEffect, useState } from 'react'
-import { Course, CurriculumItem } from 'src/preload/ipc-types'
+import { Course, CurriculumItem, WatchProgress } from 'src/preload/ipc-types'
 
 export const MyCoursesTab: React.FC = () => {
   // --- GRAB THE BACKGROUND QUEUE ENGINE ---
@@ -26,6 +26,8 @@ export const MyCoursesTab: React.FC = () => {
   const [curriculum, setCurriculum] = useState<CurriculumItem[]>([])
   const [isFetchingCurriculum, setIsFetchingCurriculum] = useState<boolean>(false)
   const [newLectures, setNewLectures] = useState<Set<number>>(new Set())
+
+  const [watchProgressMap, setWatchProgressMap] = useState<Record<number, WatchProgress>>({})
 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState<boolean>(false)
   const [hasLocalFiles, setHasLocalFiles] = useState<boolean>(true)
@@ -62,16 +64,20 @@ export const MyCoursesTab: React.FC = () => {
     setNewLectures(new Set())
 
     try {
-      const [serverCurriculum, localDiskState, drmState, knownLectures] = await Promise.all([
-        window.api.invoke('fetch-curriculum', course.id),
-        window.api.invoke('check-local-downloads', course.title),
-        window.api.invoke('store-get', `drm_${course.id}`) as Promise<
-          Record<string, boolean> | undefined
-        >,
-        window.api.invoke('store-get', `known_lectures_${course.id}`) as Promise<
-          number[] | undefined
-        >
-      ])
+      const [serverCurriculum, localDiskState, drmState, knownLectures, progressData] =
+        await Promise.all([
+          window.api.invoke('fetch-curriculum', course.id),
+          window.api.invoke('check-local-downloads', course.title),
+          window.api.invoke('store-get', `drm_${course.id}`) as Promise<
+            Record<string, boolean> | undefined
+          >,
+          window.api.invoke('store-get', `known_lectures_${course.id}`) as Promise<
+            number[] | undefined
+          >,
+          window.api.invoke('store-get', 'watch_progress') as Promise<
+            Record<number, WatchProgress> | undefined
+          >
+        ])
 
       const currentIds = serverCurriculum.map((item) => item.id)
       const detectedNew = new Set<number>()
@@ -122,6 +128,7 @@ export const MyCoursesTab: React.FC = () => {
         })
       }
 
+      setWatchProgressMap(progressData || {})
       setCurriculum(serverCurriculum)
       setDownloadProgress((prev) => {
         const newState = { ...prev }
@@ -560,19 +567,38 @@ export const MyCoursesTab: React.FC = () => {
                                 </svg>
                               )}
                             </div>
-                            <div>
-                              <p className="text-gray-800 dark:text-gray-200 font-medium flex items-center gap-2">
-                                {item.title}
-                                {newLectures.has(item.id) && (
-                                  <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white bg-gradient-to-r from-pink-500 to-purple-500 rounded-full shadow-[0_0_10px_rgba(236,72,153,0.4)] animate-pulse flex-shrink-0">
-                                    New
+                            <div className="flex-1 w-full">
+                              {/* Title & Duration Row */}
+                              <div className="flex justify-between items-start gap-4 mb-2">
+                                <p className="text-gray-800 dark:text-gray-200 font-medium flex items-center gap-2 leading-tight">
+                                  {item.title}
+                                  {newLectures.has(item.id) && (
+                                    <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white bg-gradient-to-r from-pink-500 to-purple-500 rounded-full shadow-[0_0_10px_rgba(236,72,153,0.4)] animate-pulse flex-shrink-0">
+                                      New
+                                    </span>
+                                  )}
+                                </p>
+                                {item.asset?.time_estimation && (
+                                  <span className="text-xs text-gray-500 bg-gray-100 dark:bg-white/5 px-2 py-1 rounded-md font-semibold flex-shrink-0">
+                                    {Math.ceil(item.asset.time_estimation / 60)}m
                                   </span>
                                 )}
-                              </p>
-                              {item.asset?.time_estimation && (
-                                <p className="text-xs text-gray-500 mt-1">
-                                  {Math.ceil(item.asset.time_estimation / 60)} mins
-                                </p>
+                              </div>
+
+                              {/* Clean Progress Bar Row */}
+                              {watchProgressMap[item.id] && (
+                                <div className="w-full h-1.5 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden mt-1">
+                                  <div
+                                    className={`h-full transition-all duration-500 ${
+                                      watchProgressMap[item.id].isCompleted
+                                        ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]'
+                                        : 'bg-blue-500'
+                                    }`}
+                                    style={{
+                                      width: `${Math.min(100, Math.max(0, (watchProgressMap[item.id].currentTime / watchProgressMap[item.id].duration) * 100))}%`
+                                    }}
+                                  />
+                                </div>
                               )}
                             </div>
                           </div>
