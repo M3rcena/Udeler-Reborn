@@ -16,8 +16,14 @@
 
 ---
 
-## ✨ Features
+## ✨ Premium Features
 
+* **📚 Intelligent Course Updates & Archiving**
+  * **Update Detection:** Automatically compares live API fetches against local baselines to detect and badge newly uploaded instructor videos.
+  * **Archive Protection:** Safely identifies downloaded videos that the instructor has removed from Udemy and isolates them into an "Archived" chapter, ensuring zero data loss.
+* **⏱️ Cross-Session Watch Progress Tracking**
+  * Automatically saves your exact playback position to the local disk while watching.
+  * Displays sleek visual progress bars across the library and automatically resumes videos exactly where you left off across application restarts.
 * **📦 Centralized Background Execution Engine**
   * Downloads process non-blocking in the native backend thread while navigating the UI.
   * Adaptive state tracking prevents queue reset when closing or shifting tabs.
@@ -28,10 +34,6 @@
 * **🎥 Secure Media Streaming**
   * Custom `local://` safe streaming protocol to bypass standard Chromium media-sandboxing rules.
   * Decoupled subtitle engine sanitizing, cleaning, and compiling `.vtt` tracks dynamically on-the-fly into embedded Data URIs to eliminate strict browser Cross-Origin Resource Sharing (CORS) faults.
-* **⚙️ Complete Settings Synchronization**
-  * Automated retries for failed downloads (up to 5 continuous passes).
-  * Conditional synchronization configurations to filter supplementary attachments, asset structures, and localized caption languages.
-  * Native asynchronous file migration when paths change on disk.
 
 ---
 
@@ -40,8 +42,9 @@
 * **Core Framework:** Electron (Native Asynchronous Desktop Bridging)
 * **Frontend Layer:** React 18, TypeScript (TSX), Tailwind CSS
 * **Build System:** Vite, `electron-vite`
-* **Data Management:** `electron-store` (Persistent Encrypted App Settings & DRM Mappings)
-* **Packaging Toolchain:** `electron-builder`
+* **Data Management:** `electron-store` (Persistent Encrypted App Settings & Progress Mappings)
+* **API Validation:** `zod` (Strict runtime schema validation for external API payloads)
+* **Type Safety:** Generic E2E TypeScript IPC Bridge (Zero-boilerplate backend/frontend communication)
 
 ---
 
@@ -49,7 +52,7 @@
 
 ### Prerequisites
 
-Ensure you have [Node.js](https://nodejs.org/) (v18 or higher) and `npm` installed on your development workstation.
+Ensure you have [Node.js](https://nodejs.org/) (v20 or higher) and `npm` installed on your development workstation.
 
 ### Installation & Initialization
 
@@ -114,11 +117,13 @@ Once you select a course module and append files to your actively working pipeli
 ├── src/
 │   ├── main/                # Primary Electron Application Backend Process
 │   │   ├── index.ts         # Window lifecycle and sandboxed IPC listeners
-│   │   ├── download.ts      # Multi-stage request processor, file system sync
+│   │   ├── download.ts      # Multi-stage request processor & Zod validation
 │   │   └── udemy.ts         # Course extraction mappings
 │   ├── preload/             # Electron Context Bridge Isolation Layer
+│   │   ├── index.ts         # Generic API Invoker bridge
+│   │   └── ipc-types.d.ts   # Single Source of Truth E2E Type Definitions
 │   └── renderer/            # React Client Frontend Layer
-│       ├── index.html       # Client viewport with hardened Content Security Profile (CSP)
+│       ├── index.html       # Client viewport with hardened Content Security Profile
 │       └── src/
 │           ├── assets/      # Vector design definitions and global CSS styles
 │           ├── components/  # Modular overlays and notification components
@@ -134,8 +139,21 @@ Once you select a course module and append files to your actively working pipeli
 ## 🔒 Security Posture & Hardening
 
 Udeler Reborn is designed to adhere to standard enterprise Electron application security metrics:
-* **Strict Context Isolation:** Electron render engines are locked away from the bare operating system. Node APIs like `fs` and `child_process` are fully isolated to the backend layer and exposed safely via the Electron Context Bridge layer.
+* **Strict Context Isolation:** Electron render engines are locked away from the bare operating system. Node APIs like `fs` and `child_process` are fully isolated to the backend layer and exposed safely via the custom Generic Electron Context Bridge.
+* **Runtime Schema Protection:** All external API responses are intercepted and validated through strict Zod schemas, ensuring corrupted or malicious server data cannot poison the internal state.
 * **Hardened Content Security Policy (CSP):** The embedded `index.html` file employs a modern CSP directive policy limiting external injection patterns while carefully authorizing local file streaming configurations via `media-src 'self' local: blob: data:`.
+
+---
+
+## 💬 Community & Support
+
+Join our community to report issues, suggest features, or chat with other developers and users!
+
+<div align="center">
+  <br />
+  <iframe src="https://discord.com/widget?id=1447491639550410796&theme=dark" width="350" height="500" allowtransparency="true" frameborder="0" sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"></iframe>
+  <br />
+</div>
 
 ---
 
