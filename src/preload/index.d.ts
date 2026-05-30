@@ -1,6 +1,7 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 
 export interface ApiBridge {
+  exportDebugLogs: () => Promise<boolean>
   getStore: (key: string) => Promise<unknown>
   setStore: (key: string, value: unknown) => Promise<void>
   deleteStore: (key: string) => Promise<void>

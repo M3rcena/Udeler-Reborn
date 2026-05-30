@@ -44,6 +44,33 @@ interface AppSettings {
   autoRetry: boolean
 }
 
+// --- GLOBAL ERROR LOGGER ---
+const debugLogs: string[] = []
+
+const originalConsoleError = console.error
+console.error = (...args) => {
+  const timestamp = new Date().toISOString()
+  // Safely stringify objects or strings
+  const message = args
+    .map((a) =>
+      typeof a === 'object' && a !== null
+        ? JSON.stringify(a, Object.getOwnPropertyNames(a))
+        : String(a)
+    )
+    .join(' ')
+
+  debugLogs.push(`[ERROR] [${timestamp}] ${message}`)
+  originalConsoleError(...args) // Still print to your local terminal
+}
+
+// Catch unexpected crashes that bypass try/catch blocks
+process.on('uncaughtException', (error) => {
+  console.error('UncaughtException:', error)
+})
+process.on('unhandledRejection', (reason) => {
+  console.error('UnhandledRejection:', reason)
+})
+
 const StoreClass = (Store as unknown as { default: new () => unknown }).default || Store
 
 const store = new (StoreClass as new () => unknown)() as unknown as SafeStore
@@ -84,6 +111,24 @@ app.whenReady().then(() => {
 
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
+  })
+
+  ipcMain.handle('export-debug-logs', async (): Promise<boolean> => {
+    const { canceled, filePath } = await dialog.showSaveDialog({
+      title: 'Save Debug Logs',
+      defaultPath: 'udeler-debug-logs.txt',
+      filters: [{ name: 'Text Files', extensions: ['txt'] }]
+    })
+
+    if (!canceled && filePath) {
+      const header = `=== Udeler Reborn Diagnostic Logs ===\nGenerated: ${new Date().toISOString()}\n\n`
+      const logContent =
+        debugLogs.length > 0 ? debugLogs.join('\n') : 'No backend errors recorded in this session.'
+
+      fs.writeFileSync(filePath, header + logContent, 'utf-8')
+      return true
+    }
+    return false
   })
 
   ipcMain.handle('store-get', (_event, key: string): unknown => {

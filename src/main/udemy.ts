@@ -28,18 +28,29 @@ interface CurriculumResponse {
   results: CurriculumItem[]
 }
 
+const getHeaders = (token: string): Record<string, string> => ({
+  Authorization: `Bearer ${token}`,
+  Accept: 'application/json, text/plain, */*',
+  'User-Agent':
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  Origin: 'https://www.udemy.com',
+  Referer: 'https://www.udemy.com/',
+  'Accept-Language': 'en-US,en;q=0.9',
+  'Sec-Ch-Ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+  'Sec-Ch-Ua-Mobile': '?0',
+  'Sec-Ch-Ua-Platform': '"Windows"',
+  'Sec-Fetch-Dest': 'empty',
+  'Sec-Fetch-Mode': 'cors',
+  'Sec-Fetch-Site': 'same-origin'
+})
+
 export async function fetchSubscribedCourses(token: string): Promise<UdemyCourse[]> {
   try {
     const apiUrl = 'https://www.udemy.com/api-2.0/users/me/subscribed-courses/?page_size=50'
 
     const response = await net.fetch(apiUrl, {
       method: 'GET',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: 'application/json, text/plain, */*',
-        'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-      }
+      headers: getHeaders(token)
     })
 
     if (!response.ok) {
@@ -64,12 +75,7 @@ export async function fetchCourseCurriculum(
 
     const response = await net.fetch(apiUrl, {
       method: 'GET',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: 'application/json, text/plain, */*',
-        'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-      }
+      headers: getHeaders(token)
     })
 
     if (!response.ok) {

@@ -3,6 +3,7 @@ import { electronAPI } from '@electron-toolkit/preload'
 import { ipcRenderer } from 'electron/renderer'
 
 const api = {
+  exportDebugLogs: (): Promise<boolean> => ipcRenderer.invoke('export-debug-logs'),
   getStore: (key: string): Promise<unknown> => ipcRenderer.invoke('store-get', key),
   setStore: (key: string, value: unknown): Promise<void> =>
     ipcRenderer.invoke('store-set', key, value),

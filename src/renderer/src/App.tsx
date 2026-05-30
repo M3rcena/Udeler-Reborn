@@ -13,6 +13,7 @@ import { GlobalDownloadWidget } from './components/GlobalDownloadWidget'
 declare global {
   interface Window {
     api: {
+      exportDebugLogs: () => Promise<boolean>
       getStore: (key: string) => Promise<unknown>
       setStore: (key: string, value: unknown) => Promise<void>
       deleteStore: (key: string) => Promise<void>
