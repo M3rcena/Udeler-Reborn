@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { HelpModal } from '../components/HelpModal'
-import { LoginViewProps } from '@renderer/types'
+import { LoginViewProps } from 'src/preload/ipc-types'
 
 export const LoginView: React.FC<LoginViewProps> = ({ toggleTheme, isDarkMode }) => {
   const { token, setToken, authStatus, authErrorMsg, handleLogin } = useAuth()
