@@ -30,7 +30,7 @@ export const SettingsTab: React.FC = () => {
   // --- INITIALIZATION ---
   useEffect(() => {
     const loadSettings = async (): Promise<void> => {
-      const savedSettings = (await window.api.getStore('app_settings')) as
+      const savedSettings = (await window.api.invoke('store-get', 'app_settings')) as
         | typeof appSettings
         | undefined
       if (savedSettings) {
@@ -43,7 +43,7 @@ export const SettingsTab: React.FC = () => {
   // --- HANDLERS ---
   const handleExportLogs = async (): Promise<void> => {
     try {
-      const success = await window.api.exportDebugLogs()
+      const success = await window.api.invoke('export-debug-logs')
       if (success) {
         alert('Debug logs saved successfully! Please send this file to the developer.')
       }
@@ -54,7 +54,7 @@ export const SettingsTab: React.FC = () => {
   }
 
   const handleSelectFolder = async (): Promise<void> => {
-    const newPath = await window.api.selectFolder()
+    const newPath = await window.api.invoke('select-folder')
     if (!newPath) return
 
     const currentPath = appSettings.downloadPath
@@ -71,7 +71,7 @@ export const SettingsTab: React.FC = () => {
     if (shouldMove) {
       setIsMovingFiles(true)
       try {
-        await window.api.moveDownloadsFolder(appSettings.downloadPath, pendingPath)
+        await window.api.invoke('moveDownloadsFolder', appSettings.downloadPath, pendingPath)
       } catch (error) {
         console.error('Failed to move files:', error)
         setMoveError(
@@ -92,13 +92,13 @@ export const SettingsTab: React.FC = () => {
     setIsMoveModalOpen(false)
     setPendingPath('')
 
-    await window.api.setStore('app_settings', updatedSettings)
+    await window.api.invoke('store-set', 'app_settings', updatedSettings)
   }
 
   const handleSaveSettings = async (): Promise<void> => {
     setIsSavingSettings(true)
     try {
-      await window.api.setStore('app_settings', appSettings)
+      await window.api.invoke('store-set', 'app_settings', appSettings)
       setTimeout(() => setIsSavingSettings(false), 1000)
     } catch (error) {
       console.error('Failed to save settings', error)

@@ -1,5 +1,5 @@
-import { AuthContextType } from '@renderer/types'
 import { createContext, ReactNode, useContext, useEffect, useState } from 'react'
+import { AuthContextType } from 'src/preload/ipc-types'
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
@@ -14,7 +14,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }): React.JSX.E
   useEffect(() => {
     const checkAuth = async (): Promise<void> => {
       try {
-        const savedToken = (await window.api.getStore('udemy_token')) as string
+        const savedToken = (await window.api.invoke('store-get', 'udemy_token')) as string
         if (savedToken) {
           setToken(savedToken)
           setIsLoggedIn(true)
@@ -39,9 +39,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }): React.JSX.E
     setAuthErrorMsg('')
 
     try {
-      await window.api.setStore('udemy_token', tokenInput)
+      await window.api.invoke('store-set', 'udemy_token', tokenInput)
       // Test the token by fetching courses
-      await window.api.fetchCourses()
+      await window.api.invoke('fetch-courses')
 
       setAuthStatus('success')
       setTimeout(() => {
@@ -49,14 +49,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }): React.JSX.E
         setAuthStatus('idle')
       }, 1000)
     } catch {
-      await window.api.deleteStore('udemy_token')
+      await window.api.invoke('store-delete', 'udemy_token')
       setAuthStatus('error')
       setAuthErrorMsg('Invalid or expired token. Please try again.')
     }
   }
 
   const handleLogout = async (): Promise<void> => {
-    await window.api.deleteStore('udemy_token')
+    await window.api.invoke('store-delete', 'udemy_token')
     setToken('')
     setIsLoggedIn(false)
   }

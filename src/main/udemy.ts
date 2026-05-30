@@ -1,32 +1,49 @@
 import { net } from 'electron'
+import { z } from 'zod'
 
-export interface UdemyCourse {
-  id: number
-  title: string
-  url: string
-  image_480x270: string
-}
+export const UdemyCourseSchema = z
+  .object({
+    id: z.number(),
+    title: z.string(),
+    url: z.string(),
+    image_480x270: z.string().optional().nullable()
+  })
+  .loose()
 
-interface UdemyApiResponse {
-  results: UdemyCourse[]
-}
+export type UdemyCourse = z.infer<typeof UdemyCourseSchema>
 
-export interface CurriculumItem {
-  _class: 'chapter' | 'lecture' | 'quiz' | 'practice'
-  id: number
-  title: string
-  object_index: number
-  sort_order: number
-  is_free?: boolean
-  asset?: {
-    asset_type: string
-    time_estimation?: number
-  }
-}
+const UdemyApiResponseSchema = z
+  .object({
+    results: z.array(UdemyCourseSchema)
+  })
+  .loose()
 
-interface CurriculumResponse {
-  results: CurriculumItem[]
-}
+export const CurriculumItemSchema = z
+  .object({
+    _class: z.string(),
+    id: z.number(),
+    title: z.string(),
+    object_index: z.number().optional().nullable(),
+    sort_order: z.number(),
+    is_free: z.boolean().optional().nullable(),
+    asset: z
+      .object({
+        asset_type: z.string().optional().nullable(),
+        time_estimation: z.number().optional().nullable()
+      })
+      .loose()
+      .optional()
+      .nullable()
+  })
+  .loose()
+
+export type CurriculumItem = z.infer<typeof CurriculumItemSchema>
+
+const CurriculumResponseSchema = z
+  .object({
+    results: z.array(CurriculumItemSchema)
+  })
+  .loose()
 
 const getHeaders = (token: string): Record<string, string> => ({
   Authorization: `Bearer ${token}`,
@@ -57,9 +74,14 @@ export async function fetchSubscribedCourses(token: string): Promise<UdemyCourse
       throw new Error(`Udemy returned status: ${response.status}`)
     }
 
-    const data = (await response.json()) as UdemyApiResponse
-
-    return data.results
+    const rawData = await response.json()
+    try {
+      const data = UdemyApiResponseSchema.parse(rawData)
+      return data.results
+    } catch (err) {
+      console.error('Zod Parsing Error (Courses):', err)
+      throw new Error('Udemy API structure changed. Failed to parse courses.')
+    }
   } catch (error: unknown) {
     console.error('Udemy API Error:', error)
     throw new Error('Failed to fetch courses. Your token might be expired or invalid.')
@@ -82,9 +104,14 @@ export async function fetchCourseCurriculum(
       throw new Error(`Udemy returned status: ${response.status}`)
     }
 
-    const data = (await response.json()) as CurriculumResponse
-
-    return data.results.sort((a, b) => b.sort_order - a.sort_order)
+    const rawData = await response.json()
+    try {
+      const data = CurriculumResponseSchema.parse(rawData)
+      return data.results.sort((a, b) => b.sort_order - a.sort_order)
+    } catch (err) {
+      console.error('Zod Parsing Error (Curriculum):', err)
+      throw new Error('Udemy API structure changed. Failed to parse curriculum.')
+    }
   } catch (error: unknown) {
     console.error('Curriculum Fetch Error:', error)
     throw new Error('Failed to fetch course curriculum.')

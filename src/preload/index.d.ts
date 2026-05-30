@@ -1,26 +1,15 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
+import { IpcChannels } from './ipc-types'
 
 export interface ApiBridge {
-  exportDebugLogs: () => Promise<boolean>
-  getStore: (key: string) => Promise<unknown>
-  setStore: (key: string, value: unknown) => Promise<void>
-  deleteStore: (key: string) => Promise<void>
-  fetchCourses: () => Promise<unknown>
-  fetchCurriculum: (courseId: number) => Promise<unknown>
-  selectFolder: () => Promise<string | null>
-  startDownload: (req: unknown) => Promise<string>
-  cancelDownload: (lectureId: number) => Promise<boolean>
-  pauseDownload: (lectureId: number) => Promise<boolean>
-  checkLocalDownloads: (courseTitle: string) => Promise<Record<number, string>>
-  deleteCourseFolder: (courseTitle: string) => Promise<boolean>
-  moveDownloadsFolder: (oldPath: string, newPath: string) => Promise<unknown>
-  getAllDownloads: () => Promise<unknown>
-  deleteLecture: (courseTitle: string, lectureId: number) => Promise<boolean>
-  deleteFileByPath: (filePath: string) => Promise<boolean>
+  invoke: <Channel extends keyof IpcChannels>(
+    channel: Channel,
+    ...args: IpcChannels[Channel]['args']
+  ) => Promise<IpcChannels[Channel]['returns']>
+
   onDownloadProgress: (
     callback: (data: { lectureId: number; percentage: number }) => void
   ) => () => void
-  loginUdemy: () => Promise<string | null>
 }
 
 declare global {

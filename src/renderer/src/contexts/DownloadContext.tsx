@@ -1,5 +1,5 @@
-import { Course, CurriculumItem, DownloadContextType } from '@renderer/types'
 import { createContext, ReactNode, useContext, useEffect, useRef, useState } from 'react'
+import { Course, CurriculumItem, DownloadContextType } from 'src/preload/ipc-types'
 
 const DownloadContext = createContext<DownloadContextType | undefined>(undefined)
 
@@ -35,7 +35,7 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
   }, [])
 
   const validateDownloadPath = async (): Promise<boolean> => {
-    const settings = (await window.api.getStore('app_settings')) as
+    const settings = (await window.api.invoke('store-get', 'app_settings')) as
       | { downloadPath?: string }
       | undefined
     if (!settings || !settings.downloadPath) {
@@ -72,14 +72,14 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
       lectureId: item.id,
       lectureTitle: item.title,
       lectureIndex: lectureIndex,
-      type: downloadType,
+      type: downloadType as 'Video' | 'Article' | 'Quiz' | 'File' | 'E-Book',
       timeEstimation: item.asset?.time_estimation
     }
 
     let isPaused = false
 
     try {
-      const result = await window.api.startDownload(request)
+      const result = await window.api.invoke('start-download', request)
 
       if (result === 'USER_PAUSED') throw new Error('USER_PAUSED')
       if (result === 'USER_CANCELED') throw new Error('USER_CANCELED')
@@ -95,7 +95,7 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
         isPaused = true
       } else if (errorMessage.includes('DRM protected')) {
         setDownloadProgress((prev) => ({ ...prev, [item.id]: 'drm' }))
-        window.api.setStore(`drm_${course.id}.${item.id}`, true)
+        window.api.invoke('store-set', `drm_${course.id}.${item.id}`, true)
       } else {
         console.error('Download Failed:', error)
         setDownloadProgress((prev) => ({ ...prev, [item.id]: 'error' }))
@@ -194,7 +194,7 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
     Object.entries(downloadProgress).forEach(([idStr, status]) => {
       if (status === 'downloading') {
         const id = parseInt(idStr)
-        window.api.pauseDownload(id)
+        window.api.invoke('pause-download', id)
       }
     })
   }
@@ -218,7 +218,7 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
     Object.entries(downloadProgress).forEach(([idStr, status]) => {
       if (status === 'downloading') {
         const id = parseInt(idStr)
-        window.api.cancelDownload(id)
+        window.api.invoke('cancel-download', id)
 
         // Clear it cleanly
         setDownloadProgress((prev) => {

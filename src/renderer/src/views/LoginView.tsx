@@ -15,7 +15,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ toggleTheme, isDarkMode })
       setAutoLoginError(null)
       setIsAutoLoggingIn(true)
 
-      const extractedToken = await window.api.loginUdemy()
+      const extractedToken = await window.api.invoke('login-udemy')
 
       if (extractedToken) {
         await handleLogin(extractedToken)

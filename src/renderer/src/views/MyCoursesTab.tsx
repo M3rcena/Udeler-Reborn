@@ -1,6 +1,6 @@
 import { useDownload } from '@renderer/contexts/DownloadContext'
-import { Course, CurriculumItem } from '@renderer/types'
 import { useCallback, useEffect, useState } from 'react'
+import { Course, CurriculumItem } from 'src/preload/ipc-types'
 
 export const MyCoursesTab: React.FC = () => {
   // --- GRAB THE BACKGROUND QUEUE ENGINE ---
@@ -35,7 +35,7 @@ export const MyCoursesTab: React.FC = () => {
   const loadCourses = useCallback(async (): Promise<void> => {
     setIsFetchingCourses(true)
     try {
-      const data = (await window.api.fetchCourses()) as Course[]
+      const data = await window.api.invoke('fetch-courses')
       setCourses(data)
     } catch (error) {
       console.error('Failed to fetch courses:', error)
@@ -61,9 +61,11 @@ export const MyCoursesTab: React.FC = () => {
 
     try {
       const [serverCurriculum, localDiskState, drmState] = await Promise.all([
-        window.api.fetchCurriculum(course.id) as Promise<CurriculumItem[]>,
-        window.api.checkLocalDownloads(course.title) as Promise<Record<number, string>>,
-        window.api.getStore(`drm_${course.id}`) as Promise<Record<string, boolean> | undefined>
+        window.api.invoke('fetch-curriculum', course.id),
+        window.api.invoke('check-local-downloads', course.title),
+        window.api.invoke('store-get', `drm_${course.id}`) as Promise<
+          Record<string, boolean> | undefined
+        >
       ])
 
       const mergedState = { ...localDiskState }
@@ -616,8 +618,13 @@ export const MyCoursesTab: React.FC = () => {
                                   status === 'error') && (
                                   <button
                                     onClick={async () => {
-                                      await window.api.deleteLecture(selectedCourse.title, item.id)
-                                      await window.api.deleteStore(
+                                      await window.api.invoke(
+                                        'delete-lecture',
+                                        selectedCourse.title,
+                                        item.id
+                                      )
+                                      await window.api.invoke(
+                                        'store-delete',
                                         `drm_${selectedCourse.id}.${item.id}`
                                       )
                                       setDownloadProgress((prev) => {
@@ -701,8 +708,8 @@ export const MyCoursesTab: React.FC = () => {
                         <button
                           onClick={async () => {
                             setIsDeleteModalOpen(false)
-                            await window.api.deleteCourseFolder(selectedCourse.title)
-                            await window.api.deleteStore(`drm_${selectedCourse.id}`)
+                            await window.api.invoke('delete-course-folder', selectedCourse.title)
+                            await window.api.invoke('store-delete', `drm_${selectedCourse.id}`)
                             setDownloadProgress((prev) => {
                               const newMap = { ...prev }
                               curriculum.forEach((item) => {

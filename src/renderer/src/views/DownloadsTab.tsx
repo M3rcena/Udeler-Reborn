@@ -1,6 +1,6 @@
 import { useDownload } from '@renderer/contexts/DownloadContext'
-import { DownloadedFile } from '@renderer/types'
 import { useEffect, useMemo, useState } from 'react'
+import { DownloadedFile } from 'src/preload/ipc-types'
 
 export const DownloadsTab: React.FC = () => {
   const {
@@ -78,7 +78,7 @@ export const DownloadsTab: React.FC = () => {
     const fetchFiles = async (): Promise<void> => {
       setIsScanning(true)
       try {
-        const files = await window.api.getAllDownloads()
+        const files = await window.api.invoke('get-all-downloads')
         setDownloadedFiles(files)
       } catch (err) {
         console.error('Failed to scan downloads', err)
@@ -333,7 +333,7 @@ export const DownloadsTab: React.FC = () => {
               <button
                 onClick={async () => {
                   setIsScanning(true)
-                  const files = await window.api.getAllDownloads()
+                  const files = await window.api.invoke('get-all-downloads')
                   setDownloadedFiles(files)
                   setIsScanning(false)
                 }}
@@ -554,7 +554,10 @@ export const DownloadsTab: React.FC = () => {
 
                         <button
                           onClick={async () => {
-                            const success = await window.api.deleteFileByPath(item.path)
+                            const success = await window.api.invoke(
+                              'delete-file-by-path',
+                              item.path
+                            )
                             if (success) {
                               const match = item.file.match(/\[ID_(\d+)\]/)
                               if (match) {
@@ -695,7 +698,7 @@ export const DownloadsTab: React.FC = () => {
                   setIsDeletingAll(true)
                   const uniqueCourses = Array.from(new Set(downloadedFiles.map((f) => f.course)))
                   for (const course of uniqueCourses) {
-                    await window.api.deleteCourseFolder(course)
+                    await window.api.invoke('delete-course-folder', course)
                   }
                   setDownloadedFiles([])
                   setDownloadProgress({})

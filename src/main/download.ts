@@ -3,6 +3,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import * as https from 'https'
 import type { ClientRequest } from 'http'
+import { z } from 'zod'
 
 const activeStreams = new Map<
   number,
@@ -13,6 +14,65 @@ const canceledDownloads = new Set<number>()
 const sanitizeName = (name: string): string => {
   return name.replace(/[<>:"/\\|?*]+/g, '-').trim()
 }
+
+const DownloadUrlSchema = z
+  .object({
+    file: z.string(),
+    label: z.string().optional().nullable()
+  })
+  .loose()
+
+const CaptionSchema = z
+  .object({
+    file: z.string().optional().nullable(),
+    url: z.string().optional().nullable(),
+    locale: z.string().optional().nullable(),
+    title: z.string().optional().nullable()
+  })
+  .loose()
+
+const UdemyAssetResponseSchema = z
+  .object({
+    asset: z
+      .object({
+        body: z.string().optional().nullable(),
+        filename: z.string().optional().nullable(),
+        external_url: z.string().optional().nullable(),
+        download_urls: z
+          .object({
+            Video: z.array(DownloadUrlSchema).optional().nullable(),
+            File: z.array(DownloadUrlSchema).optional().nullable(),
+            'E-Book': z.array(DownloadUrlSchema).optional().nullable()
+          })
+          .loose()
+          .optional()
+          .nullable(),
+        captions: z.array(CaptionSchema).optional().nullable()
+      })
+      .loose()
+      .optional()
+      .nullable(),
+    supplementary_assets: z
+      .array(
+        z
+          .object({
+            filename: z.string().optional().nullable(),
+            download_urls: z
+              .object({
+                File: z.array(DownloadUrlSchema).optional().nullable()
+              })
+              .loose()
+              .optional()
+              .nullable()
+          })
+          .loose()
+      )
+      .optional()
+      .nullable()
+  })
+  .loose()
+
+type UdemyAssetResponse = z.infer<typeof UdemyAssetResponseSchema>
 
 export interface DownloadRequest {
   token: string
@@ -29,24 +89,6 @@ export interface DownloadRequest {
   lectureIndex: number
   type: 'Video' | 'Article' | 'Quiz' | 'File' | 'E-Book'
   timeEstimation?: number
-}
-
-interface UdemyAssetResponse {
-  asset?: {
-    body?: string
-    filename?: string
-    external_url?: string
-    download_urls?: {
-      Video?: { file: string; label: string }[]
-      File?: { file: string }[]
-      'E-Book'?: { file: string }[]
-    }
-    captions?: { file?: string; url?: string; locale?: string; title?: string }[]
-  }
-  supplementary_assets?: {
-    filename: string
-    download_urls?: { File?: { file: string }[] }
-  }[]
 }
 
 function downloadExtraFile(url: string, destPath: string): Promise<void> {
@@ -136,7 +178,16 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
     throw new Error(`Failed to fetch lecture details: ${response.status}`)
   }
 
-  const data = (await response!.json()) as UdemyAssetResponse
+  const rawData = await response!.json()
+  let data: UdemyAssetResponse
+
+  try {
+    data = UdemyAssetResponseSchema.parse(rawData)
+  } catch (err) {
+    console.error('Zod Parsing Error (Download Asset):', err)
+    return 'USER_CANCELED'
+  }
+
   const asset = data.asset
 
   if (!asset) throw new Error('No asset found for this lecture')
@@ -209,7 +260,9 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
   if (asset.download_urls) {
     const videoUrls = asset.download_urls.Video
     if (videoUrls && videoUrls.length > 0) {
-      const sortedVideos = [...videoUrls].sort((a, b) => parseInt(b.label) - parseInt(a.label))
+      const sortedVideos = [...videoUrls].sort(
+        (a, b) => parseInt(b.label || '0') - parseInt(a.label || '0')
+      )
 
       if (req.videoQuality === 'Highest' || req.videoQuality === 'Auto') {
         downloadUrl = sortedVideos[0].file
