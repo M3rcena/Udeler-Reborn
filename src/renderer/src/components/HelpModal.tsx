@@ -1,5 +1,5 @@
-import { HelpModalProps } from '@renderer/types'
 import React from 'react'
+import { HelpModalProps } from 'src/preload/ipc-types'
 
 export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
   return (

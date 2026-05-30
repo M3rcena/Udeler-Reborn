@@ -8,6 +8,7 @@ import {
   cancelDownload,
   deleteLectureFile,
   DownloadRequest,
+  pauseDownload,
   processDownload,
   scanExistingDownloads
 } from './download'
@@ -42,6 +43,33 @@ interface AppSettings {
   skipSubtitles: boolean
   autoRetry: boolean
 }
+
+// --- GLOBAL ERROR LOGGER ---
+const debugLogs: string[] = []
+
+const originalConsoleError = console.error
+console.error = (...args) => {
+  const timestamp = new Date().toISOString()
+  // Safely stringify objects or strings
+  const message = args
+    .map((a) =>
+      typeof a === 'object' && a !== null
+        ? JSON.stringify(a, Object.getOwnPropertyNames(a))
+        : String(a)
+    )
+    .join(' ')
+
+  debugLogs.push(`[ERROR] [${timestamp}] ${message}`)
+  originalConsoleError(...args) // Still print to your local terminal
+}
+
+// Catch unexpected crashes that bypass try/catch blocks
+process.on('uncaughtException', (error) => {
+  console.error('UncaughtException:', error)
+})
+process.on('unhandledRejection', (reason) => {
+  console.error('UnhandledRejection:', reason)
+})
 
 const StoreClass = (Store as unknown as { default: new () => unknown }).default || Store
 
@@ -83,6 +111,24 @@ app.whenReady().then(() => {
 
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
+  })
+
+  ipcMain.handle('export-debug-logs', async (): Promise<boolean> => {
+    const { canceled, filePath } = await dialog.showSaveDialog({
+      title: 'Save Debug Logs',
+      defaultPath: 'udeler-debug-logs.txt',
+      filters: [{ name: 'Text Files', extensions: ['txt'] }]
+    })
+
+    if (!canceled && filePath) {
+      const header = `=== Udeler Reborn Diagnostic Logs ===\nGenerated: ${new Date().toISOString()}\n\n`
+      const logContent =
+        debugLogs.length > 0 ? debugLogs.join('\n') : 'No backend errors recorded in this session.'
+
+      fs.writeFileSync(filePath, header + logContent, 'utf-8')
+      return true
+    }
+    return false
   })
 
   ipcMain.handle('store-get', (_event, key: string): unknown => {
@@ -265,6 +311,8 @@ app.whenReady().then(() => {
     return cancelDownload(lectureId)
   })
 
+  ipcMain.handle('pause-download', (_, lectureId) => pauseDownload(lectureId))
+
   ipcMain.handle('moveDownloadsFolder', async (_, oldPath: string, newPath: string) => {
     try {
       if (await fs.pathExists(oldPath)) {
@@ -298,6 +346,51 @@ app.whenReady().then(() => {
       return true
     }
     return false
+  })
+
+  ipcMain.handle('login-udemy', async (): Promise<string | null> => {
+    return new Promise((resolve) => {
+      const loginWindow = new BrowserWindow({
+        width: 600,
+        height: 750,
+        title: 'Sign in to Udemy',
+        autoHideMenuBar: true,
+        alwaysOnTop: true,
+        webPreferences: {
+          nodeIntegration: false,
+          contextIsolation: true
+        }
+      })
+
+      loginWindow.loadURL('https://www.udemy.com/join/login-popup/')
+
+      const checkCookies = async (): Promise<void> => {
+        try {
+          const cookies = await loginWindow.webContents.session.cookies.get({
+            url: 'https://www.udemy.com',
+            name: 'access_token'
+          })
+
+          if (cookies && cookies.length > 0) {
+            const token = cookies[0].value
+
+            store.set('udemy_token', token)
+            clearInterval(cookieInterval)
+            loginWindow.close()
+            resolve(token)
+          }
+        } catch (error) {
+          console.error('Failed to read cookies:', error)
+        }
+      }
+
+      const cookieInterval = setInterval(checkCookies, 1500)
+
+      loginWindow.on('closed', () => {
+        clearInterval(cookieInterval)
+        resolve(null)
+      })
+    })
   })
 
   createWindow()

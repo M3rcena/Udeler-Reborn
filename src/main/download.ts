@@ -1,17 +1,78 @@
-import { net } from 'electron'
+import { net, BrowserWindow } from 'electron'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as https from 'https'
 import type { ClientRequest } from 'http'
+import { z } from 'zod'
 
 const activeStreams = new Map<
   number,
   { req: ClientRequest; file: fs.WriteStream; filePath: string }
 >()
+const canceledDownloads = new Set<number>()
 
 const sanitizeName = (name: string): string => {
   return name.replace(/[<>:"/\\|?*]+/g, '-').trim()
 }
+
+const DownloadUrlSchema = z
+  .object({
+    file: z.string(),
+    label: z.string().optional().nullable()
+  })
+  .loose()
+
+const CaptionSchema = z
+  .object({
+    file: z.string().optional().nullable(),
+    url: z.string().optional().nullable(),
+    locale: z.string().optional().nullable(),
+    title: z.string().optional().nullable()
+  })
+  .loose()
+
+const UdemyAssetResponseSchema = z
+  .object({
+    asset: z
+      .object({
+        body: z.string().optional().nullable(),
+        filename: z.string().optional().nullable(),
+        external_url: z.string().optional().nullable(),
+        download_urls: z
+          .object({
+            Video: z.array(DownloadUrlSchema).optional().nullable(),
+            File: z.array(DownloadUrlSchema).optional().nullable(),
+            'E-Book': z.array(DownloadUrlSchema).optional().nullable()
+          })
+          .loose()
+          .optional()
+          .nullable(),
+        captions: z.array(CaptionSchema).optional().nullable()
+      })
+      .loose()
+      .optional()
+      .nullable(),
+    supplementary_assets: z
+      .array(
+        z
+          .object({
+            filename: z.string().optional().nullable(),
+            download_urls: z
+              .object({
+                File: z.array(DownloadUrlSchema).optional().nullable()
+              })
+              .loose()
+              .optional()
+              .nullable()
+          })
+          .loose()
+      )
+      .optional()
+      .nullable()
+  })
+  .loose()
+
+type UdemyAssetResponse = z.infer<typeof UdemyAssetResponseSchema>
 
 export interface DownloadRequest {
   token: string
@@ -30,32 +91,16 @@ export interface DownloadRequest {
   timeEstimation?: number
 }
 
-interface UdemyAssetResponse {
-  asset?: {
-    body?: string
-    filename?: string
-    external_url?: string
-    download_urls?: {
-      Video?: { file: string; label: string }[]
-      File?: { file: string }[]
-      'E-Book'?: { file: string }[]
-    }
-    captions?: { file?: string; url?: string; locale?: string; title?: string }[]
-  }
-  supplementary_assets?: {
-    filename: string
-    download_urls?: { File?: { file: string }[] }
-  }[]
-}
-
 function downloadExtraFile(url: string, destPath: string): Promise<void> {
   return new Promise((resolve) => {
     const file = fs.createWriteStream(destPath)
+    const requestOptions = { agent: false }
+
     https
-      .get(url, (res) => {
+      .get(url, requestOptions, (res) => {
         if (res.statusCode === 301 || res.statusCode === 302) {
           https
-            .get(res.headers.location!, (redirectRes) => {
+            .get(res.headers.location!, requestOptions, (redirectRes) => {
               redirectRes.pipe(file)
               redirectRes.on('end', () => {
                 file.close()
@@ -82,6 +127,8 @@ function downloadExtraFile(url: string, destPath: string): Promise<void> {
 }
 
 export async function processDownload(req: DownloadRequest): Promise<string> {
+  canceledDownloads.delete(req.lectureId)
+
   const minutes = req.timeEstimation ? ` (${Math.ceil(req.timeEstimation / 60)}m)` : ''
   const cleanCourse = sanitizeName(req.courseTitle)
   const cleanChapter = sanitizeName(req.chapterTitle)
@@ -111,6 +158,8 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
   const maxAttempts = req.autoRetry ? 5 : 1
 
   while (attempt < maxAttempts) {
+    if (canceledDownloads.has(req.lectureId)) return 'USER_CANCELED'
+
     response = await net.fetch(apiUrl, {
       headers: { Authorization: `Bearer ${req.token}` }
     })
@@ -129,13 +178,24 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
     throw new Error(`Failed to fetch lecture details: ${response.status}`)
   }
 
-  const data = (await response!.json()) as UdemyAssetResponse
+  const rawData = await response!.json()
+  let data: UdemyAssetResponse
+
+  try {
+    data = UdemyAssetResponseSchema.parse(rawData)
+  } catch (err) {
+    console.error('Zod Parsing Error (Download Asset):', err)
+    return 'USER_CANCELED'
+  }
+
   const asset = data.asset
 
   if (!asset) throw new Error('No asset found for this lecture')
+  if (canceledDownloads.has(req.lectureId)) return 'USER_CANCELED'
 
   if (!req.skipSubtitles && asset.captions && asset.captions.length > 0) {
     for (const cap of asset.captions) {
+      if (canceledDownloads.has(req.lectureId)) return 'USER_CANCELED'
       try {
         const subtitleUrl = cap.url || cap.file
 
@@ -160,6 +220,7 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
 
   if (!req.skipAttachments && data.supplementary_assets && data.supplementary_assets.length > 0) {
     for (const supp of data.supplementary_assets) {
+      if (canceledDownloads.has(req.lectureId)) return 'USER_CANCELED'
       const fileUrl = supp.download_urls?.File?.[0]?.file
       if (fileUrl && supp.filename) {
         await downloadExtraFile(fileUrl, path.join(targetDir, supp.filename))
@@ -199,7 +260,9 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
   if (asset.download_urls) {
     const videoUrls = asset.download_urls.Video
     if (videoUrls && videoUrls.length > 0) {
-      const sortedVideos = [...videoUrls].sort((a, b) => parseInt(b.label) - parseInt(a.label))
+      const sortedVideos = [...videoUrls].sort(
+        (a, b) => parseInt(b.label || '0') - parseInt(a.label || '0')
+      )
 
       if (req.videoQuality === 'Highest' || req.videoQuality === 'Auto') {
         downloadUrl = sortedVideos[0].file
@@ -227,14 +290,70 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
   const filePath = path.join(targetDir, `${cleanLecture}${fileExtension}`)
 
   return new Promise((resolve, reject) => {
-    const file = fs.createWriteStream(filePath)
+    if (canceledDownloads.has(req.lectureId)) return resolve('USER_CANCELED')
+
+    let downloadedBytes = 0
+    let fileOptions: { flags: 'w' | 'a' } = { flags: 'w' }
+
+    if (fs.existsSync(filePath)) {
+      const stats = fs.statSync(filePath)
+      if (stats.size > 0) {
+        downloadedBytes = stats.size
+        fileOptions = { flags: 'a' }
+      }
+    }
+
+    const requestOptions = {
+      agent: false,
+      headers: downloadedBytes > 0 ? { Range: `bytes=${downloadedBytes}-` } : {}
+    }
+
+    const file = fs.createWriteStream(filePath, fileOptions)
 
     const requestStream = https
-      .get(downloadUrl, (res) => {
+      .get(downloadUrl, requestOptions, (res) => {
+        if (res.statusCode === 200 && downloadedBytes > 0) {
+          downloadedBytes = 0
+          fs.truncateSync(filePath, 0)
+        }
+
+        const totalBytes = parseInt(res.headers['content-length'] || '0', 10) + downloadedBytes
+
         if (res.statusCode === 301 || res.statusCode === 302) {
-          // Handle redirects if Udemy sends one
           const redirectStream = https
-            .get(res.headers.location!, (redirectRes) => {
+            .get(res.headers.location!, requestOptions, (redirectRes) => {
+              if (redirectRes.statusCode === 200 && downloadedBytes > 0) {
+                downloadedBytes = 0
+                fs.truncateSync(filePath, 0)
+              }
+
+              const redirectTotalBytes =
+                parseInt(redirectRes.headers['content-length'] || '0', 10) + downloadedBytes
+
+              redirectRes.on('data', (chunk) => {
+                downloadedBytes += chunk.length
+                const percentage = redirectTotalBytes
+                  ? Math.round((downloadedBytes / redirectTotalBytes) * 100)
+                  : 0
+                const mainWindow = BrowserWindow.getAllWindows()[0]
+                if (mainWindow)
+                  mainWindow.webContents.send('download-progress', {
+                    lectureId: req.lectureId,
+                    percentage
+                  })
+              })
+
+              redirectRes.on('error', (err) => {
+                file.close()
+                activeStreams.delete(req.lectureId)
+                if (err.message === 'USER_PAUSED') resolve('USER_PAUSED')
+                else if (err.message === 'USER_CANCELED') resolve('USER_CANCELED')
+                else {
+                  fs.unlink(filePath, () => {})
+                  reject(err)
+                }
+              })
+
               redirectRes.pipe(file)
               redirectRes.on('end', () => {
                 file.close()
@@ -245,11 +364,38 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
             .on('error', (err) => {
               file.close()
               activeStreams.delete(req.lectureId)
-              reject(err)
+              if (err.message === 'USER_PAUSED') resolve('USER_PAUSED')
+              else if (err.message === 'USER_CANCELED') resolve('USER_CANCELED')
+              else {
+                fs.unlink(filePath, () => {})
+                reject(err)
+              }
             })
 
           activeStreams.set(req.lectureId, { req: redirectStream, file, filePath })
         } else {
+          res.on('data', (chunk) => {
+            downloadedBytes += chunk.length
+            const percentage = totalBytes ? Math.round((downloadedBytes / totalBytes) * 100) : 0
+            const mainWindow = BrowserWindow.getAllWindows()[0]
+            if (mainWindow)
+              mainWindow.webContents.send('download-progress', {
+                lectureId: req.lectureId,
+                percentage
+              })
+          })
+
+          res.on('error', (err) => {
+            file.close()
+            activeStreams.delete(req.lectureId)
+            if (err.message === 'USER_PAUSED') resolve('USER_PAUSED')
+            else if (err.message === 'USER_CANCELED') resolve('USER_CANCELED')
+            else {
+              fs.unlink(filePath, () => {})
+              reject(err)
+            }
+          })
+
           res.pipe(file)
           res.on('end', () => {
             file.close()
@@ -261,8 +407,12 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
       .on('error', (err) => {
         file.close()
         activeStreams.delete(req.lectureId)
-        fs.unlink(filePath, () => {}) // Delete corrupted file
-        reject(err)
+        if (err.message === 'USER_PAUSED') resolve('USER_PAUSED')
+        else if (err.message === 'USER_CANCELED') resolve('USER_CANCELED')
+        else {
+          fs.unlink(filePath, () => {})
+          reject(err)
+        }
       })
 
     activeStreams.set(req.lectureId, { req: requestStream, file, filePath })
@@ -304,15 +454,28 @@ export function scanExistingDownloads(
 }
 
 export function cancelDownload(lectureId: number): boolean {
+  canceledDownloads.add(lectureId)
+
   const active = activeStreams.get(lectureId)
   if (active) {
-    active.req.destroy()
+    active.req.destroy(new Error('USER_CANCELED'))
     active.file.close()
 
     if (fs.existsSync(active.filePath)) {
       fs.unlinkSync(active.filePath)
     }
 
+    activeStreams.delete(lectureId)
+    return true
+  }
+  return false
+}
+
+export function pauseDownload(lectureId: number): boolean {
+  const active = activeStreams.get(lectureId)
+  if (active) {
+    active.req.destroy(new Error('USER_PAUSED'))
+    active.file.close()
     activeStreams.delete(lectureId)
     return true
   }

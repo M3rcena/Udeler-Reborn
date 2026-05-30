@@ -1,12 +1,13 @@
 import { useDownload } from '@renderer/contexts/DownloadContext'
-import { Course, CurriculumItem } from '@renderer/types'
 import { useCallback, useEffect, useState } from 'react'
+import { Course, CurriculumItem, WatchProgress } from 'src/preload/ipc-types'
 
 export const MyCoursesTab: React.FC = () => {
   // --- GRAB THE BACKGROUND QUEUE ENGINE ---
   const {
     downloadProgress,
     setDownloadProgress,
+    downloadPercentages = {},
     queueStatus,
     validateDownloadPath,
     handleDownloadItem,
@@ -24,6 +25,9 @@ export const MyCoursesTab: React.FC = () => {
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null)
   const [curriculum, setCurriculum] = useState<CurriculumItem[]>([])
   const [isFetchingCurriculum, setIsFetchingCurriculum] = useState<boolean>(false)
+  const [newLectures, setNewLectures] = useState<Set<number>>(new Set())
+
+  const [watchProgressMap, setWatchProgressMap] = useState<Record<number, WatchProgress>>({})
 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState<boolean>(false)
   const [hasLocalFiles, setHasLocalFiles] = useState<boolean>(true)
@@ -34,7 +38,7 @@ export const MyCoursesTab: React.FC = () => {
   const loadCourses = useCallback(async (): Promise<void> => {
     setIsFetchingCourses(true)
     try {
-      const data = (await window.api.fetchCourses()) as Course[]
+      const data = await window.api.invoke('fetch-courses')
       setCourses(data)
     } catch (error) {
       console.error('Failed to fetch courses:', error)
@@ -57,13 +61,65 @@ export const MyCoursesTab: React.FC = () => {
   const handleViewContent = async (course: Course): Promise<void> => {
     setSelectedCourse(course)
     setIsFetchingCurriculum(true)
+    setNewLectures(new Set())
 
     try {
-      const [serverCurriculum, localDiskState, drmState] = await Promise.all([
-        window.api.fetchCurriculum(course.id) as Promise<CurriculumItem[]>,
-        window.api.checkLocalDownloads(course.title) as Promise<Record<number, string>>,
-        window.api.getStore(`drm_${course.id}`) as Promise<Record<string, boolean> | undefined>
-      ])
+      const [serverCurriculum, localDiskState, drmState, knownLectures, progressData] =
+        await Promise.all([
+          window.api.invoke('fetch-curriculum', course.id),
+          window.api.invoke('check-local-downloads', course.title),
+          window.api.invoke('store-get', `drm_${course.id}`) as Promise<
+            Record<string, boolean> | undefined
+          >,
+          window.api.invoke('store-get', `known_lectures_${course.id}`) as Promise<
+            number[] | undefined
+          >,
+          window.api.invoke('store-get', 'watch_progress') as Promise<
+            Record<number, WatchProgress> | undefined
+          >
+        ])
+
+      const currentIds = serverCurriculum.map((item) => item.id)
+      const detectedNew = new Set<number>()
+
+      if (knownLectures && knownLectures.length > 0) {
+        const knownSet = new Set(knownLectures)
+        currentIds.forEach((id) => {
+          if (!knownSet.has(id)) {
+            detectedNew.add(id)
+          }
+        })
+      }
+
+      if (!knownLectures || detectedNew.size > 0) {
+        await window.api.invoke('store-set', `known_lectures_${course.id}`, currentIds)
+      }
+
+      setNewLectures(detectedNew)
+
+      const serverIds = new Set(currentIds)
+      const orphanedLectures: CurriculumItem[] = []
+
+      Object.keys(localDiskState).forEach((idStr) => {
+        const id = parseInt(idStr)
+        if (!serverIds.has(id) && localDiskState[id] === 'success') {
+          orphanedLectures.push({
+            _class: 'lecture',
+            id: id,
+            title: `Archived Video [ID: ${id}]`,
+            asset: { asset_type: 'Video' }
+          })
+        }
+      })
+
+      if (orphanedLectures.length > 0) {
+        serverCurriculum.push({
+          _class: 'chapter',
+          id: -999,
+          title: '📦 Archived (Removed by Instructor)'
+        })
+        serverCurriculum.push(...orphanedLectures)
+      }
 
       const mergedState = { ...localDiskState }
       if (drmState) {
@@ -72,6 +128,7 @@ export const MyCoursesTab: React.FC = () => {
         })
       }
 
+      setWatchProgressMap(progressData || {})
       setCurriculum(serverCurriculum)
       setDownloadProgress((prev) => {
         const newState = { ...prev }
@@ -451,6 +508,7 @@ export const MyCoursesTab: React.FC = () => {
                       const currentLectureIndex = lectureCounter++
                       const status = downloadProgress[item.id]
                       const chapterForThisItem = activeChapterName
+                      const percent = downloadPercentages[item.id] || 0
 
                       return (
                         <div
@@ -509,14 +567,38 @@ export const MyCoursesTab: React.FC = () => {
                                 </svg>
                               )}
                             </div>
-                            <div>
-                              <p className="text-gray-800 dark:text-gray-200 font-medium">
-                                {item.title}
-                              </p>
-                              {item.asset?.time_estimation && (
-                                <p className="text-xs text-gray-500 mt-1">
-                                  {Math.ceil(item.asset.time_estimation / 60)} mins
+                            <div className="flex-1 w-full">
+                              {/* Title & Duration Row */}
+                              <div className="flex justify-between items-start gap-4 mb-2">
+                                <p className="text-gray-800 dark:text-gray-200 font-medium flex items-center gap-2 leading-tight">
+                                  {item.title}
+                                  {newLectures.has(item.id) && (
+                                    <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white bg-gradient-to-r from-pink-500 to-purple-500 rounded-full shadow-[0_0_10px_rgba(236,72,153,0.4)] animate-pulse flex-shrink-0">
+                                      New
+                                    </span>
+                                  )}
                                 </p>
+                                {item.asset?.time_estimation && (
+                                  <span className="text-xs text-gray-500 bg-gray-100 dark:bg-white/5 px-2 py-1 rounded-md font-semibold flex-shrink-0">
+                                    {Math.ceil(item.asset.time_estimation / 60)}m
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Clean Progress Bar Row */}
+                              {watchProgressMap[item.id] && (
+                                <div className="w-full h-1.5 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden mt-1">
+                                  <div
+                                    className={`h-full transition-all duration-500 ${
+                                      watchProgressMap[item.id].isCompleted
+                                        ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]'
+                                        : 'bg-blue-500'
+                                    }`}
+                                    style={{
+                                      width: `${Math.min(100, Math.max(0, (watchProgressMap[item.id].currentTime / watchProgressMap[item.id].duration) * 100))}%`
+                                    }}
+                                  />
+                                </div>
                               )}
                             </div>
                           </div>
@@ -583,7 +665,7 @@ export const MyCoursesTab: React.FC = () => {
                                           d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
                                         ></path>
                                       </svg>{' '}
-                                      Fetching...
+                                      {percent}%
                                     </>
                                   )}
                                   {status === 'success' && '✓ Saved'}
@@ -614,8 +696,13 @@ export const MyCoursesTab: React.FC = () => {
                                   status === 'error') && (
                                   <button
                                     onClick={async () => {
-                                      await window.api.deleteLecture(selectedCourse.title, item.id)
-                                      await window.api.deleteStore(
+                                      await window.api.invoke(
+                                        'delete-lecture',
+                                        selectedCourse.title,
+                                        item.id
+                                      )
+                                      await window.api.invoke(
+                                        'store-delete',
                                         `drm_${selectedCourse.id}.${item.id}`
                                       )
                                       setDownloadProgress((prev) => {
@@ -699,8 +786,8 @@ export const MyCoursesTab: React.FC = () => {
                         <button
                           onClick={async () => {
                             setIsDeleteModalOpen(false)
-                            await window.api.deleteCourseFolder(selectedCourse.title)
-                            await window.api.deleteStore(`drm_${selectedCourse.id}`)
+                            await window.api.invoke('delete-course-folder', selectedCourse.title)
+                            await window.api.invoke('store-delete', `drm_${selectedCourse.id}`)
                             setDownloadProgress((prev) => {
                               const newMap = { ...prev }
                               curriculum.forEach((item) => {

@@ -30,7 +30,7 @@ export const SettingsTab: React.FC = () => {
   // --- INITIALIZATION ---
   useEffect(() => {
     const loadSettings = async (): Promise<void> => {
-      const savedSettings = (await window.api.getStore('app_settings')) as
+      const savedSettings = (await window.api.invoke('store-get', 'app_settings')) as
         | typeof appSettings
         | undefined
       if (savedSettings) {
@@ -41,8 +41,20 @@ export const SettingsTab: React.FC = () => {
   }, [])
 
   // --- HANDLERS ---
+  const handleExportLogs = async (): Promise<void> => {
+    try {
+      const success = await window.api.invoke('export-debug-logs')
+      if (success) {
+        alert('Debug logs saved successfully! Please send this file to the developer.')
+      }
+    } catch (error) {
+      console.error('Failed to export logs:', error)
+      alert('Failed to save logs.')
+    }
+  }
+
   const handleSelectFolder = async (): Promise<void> => {
-    const newPath = await window.api.selectFolder()
+    const newPath = await window.api.invoke('select-folder')
     if (!newPath) return
 
     const currentPath = appSettings.downloadPath
@@ -59,7 +71,7 @@ export const SettingsTab: React.FC = () => {
     if (shouldMove) {
       setIsMovingFiles(true)
       try {
-        await window.api.moveDownloadsFolder(appSettings.downloadPath, pendingPath)
+        await window.api.invoke('moveDownloadsFolder', appSettings.downloadPath, pendingPath)
       } catch (error) {
         console.error('Failed to move files:', error)
         setMoveError(
@@ -80,13 +92,13 @@ export const SettingsTab: React.FC = () => {
     setIsMoveModalOpen(false)
     setPendingPath('')
 
-    await window.api.setStore('app_settings', updatedSettings)
+    await window.api.invoke('store-set', 'app_settings', updatedSettings)
   }
 
   const handleSaveSettings = async (): Promise<void> => {
     setIsSavingSettings(true)
     try {
-      await window.api.setStore('app_settings', appSettings)
+      await window.api.invoke('store-set', 'app_settings', appSettings)
       setTimeout(() => setIsSavingSettings(false), 1000)
     } catch (error) {
       console.error('Failed to save settings', error)
@@ -283,6 +295,46 @@ export const SettingsTab: React.FC = () => {
         >
           {isSavingSettings ? 'Settings Saved Successfully!' : 'Save All Settings'}
         </button>
+
+        {/* Troubleshooting Section */}
+        <div className="mb-8 bg-white dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-2xl p-6 shadow-sm">
+          <div className="flex items-start gap-4">
+            <div className="p-3 bg-blue-50 dark:bg-blue-500/10 rounded-xl text-blue-600 dark:text-blue-400">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
+                ></path>
+              </svg>
+            </div>
+            <div className="flex-1">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                Troubleshooting & Diagnostics
+              </h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 mb-4">
+                If you are experiencing issues with missing courses, failed downloads, or unexpected
+                crashes, generate a diagnostic log file to help identify the problem.
+              </p>
+
+              <button
+                onClick={handleExportLogs}
+                className="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 dark:bg-white/10 dark:hover:bg-white/20 text-gray-900 dark:text-white font-semibold rounded-xl transition-all cursor-pointer flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+                  ></path>
+                </svg>
+                Export Debug Logs
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* --- FOLDER MIGRATION MODAL --- */}

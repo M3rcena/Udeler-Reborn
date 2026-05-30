@@ -8,37 +8,7 @@ import { AboutTab } from './views/AboutTab'
 import { UpdateToast } from './components/UpdateToast'
 import { MyCoursesTab } from './views/MyCoursesTab'
 import { DownloadsTab } from './views/DownloadsTab'
-
-declare global {
-  interface Window {
-    api: {
-      getStore: (key: string) => Promise<unknown>
-      setStore: (key: string, value: unknown) => Promise<void>
-      deleteStore: (key: string) => Promise<void>
-      fetchCourses: () => Promise<unknown>
-      fetchCurriculum: (courseId: number) => Promise<unknown>
-      selectFolder: () => Promise<string | null>
-      startDownload: (req: unknown) => Promise<string>
-      cancelDownload: (lectureId: number) => Promise<boolean>
-      checkLocalDownloads: (courseTitle: string) => Promise<Record<number, string>>
-      deleteCourseFolder: (courseTitle: string) => Promise<boolean>
-      moveDownloadsFolder: (oldPath: string, newPath: string) => Promise<boolean>
-      getAllDownloads: () => Promise<
-        {
-          course: string
-          chapter: string
-          file: string
-          path: string
-          size: number
-          type: 'Video' | 'Article' | 'File'
-          subtitles?: { label: string; srcLang: string; path: string }[]
-        }[]
-      >
-      deleteLecture: (courseTitle: string, lectureId: number) => Promise<boolean>
-      deleteFileByPath: (filePath: string) => Promise<boolean>
-    }
-  }
-}
+import { GlobalDownloadWidget } from './components/GlobalDownloadWidget'
 
 function App(): React.JSX.Element {
   const { isLoggedIn, isAuthLoading, handleLogout } = useAuth()
@@ -53,7 +23,7 @@ function App(): React.JSX.Element {
   useEffect((): void => {
     const initializeApp = async (): Promise<void> => {
       // Load Theme
-      const savedTheme = await window.api.getStore('theme')
+      const savedTheme = await window.api.invoke('store-get', 'theme')
       if (savedTheme === 'light') {
         setIsDarkMode(false)
         document.documentElement.classList.remove('dark')
@@ -71,10 +41,10 @@ function App(): React.JSX.Element {
     setIsDarkMode(newTheme)
     if (newTheme) {
       document.documentElement.classList.add('dark')
-      await window.api.setStore('theme', 'dark')
+      await window.api.invoke('store-set', 'theme', 'dark')
     } else {
       document.documentElement.classList.remove('dark')
-      await window.api.setStore('theme', 'light')
+      await window.api.invoke('store-set', 'theme', 'light')
     }
   }
 
@@ -131,6 +101,9 @@ function App(): React.JSX.Element {
 
       {/* --- GLOBAL NOTIFICATIONS --- */}
       <UpdateToast />
+
+      {/* --- GLOBAL DOWNLOADS MANAGER WIDGET */}
+      <GlobalDownloadWidget />
     </div>
   )
 }
