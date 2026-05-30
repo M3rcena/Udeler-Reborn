@@ -45,7 +45,8 @@ const api = {
     return (): void => {
       ipcRenderer.removeListener('download-progress', listener)
     }
-  }
+  },
+  loginUdemy: (): Promise<string | null> => ipcRenderer.invoke('login-udemy')
 }
 
 if (process.contextIsolated) {

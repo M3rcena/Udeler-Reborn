@@ -20,6 +20,7 @@ export interface ApiBridge {
   onDownloadProgress: (
     callback: (data: { lectureId: number; percentage: number }) => void
   ) => () => void
+  loginUdemy: () => Promise<string | null>
 }
 
 declare global {

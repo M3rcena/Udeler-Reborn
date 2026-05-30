@@ -7,6 +7,29 @@ export const LoginView: React.FC<LoginViewProps> = ({ toggleTheme, isDarkMode })
   const { token, setToken, authStatus, authErrorMsg, handleLogin } = useAuth()
   const [showHelpModal, setShowHelpModal] = useState<boolean>(false)
 
+  const [isAutoLoggingIn, setIsAutoLoggingIn] = useState<boolean>(false)
+  const [autoLoginError, setAutoLoginError] = useState<string | null>(null)
+
+  const handleAutoLogin = async (): Promise<void> => {
+    try {
+      setAutoLoginError(null)
+      setIsAutoLoggingIn(true)
+
+      const extractedToken = await window.api.loginUdemy()
+
+      if (extractedToken) {
+        await handleLogin(extractedToken)
+      } else {
+        setAutoLoginError('Login window was closed before authentication completed.')
+      }
+    } catch (error) {
+      console.error('Auto-login failed:', error)
+      setAutoLoginError('An unexpected error occurred. Please try the manual token method.')
+    } finally {
+      setIsAutoLoggingIn(false)
+    }
+  }
+
   return (
     <div className="relative flex flex-col items-center justify-center min-h-screen p-8 bg-slate-50 dark:bg-[#09090e] overflow-hidden transition-colors duration-500">
       {/* Background Ambient glows */}
@@ -21,7 +44,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ toggleTheme, isDarkMode })
       </button>
 
       <div className="relative bg-white/60 dark:bg-white/5 backdrop-blur-2xl border border-white/40 dark:border-white/10 rounded-[2rem] p-10 shadow-2xl w-full max-w-md transition-all duration-500 z-10">
-        <div className="mb-10 text-center">
+        <div className="mb-8 text-center">
           <h1 className="text-4xl font-extrabold mb-2 tracking-tight text-gray-900 dark:text-white transition-colors duration-300">
             Udeler{' '}
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-purple-600 dark:from-blue-400 dark:to-purple-500">
@@ -33,7 +56,68 @@ export const LoginView: React.FC<LoginViewProps> = ({ toggleTheme, isDarkMode })
           </p>
         </div>
 
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-5">
+          {/* --- PRIMARY ACTION: AUTO LOGIN --- */}
+          <div className="flex flex-col gap-2">
+            <button
+              onClick={handleAutoLogin}
+              disabled={isAutoLoggingIn || authStatus === 'validating' || authStatus === 'success'}
+              className={`w-full flex items-center justify-center gap-3 text-white font-bold py-4 px-6 rounded-2xl transition-all shadow-lg hover:shadow-purple-500/30 disabled:opacity-70 cursor-pointer 
+                ${authStatus === 'success' ? 'bg-green-500' : 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500'}`}
+            >
+              {isAutoLoggingIn ? (
+                <div className="flex items-center gap-2">
+                  <svg className="w-5 h-5 animate-spin text-white" fill="none" viewBox="0 0 24 24">
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
+                  </svg>
+                  Waiting for login...
+                </div>
+              ) : authStatus === 'success' ? (
+                'Authenticated!'
+              ) : (
+                <>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"
+                    ></path>
+                  </svg>
+                  Sign in securely via Udemy
+                </>
+              )}
+            </button>
+
+            {autoLoginError && (
+              <p className="text-red-500 text-sm font-medium text-center animate-in slide-in-from-top-1">
+                {autoLoginError}
+              </p>
+            )}
+          </div>
+
+          {/* --- DIVIDER --- */}
+          <div className="flex items-center my-1">
+            <div className="flex-1 border-t border-gray-200 dark:border-white/10"></div>
+            <span className="px-4 text-xs text-gray-400 font-bold uppercase tracking-wider">
+              Or manual token
+            </span>
+            <div className="flex-1 border-t border-gray-200 dark:border-white/10"></div>
+          </div>
+
+          {/* --- SECONDARY ACTION: MANUAL LOGIN --- */}
           <div className="relative group flex flex-col gap-2">
             <label
               className={`block text-sm font-semibold mb-1 ml-1 transition-colors ${authStatus === 'error' ? 'text-red-500' : authStatus === 'success' ? 'text-green-500' : 'text-gray-700 dark:text-gray-300'}`}
@@ -44,7 +128,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ toggleTheme, isDarkMode })
             <input
               type="password"
               placeholder="Paste your token here..."
-              disabled={authStatus === 'validating' || authStatus === 'success'}
+              disabled={isAutoLoggingIn || authStatus === 'validating' || authStatus === 'success'}
               className={`w-full bg-white/50 dark:bg-black/20 border rounded-2xl px-5 py-4 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none transition-all shadow-inner
                 ${authStatus === 'error' ? 'border-red-500/50 focus:border-red-500' : authStatus === 'success' ? 'border-green-500' : 'border-gray-200 dark:border-white/10 focus:border-blue-500/50'}`}
               value={token}
@@ -57,7 +141,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ toggleTheme, isDarkMode })
               </p>
             )}
 
-            <div className="flex justify-between items-center mt-1 ml-1">
+            <div className="flex justify-between items-center mt-1 ml-1 mb-2">
               <p
                 onClick={() => setShowHelpModal(true)}
                 className="text-xs text-gray-500 transition-colors hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer flex items-center gap-1 font-medium"
@@ -73,19 +157,20 @@ export const LoginView: React.FC<LoginViewProps> = ({ toggleTheme, isDarkMode })
                 How to find your token
               </p>
             </div>
-          </div>
 
-          <button
-            onClick={() => handleLogin(token)}
-            disabled={authStatus === 'validating' || authStatus === 'success'}
-            className={`w-full text-white font-bold py-4 px-6 rounded-2xl transition-all disabled:opacity-70 ${authStatus === 'success' ? 'bg-green-500' : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500'}`}
-          >
-            {authStatus === 'validating'
-              ? 'Connecting to Udemy...'
-              : authStatus === 'success'
-                ? 'Authenticated!'
-                : 'Authenticate Server'}
-          </button>
+            <button
+              onClick={() => handleLogin(token)}
+              disabled={isAutoLoggingIn || authStatus === 'validating' || authStatus === 'success'}
+              className={`w-full text-white font-bold py-4 px-6 rounded-2xl transition-all disabled:opacity-70 cursor-pointer 
+                ${authStatus === 'success' ? 'bg-green-500' : 'bg-gray-800 hover:bg-gray-700 dark:bg-white/10 dark:hover:bg-white/20'}`}
+            >
+              {authStatus === 'validating'
+                ? 'Connecting to Udemy...'
+                : authStatus === 'success'
+                  ? 'Authenticated!'
+                  : 'Manual Login'}
+            </button>
+          </div>
         </div>
       </div>
 

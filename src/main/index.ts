@@ -348,6 +348,51 @@ app.whenReady().then(() => {
     return false
   })
 
+  ipcMain.handle('login-udemy', async (): Promise<string | null> => {
+    return new Promise((resolve) => {
+      const loginWindow = new BrowserWindow({
+        width: 600,
+        height: 750,
+        title: 'Sign in to Udemy',
+        autoHideMenuBar: true,
+        alwaysOnTop: true,
+        webPreferences: {
+          nodeIntegration: false,
+          contextIsolation: true
+        }
+      })
+
+      loginWindow.loadURL('https://www.udemy.com/join/login-popup/')
+
+      const checkCookies = async (): Promise<void> => {
+        try {
+          const cookies = await loginWindow.webContents.session.cookies.get({
+            url: 'https://www.udemy.com',
+            name: 'access_token'
+          })
+
+          if (cookies && cookies.length > 0) {
+            const token = cookies[0].value
+
+            store.set('udemy_token', token)
+            clearInterval(cookieInterval)
+            loginWindow.close()
+            resolve(token)
+          }
+        } catch (error) {
+          console.error('Failed to read cookies:', error)
+        }
+      }
+
+      const cookieInterval = setInterval(checkCookies, 1500)
+
+      loginWindow.on('closed', () => {
+        clearInterval(cookieInterval)
+        resolve(null)
+      })
+    })
+  })
+
   createWindow()
 
   app.on('activate', function () {

@@ -42,6 +42,7 @@ declare global {
       onDownloadProgress: (
         callback: (data: { lectureId: number; percentage: number }) => void
       ) => () => void
+      loginUdemy: () => Promise<string | null>
     }
   }
 }
