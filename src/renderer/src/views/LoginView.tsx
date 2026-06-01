@@ -10,12 +10,17 @@ export const LoginView: React.FC<LoginViewProps> = ({ toggleTheme, isDarkMode })
   const [isAutoLoggingIn, setIsAutoLoggingIn] = useState<boolean>(false)
   const [autoLoginError, setAutoLoginError] = useState<string | null>(null)
 
+  const [isBusiness, setIsBusiness] = useState<boolean>(false)
+  const [subdomain, setSubdomain] = useState<string>('')
+
   const handleAutoLogin = async (): Promise<void> => {
     try {
       setAutoLoginError(null)
       setIsAutoLoggingIn(true)
 
-      const extractedToken = await window.api.invoke('login-udemy')
+      const cleanedDomain = isBusiness && subdomain.trim() !== '' ? subdomain.trim() : undefined
+
+      const extractedToken = await window.api.invoke('login-udemy', cleanedDomain)
 
       if (extractedToken) {
         await handleLogin(extractedToken)
@@ -58,11 +63,56 @@ export const LoginView: React.FC<LoginViewProps> = ({ toggleTheme, isDarkMode })
 
         <div className="flex flex-col gap-5">
           {/* --- PRIMARY ACTION: AUTO LOGIN --- */}
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-4">
+            <div
+              onClick={() => setIsBusiness(!isBusiness)}
+              className="flex items-center gap-3 cursor-pointer group select-none px-1"
+            >
+              <div
+                className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors duration-300 ${isBusiness ? 'bg-purple-600' : 'bg-gray-200 dark:bg-white/10'}`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-md transition-transform duration-300 ${isBusiness ? 'translate-x-6' : 'translate-x-1'}`}
+                />
+              </div>
+              <span className="text-sm font-semibold text-gray-600 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white transition-colors">
+                Udemy Business Account
+              </span>
+            </div>
+
+            {isBusiness && (
+              <div className="animate-in fade-in slide-in-from-top-2 duration-300 px-1">
+                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">
+                  Organization Subdomain
+                </label>
+                <div className="flex items-center shadow-inner rounded-xl overflow-hidden border border-gray-200 dark:border-white/10 focus-within:ring-2 focus-within:ring-purple-500/50 transition-all">
+                  <span className="px-3 py-3 bg-gray-100/80 dark:bg-white/5 border-r border-gray-200 dark:border-white/10 text-gray-400 text-sm font-semibold select-none">
+                    https://
+                  </span>
+                  <input
+                    type="text"
+                    value={subdomain}
+                    onChange={(e) => setSubdomain(e.target.value)}
+                    placeholder="your-company"
+                    disabled={isAutoLoggingIn}
+                    className="flex-1 min-w-0 px-3 py-3 focus:outline-none bg-white dark:bg-transparent dark:text-white text-sm font-medium placeholder-gray-400"
+                  />
+                  <span className="px-3 py-3 bg-gray-100/80 dark:bg-white/5 border-l border-gray-200 dark:border-white/10 text-gray-400 text-sm font-semibold select-none">
+                    .udemy.com
+                  </span>
+                </div>
+              </div>
+            )}
+
             <button
               onClick={handleAutoLogin}
-              disabled={isAutoLoggingIn || authStatus === 'validating' || authStatus === 'success'}
-              className={`w-full flex items-center justify-center gap-3 text-white font-bold py-4 px-6 rounded-2xl transition-all shadow-lg hover:shadow-purple-500/30 disabled:opacity-70 cursor-pointer 
+              disabled={
+                isAutoLoggingIn ||
+                authStatus === 'validating' ||
+                authStatus === 'success' ||
+                (isBusiness && !subdomain.trim())
+              }
+              className={`w-full flex items-center justify-center gap-3 text-white font-bold py-4 px-6 rounded-2xl transition-all shadow-lg hover:shadow-purple-500/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer 
                 ${authStatus === 'success' ? 'bg-green-500' : 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500'}`}
             >
               {isAutoLoggingIn ? (
@@ -96,7 +146,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ toggleTheme, isDarkMode })
                       d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"
                     ></path>
                   </svg>
-                  Sign in securely via Udemy
+                  {isBusiness ? 'Sign in via Udemy Business' : 'Sign in securely via Udemy'}
                 </>
               )}
             </button>

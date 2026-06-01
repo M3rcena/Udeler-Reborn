@@ -348,12 +348,16 @@ app.whenReady().then(() => {
     return false
   })
 
-  ipcMain.handle('login-udemy', async (): Promise<string | null> => {
+  ipcMain.handle('login-udemy', async (_event, subdomain?: string): Promise<string | null> => {
     return new Promise((resolve) => {
+      const targetUrl = subdomain
+        ? `https://${subdomain}.udemy.com`
+        : 'https://www.udemy.com/join/login-popup/'
+
       const loginWindow = new BrowserWindow({
         width: 600,
         height: 750,
-        title: 'Sign in to Udemy',
+        title: subdomain ? `Sign in to Udemy Business (${subdomain})` : 'Sign in to Udemy',
         autoHideMenuBar: true,
         alwaysOnTop: true,
         webPreferences: {
@@ -362,14 +366,21 @@ app.whenReady().then(() => {
         }
       })
 
-      loginWindow.loadURL('https://www.udemy.com/join/login-popup/')
+      loginWindow.loadURL(targetUrl)
 
       const checkCookies = async (): Promise<void> => {
         try {
-          const cookies = await loginWindow.webContents.session.cookies.get({
-            url: 'https://www.udemy.com',
+          let cookies = await loginWindow.webContents.session.cookies.get({
+            url: targetUrl,
             name: 'access_token'
           })
+
+          if (!cookies || cookies.length === 0) {
+            cookies = await loginWindow.webContents.session.cookies.get({
+              domain: '.udemy.com',
+              name: 'access_token'
+            })
+          }
 
           if (cookies && cookies.length > 0) {
             const token = cookies[0].value
