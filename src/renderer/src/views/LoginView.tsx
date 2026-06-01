@@ -61,12 +61,12 @@ export const LoginView: React.FC<LoginViewProps> = ({ toggleTheme, isDarkMode })
           </p>
         </div>
 
-        <div className="flex flex-col gap-5">
-          {/* --- PRIMARY ACTION: AUTO LOGIN --- */}
-          <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-6">
+          {/* --- GLOBAL ACCOUNT SETTINGS: UDEMY BUSINESS --- */}
+          <div className="flex flex-col gap-4 bg-gray-50/50 dark:bg-black/10 p-4 rounded-2xl border border-gray-100 dark:border-white/5">
             <div
               onClick={() => setIsBusiness(!isBusiness)}
-              className="flex items-center gap-3 cursor-pointer group select-none px-1"
+              className="flex items-center gap-3 cursor-pointer group select-none"
             >
               <div
                 className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors duration-300 ${isBusiness ? 'bg-purple-600' : 'bg-gray-200 dark:bg-white/10'}`}
@@ -81,7 +81,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ toggleTheme, isDarkMode })
             </div>
 
             {isBusiness && (
-              <div className="animate-in fade-in slide-in-from-top-2 duration-300 px-1">
+              <div className="animate-in fade-in slide-in-from-top-2 duration-300">
                 <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">
                   Organization Subdomain
                 </label>
@@ -103,7 +103,10 @@ export const LoginView: React.FC<LoginViewProps> = ({ toggleTheme, isDarkMode })
                 </div>
               </div>
             )}
+          </div>
 
+          {/* --- PRIMARY ACTION: AUTO LOGIN --- */}
+          <div className="flex flex-col gap-2">
             <button
               onClick={handleAutoLogin}
               disabled={
@@ -209,9 +212,22 @@ export const LoginView: React.FC<LoginViewProps> = ({ toggleTheme, isDarkMode })
             </div>
 
             <button
-              onClick={() => handleLogin(token)}
-              disabled={isAutoLoggingIn || authStatus === 'validating' || authStatus === 'success'}
-              className={`w-full text-white font-bold py-4 px-6 rounded-2xl transition-all disabled:opacity-70 cursor-pointer 
+              onClick={async () => {
+                if (isBusiness && subdomain.trim() !== '') {
+                  await window.api.invoke('store-set', 'udemy_subdomain', subdomain.trim())
+                } else {
+                  await window.api.invoke('store-delete', 'udemy_subdomain')
+                }
+
+                await handleLogin(token)
+              }}
+              disabled={
+                isAutoLoggingIn ||
+                authStatus === 'validating' ||
+                authStatus === 'success' ||
+                (isBusiness && !subdomain.trim())
+              }
+              className={`w-full text-white font-bold py-4 px-6 rounded-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer 
                 ${authStatus === 'success' ? 'bg-green-500' : 'bg-gray-800 hover:bg-gray-700 dark:bg-white/10 dark:hover:bg-white/20'}`}
             >
               {authStatus === 'validating'

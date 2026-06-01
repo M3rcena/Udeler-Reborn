@@ -145,20 +145,23 @@ app.whenReady().then(() => {
 
   ipcMain.handle('fetch-courses', async (): Promise<unknown> => {
     const token = store.get('udemy_token') as string | undefined
+    const subdomain = store.get('udemy_subdomain') as string | undefined
 
     if (!token) {
       throw new Error('No token found')
     }
 
-    const courses = await fetchSubscribedCourses(token)
+    const courses = await fetchSubscribedCourses(token, subdomain)
     return courses
   })
 
   ipcMain.handle('fetch-curriculum', async (_event, courseId: number): Promise<unknown> => {
     const token = store.get('udemy_token') as string | undefined
+    const subdomain = store.get('udemy_subdomain') as string | undefined
+
     if (!token) throw new Error('No token found')
 
-    return await fetchCourseCurriculum(token, courseId)
+    return await fetchCourseCurriculum(token, courseId, subdomain)
   })
 
   ipcMain.handle('select-folder', async (): Promise<string | null> => {
@@ -386,6 +389,12 @@ app.whenReady().then(() => {
             const token = cookies[0].value
 
             store.set('udemy_token', token)
+            if (subdomain) {
+              store.set('udemy_subdomain', subdomain)
+            } else {
+              store.delete('udemy_subdomain')
+            }
+
             clearInterval(cookieInterval)
             loginWindow.close()
             resolve(token)

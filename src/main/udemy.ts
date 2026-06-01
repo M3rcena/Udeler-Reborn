@@ -45,43 +45,52 @@ const CurriculumResponseSchema = z
   })
   .loose()
 
-const getHeaders = (token: string): Record<string, string> => ({
+const getHeaders = (token: string, baseUrl: string): Record<string, string> => ({
   Authorization: `Bearer ${token}`,
   Accept: 'application/json, text/plain, */*',
   'User-Agent':
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-  Origin: 'https://www.udemy.com',
-  Referer: 'https://www.udemy.com/',
-  'Accept-Language': 'en-US,en;q=0.9',
-  'Sec-Ch-Ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
-  'Sec-Ch-Ua-Mobile': '?0',
-  'Sec-Ch-Ua-Platform': '"Windows"',
-  'Sec-Fetch-Dest': 'empty',
-  'Sec-Fetch-Mode': 'cors',
-  'Sec-Fetch-Site': 'same-origin'
+  Origin: baseUrl,
+  Referer: `${baseUrl}/`,
+  'Accept-Language': 'en-US,en;q=0.9'
 })
 
-export async function fetchSubscribedCourses(token: string): Promise<UdemyCourse[]> {
+export async function fetchSubscribedCourses(
+  token: string,
+  subdomain?: string
+): Promise<UdemyCourse[]> {
   try {
-    const apiUrl = 'https://www.udemy.com/api-2.0/users/me/subscribed-courses/?page_size=50'
+    const baseUrl = subdomain ? `https://${subdomain}.udemy.com` : 'https://www.udemy.com'
+    const headers = getHeaders(token, baseUrl)
 
-    const response = await net.fetch(apiUrl, {
-      method: 'GET',
-      headers: getHeaders(token)
-    })
+    const standardUrl = `${baseUrl}/api-2.0/users/me/subscribed-courses/?page_size=100`
+    const enrolledUrl = `${baseUrl}/api-2.0/users/me/subscription-course-enrollments/?page_size=100`
 
-    if (!response.ok) {
-      throw new Error(`Udemy returned status: ${response.status}`)
-    }
+    const [standardRes, enrolledRes] = await Promise.allSettled([
+      net.fetch(standardUrl, { method: 'GET', headers }),
+      net.fetch(enrolledUrl, { method: 'GET', headers })
+    ])
 
-    const rawData = await response.json()
-    try {
+    const allCourses: UdemyCourse[] = []
+
+    if (standardRes.status === 'fulfilled' && standardRes.value.ok) {
+      const rawData = await standardRes.value.json()
       const data = UdemyApiResponseSchema.parse(rawData)
-      return data.results
-    } catch (err) {
-      console.error('Zod Parsing Error (Courses):', err)
-      throw new Error('Udemy API structure changed. Failed to parse courses.')
+      allCourses.push(...data.results)
     }
+
+    if (enrolledRes.status === 'fulfilled' && enrolledRes.value.ok) {
+      const rawData = await enrolledRes.value.json()
+      const data = UdemyApiResponseSchema.parse(rawData)
+      allCourses.push(...data.results)
+    }
+
+    if (allCourses.length === 0) {
+      console.warn('No courses found or both endpoints failed.')
+    }
+
+    const uniqueCourses = Array.from(new Map(allCourses.map((c) => [c.id, c])).values())
+    return uniqueCourses
   } catch (error: unknown) {
     console.error('Udemy API Error:', error)
     throw new Error('Failed to fetch courses. Your token might be expired or invalid.')
@@ -90,14 +99,16 @@ export async function fetchSubscribedCourses(token: string): Promise<UdemyCourse
 
 export async function fetchCourseCurriculum(
   token: string,
-  courseId: number
+  courseId: number,
+  subdomain?: string
 ): Promise<CurriculumItem[]> {
   try {
-    const apiUrl = `https://www.udemy.com/api-2.0/courses/${courseId}/subscriber-curriculum-items/?curriculum_types=chapter,lecture,practice,quiz,role-play&page_size=200&fields[lecture]=title,object_index,is_published,sort_order,created,asset,supplementary_assets,is_free&fields[quiz]=title,object_index,is_published,sort_order,type&fields[practice]=title,object_index,is_published,sort_order&fields[chapter]=title,object_index,is_published,sort_order&fields[asset]=title,filename,asset_type,status,time_estimation,is_external,course_is_drmed,media_sources,download_urls`
+    const baseUrl = subdomain ? `https://${subdomain}.udemy.com` : 'https://www.udemy.com'
+    const apiUrl = `${baseUrl}/api-2.0/courses/${courseId}/subscriber-curriculum-items/?curriculum_types=chapter,lecture,practice,quiz,role-play&page_size=200&fields[lecture]=title,object_index,is_published,sort_order,created,asset,supplementary_assets,is_free&fields[quiz]=title,object_index,is_published,sort_order,type&fields[practice]=title,object_index,is_published,sort_order&fields[chapter]=title,object_index,is_published,sort_order&fields[asset]=title,filename,asset_type,status,time_estimation,is_external,course_is_drmed,media_sources,download_urls`
 
     const response = await net.fetch(apiUrl, {
       method: 'GET',
-      headers: getHeaders(token)
+      headers: getHeaders(token, baseUrl)
     })
 
     if (!response.ok) {
@@ -107,7 +118,7 @@ export async function fetchCourseCurriculum(
     const rawData = await response.json()
     try {
       const data = CurriculumResponseSchema.parse(rawData)
-      return data.results.sort((a, b) => b.sort_order - a.sort_order)
+      return data.results.sort((a, b) => (a.object_index ?? 0) - (b.object_index ?? 0))
     } catch (err) {
       console.error('Zod Parsing Error (Curriculum):', err)
       throw new Error('Udemy API structure changed. Failed to parse curriculum.')
