@@ -578,11 +578,13 @@ export const MyCoursesTab: React.FC = () => {
                                     </span>
                                   )}
                                 </p>
-                                {item.asset?.time_estimation && (
-                                  <span className="text-xs text-gray-500 bg-gray-100 dark:bg-white/5 px-2 py-1 rounded-md font-semibold flex-shrink-0">
-                                    {Math.ceil(item.asset.time_estimation / 60)}m
-                                  </span>
-                                )}
+                                {item.asset?.time_estimation &&
+                                  (item.asset.asset_type === 'Video' ||
+                                    item.asset.asset_type === 'VideoMashup') && (
+                                    <span className="text-xs text-gray-500 bg-gray-100 dark:bg-white/5 px-2 py-1 rounded-md font-semibold flex-shrink-0 flex items-center gap-1 shadow-sm">
+                                      {Math.ceil(item.asset.time_estimation / 60)}m
+                                    </span>
+                                  )}
                               </div>
 
                               {/* Clean Progress Bar Row */}

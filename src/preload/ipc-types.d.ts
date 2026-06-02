@@ -148,5 +148,5 @@ export interface IpcChannels {
   moveDownloadsFolder: { args: [oldPath: string, newPath: string]; returns: boolean }
   'delete-lecture': { args: [courseTitle: string, lectureId: number]; returns: boolean }
   'delete-file-by-path': { args: [filePath: string]; returns: boolean }
-  'login-udemy': { args: []; returns: string | null }
+  'login-udemy': { args: [subdomain?: string]; returns: string | null }
 }
