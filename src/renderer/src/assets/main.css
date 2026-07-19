@@ -1,6 +1,4 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
 
 body {
   background: radial-gradient(circle at top left, #1e1e2f, #0b0b14);
