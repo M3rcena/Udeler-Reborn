@@ -1,5 +1,5 @@
 import { useDownload } from '@renderer/contexts/DownloadContext'
-import { useEffect, useMemo, useState, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { DownloadedFile, WatchProgress, WatchProgressControls } from 'src/preload/ipc-types'
 
 function useWatchProgress(
@@ -165,7 +165,7 @@ export const DownloadsTab: React.FC = () => {
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-6xl mx-auto pb-10 flex flex-col h-full relative z-10">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
         <div>
-          <h2 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400">
+          <h2 className="text-3xl font-extrabold text-transparent bg-clip-text bg-linear-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400">
             Queue & Library
           </h2>
           <p className="text-gray-500 dark:text-gray-400 mt-1 font-medium">
@@ -184,9 +184,9 @@ export const DownloadsTab: React.FC = () => {
       </div>
 
       <div className="flex flex-col gap-6 flex-1">
-        <div className="p-6 bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-[2rem] shadow-xl flex flex-wrap gap-4 items-center justify-between">
+        <div className="p-6 bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-4xl shadow-xl flex flex-wrap gap-4 items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-3 bg-gradient-to-tr from-blue-600 to-purple-600 rounded-2xl text-white shadow-lg">
+            <div className="p-3 bg-linear-to-tr from-blue-600 to-purple-600 rounded-2xl text-white shadow-lg">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
@@ -208,7 +208,7 @@ export const DownloadsTab: React.FC = () => {
             <button
               onClick={queueStatus === 'paused' ? resumeQueue : pauseQueue}
               disabled={queueStatus === 'idle'}
-              className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-3 font-bold rounded-xl transition-all shadow-md cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${queueStatus === 'paused' ? 'bg-green-600 hover:bg-green-500 text-white shadow-green-500/30' : 'bg-yellow-500 hover:bg-yellow-400 text-white shadow-yellow-500/30'}`}
+              className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-3 font-bold rounded-xl transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed ${queueStatus === 'paused' ? 'bg-green-600 hover:bg-green-500 text-white shadow-green-500/30 cursor-pointer' : 'bg-yellow-500 hover:bg-yellow-400 text-white shadow-yellow-500/30 cursor-pointer'}`}
             >
               {queueStatus === 'paused' ? (
                 <>
@@ -245,7 +245,7 @@ export const DownloadsTab: React.FC = () => {
             <button
               onClick={cancelQueue}
               disabled={queueStatus === 'idle'}
-              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-red-600/30 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-red-600/30 ${queueStatus === 'idle' ? 'cursor-not-allowed' : 'cursor-pointer'} disabled:opacity-50`}
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
@@ -267,31 +267,31 @@ export const DownloadsTab: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-6">
-          <div className="p-6 bg-white/60 dark:bg-white/5 border border-purple-200 dark:border-purple-500/20 rounded-[2rem] shadow-xl">
+          <div className="p-6 bg-white/60 dark:bg-white/5 border border-purple-200 dark:border-purple-500/20 rounded-4xl shadow-xl">
             <h3 className="font-bold text-gray-600 dark:text-gray-300 mb-2 flex items-center gap-2">
               Waiting
             </h3>
             <p className="text-4xl font-black text-gray-900 dark:text-white">{queueCount}</p>
           </div>
-          <div className="p-6 bg-white/60 dark:bg-white/5 border border-blue-200 dark:border-blue-500/20 rounded-[2rem] shadow-xl">
+          <div className="p-6 bg-white/60 dark:bg-white/5 border border-blue-200 dark:border-blue-500/20 rounded-4xl shadow-xl">
             <h3 className="font-bold text-gray-600 dark:text-gray-300 mb-2">In Progress</h3>
             <p className="text-4xl font-black text-gray-900 dark:text-white">{stats.downloading}</p>
           </div>
-          <div className="p-6 bg-white/60 dark:bg-white/5 border border-green-200 dark:border-green-500/20 rounded-[2rem] shadow-xl">
+          <div className="p-6 bg-white/60 dark:bg-white/5 border border-green-200 dark:border-green-500/20 rounded-4xl shadow-xl">
             <h3 className="font-bold text-gray-600 dark:text-gray-300 mb-2">Completed</h3>
             <p className="text-4xl font-black text-gray-900 dark:text-white">{stats.success}</p>
           </div>
-          <div className="p-6 bg-white/60 dark:bg-white/5 border border-red-200 dark:border-red-500/20 rounded-[2rem] shadow-xl">
+          <div className="p-6 bg-white/60 dark:bg-white/5 border border-red-200 dark:border-red-500/20 rounded-4xl shadow-xl">
             <h3 className="font-bold text-gray-600 dark:text-gray-300 mb-2">Failed</h3>
             <p className="text-4xl font-black text-gray-900 dark:text-white">{stats.error}</p>
           </div>
-          <div className="p-6 bg-white/60 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-[2rem] shadow-xl">
+          <div className="p-6 bg-white/60 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-4xl shadow-xl">
             <h3 className="font-bold text-gray-600 dark:text-gray-300 mb-2">DRM Locked</h3>
             <p className="text-4xl font-black text-gray-900 dark:text-white">{stats.drm}</p>
           </div>
         </div>
 
-        <div className="flex-1 bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-[2rem] shadow-xl p-8 flex flex-col overflow-hidden">
+        <div className="flex-1 bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-4xl shadow-xl p-8 flex flex-col overflow-hidden">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
             <div className="flex items-center gap-2 text-xl font-bold text-gray-900 dark:text-white">
               <button
@@ -314,7 +314,7 @@ export const DownloadsTab: React.FC = () => {
               {activeCourse && (
                 <>
                   <svg
-                    className="w-5 h-5 text-gray-300 dark:text-gray-600 flex-shrink-0"
+                    className="w-5 h-5 text-gray-300 dark:text-gray-600 shrink-0"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -338,7 +338,7 @@ export const DownloadsTab: React.FC = () => {
               {activeChapter && (
                 <>
                   <svg
-                    className="w-5 h-5 text-gray-300 dark:text-gray-600 flex-shrink-0"
+                    className="w-5 h-5 text-gray-300 dark:text-gray-600 shrink-0"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -544,7 +544,7 @@ export const DownloadsTab: React.FC = () => {
                         className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-white dark:bg-black/20 border border-gray-100 dark:border-white/5 rounded-xl hover:border-blue-500/30 transition-all group gap-4"
                       >
                         <div className="flex items-center gap-4 flex-1 min-w-0 w-full pr-4">
-                          <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 flex-shrink-0">
+                          <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 shrink-0">
                             {item.type === 'Video' ? (
                               <svg
                                 className="w-6 h-6"
@@ -597,7 +597,7 @@ export const DownloadsTab: React.FC = () => {
                           </div>
                         </div>
 
-                        <div className="flex-shrink-0 flex items-center gap-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity self-end sm:self-auto">
+                        <div className="shrink-0 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity self-end sm:self-auto">
                           <button
                             onClick={async () => {
                               setSelectedMedia(item)
@@ -654,7 +654,7 @@ export const DownloadsTab: React.FC = () => {
 
       {selectedMedia && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center p-8 bg-black/90 backdrop-blur-xl animate-in fade-in duration-200"
+          className="fixed inset-0 z-100 flex items-center justify-center p-8 bg-black/90 backdrop-blur-xl animate-in fade-in duration-200"
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               forceSave()
@@ -669,7 +669,7 @@ export const DownloadsTab: React.FC = () => {
               setSelectedMedia(null)
               fetchDiskData()
             }}
-            className="absolute top-6 right-6 z-[110] p-4 bg-red-600/90 hover:bg-red-500 rounded-full text-white shadow-[0_0_30px_rgba(220,38,38,0.5)] transition-all cursor-pointer backdrop-blur-md hover:scale-110"
+            className="absolute top-6 right-6 z-110 p-4 bg-red-600/90 hover:bg-red-500 rounded-full text-white shadow-[0_0_30px_rgba(220,38,38,0.5)] transition-all cursor-pointer backdrop-blur-md hover:scale-110"
             title="Close Player"
           >
             <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -682,8 +682,8 @@ export const DownloadsTab: React.FC = () => {
             </svg>
           </button>
 
-          <div className="relative w-full max-w-6xl aspect-video bg-black rounded-[2rem] border border-white/10 shadow-2xl overflow-hidden flex flex-col group/player">
-            <div className="absolute top-0 left-0 right-0 p-6 bg-gradient-to-b from-black/90 via-black/50 to-transparent z-10 pointer-events-none">
+          <div className="relative w-full max-w-6xl aspect-video bg-black rounded-4xl border border-white/10 shadow-2xl overflow-hidden flex flex-col group/player">
+            <div className="absolute top-0 left-0 right-0 p-6 bg-linear-to-b from-black/90 via-black/50 to-transparent z-10 pointer-events-none">
               <h3 className="text-white font-bold text-lg truncate pr-4 drop-shadow-md">
                 {selectedMedia.file}
               </h3>
@@ -726,12 +726,12 @@ export const DownloadsTab: React.FC = () => {
       {/* --- DELETE ALL MODAL --- */}
       {isDeleteAllModalOpen && (
         <div
-          className="absolute inset-0 z-[120] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200"
+          className="absolute inset-0 z-120 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200"
           onClick={(e) => {
             if (e.target === e.currentTarget && !isDeletingAll) setIsDeleteAllModalOpen(false)
           }}
         >
-          <div className="w-full max-w-md p-8 bg-white/95 dark:bg-[#0f0f18]/95 border border-gray-200 dark:border-white/10 rounded-[2rem] shadow-2xl flex flex-col items-center text-center animate-in zoom-in-95 duration-200">
+          <div className="w-full max-w-md p-8 bg-white/95 dark:bg-[#0f0f18]/95 border border-gray-200 dark:border-white/10 rounded-4xl shadow-2xl flex flex-col items-center text-center animate-in zoom-in-95 duration-200">
             <div className="p-4 bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400 rounded-2xl mb-5 shadow-inner">
               <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
@@ -756,7 +756,7 @@ export const DownloadsTab: React.FC = () => {
               <button
                 onClick={() => setIsDeleteAllModalOpen(false)}
                 disabled={isDeletingAll}
-                className="py-3 px-4 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 font-semibold rounded-xl transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                className="py-3 px-4 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 font-semibold rounded-xl transition-all cursor-pointer disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -773,7 +773,7 @@ export const DownloadsTab: React.FC = () => {
                   setIsDeleteAllModalOpen(false)
                 }}
                 disabled={isDeletingAll}
-                className="flex items-center justify-center gap-2 py-3 px-4 bg-red-600 hover:bg-red-500 text-white font-semibold rounded-xl transition-all shadow-lg hover:shadow-red-600/30 cursor-pointer disabled:opacity-70 disabled:cursor-wait"
+                className="flex items-center justify-center gap-2 py-3 px-4 bg-red-600 hover:bg-red-500 text-white font-semibold rounded-xl transition-all shadow-lg hover:shadow-red-600/30 cursor-pointer disabled:opacity-70"
               >
                 {isDeletingAll ? (
                   <>

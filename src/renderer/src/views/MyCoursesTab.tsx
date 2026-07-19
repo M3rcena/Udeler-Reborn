@@ -179,7 +179,7 @@ export const MyCoursesTab: React.FC = () => {
               placeholder="Search courses..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-white/60 dark:bg-black/20 border border-gray-200 dark:border-white/10 rounded-xl text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all shadow-sm cursor-pointer"
+              className="w-full pl-10 pr-4 py-2.5 bg-white/60 dark:bg-black/20 border border-gray-200 dark:border-white/10 rounded-xl text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all shadow-sm cursor-pointer"
             />
           </div>
 
@@ -235,7 +235,7 @@ export const MyCoursesTab: React.FC = () => {
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                     loading="lazy"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                  <div className="absolute inset-0 bg-linear-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                 </div>
 
                 {/* Course Info */}
@@ -257,7 +257,7 @@ export const MyCoursesTab: React.FC = () => {
           </div>
         ) : (
           // Empty State
-          <div className="h-full flex flex-col items-center justify-center p-8 bg-white/40 dark:bg-white/5 backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-[2rem] shadow-xl text-center">
+          <div className="h-full flex flex-col items-center justify-center p-8 bg-white/40 dark:bg-white/5 backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-4xl shadow-xl text-center">
             <div className="w-20 h-20 mb-4 rounded-full bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center text-blue-600 dark:text-blue-400">
               <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
@@ -284,7 +284,7 @@ export const MyCoursesTab: React.FC = () => {
             if (e.target === e.currentTarget) setSelectedCourse(null)
           }}
         >
-          <div className="relative flex flex-col bg-white dark:bg-[#0b0b14] border border-gray-200 dark:border-white/10 rounded-[2rem] w-full max-w-5xl h-[90vh] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-300">
+          <div className="relative flex flex-col bg-white dark:bg-[#0b0b14] border border-gray-200 dark:border-white/10 rounded-4xl w-full max-w-5xl h-[90vh] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-300">
             {/* Modal Header */}
             <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-white/10 bg-gray-50/50 dark:bg-white/5 backdrop-blur-xl z-10">
               <div className="flex items-center gap-4">
@@ -302,7 +302,7 @@ export const MyCoursesTab: React.FC = () => {
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
+              <div className="flex items-center gap-2 shrink-0">
                 {/* Queue Controls */}
                 <button
                   onClick={async () => {
@@ -573,7 +573,7 @@ export const MyCoursesTab: React.FC = () => {
                                 <p className="text-gray-800 dark:text-gray-200 font-medium flex items-center gap-2 leading-tight">
                                   {item.title}
                                   {newLectures.has(item.id) && (
-                                    <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white bg-gradient-to-r from-pink-500 to-purple-500 rounded-full shadow-[0_0_10px_rgba(236,72,153,0.4)] animate-pulse flex-shrink-0">
+                                    <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white bg-linear-to-r from-pink-500 to-purple-500 rounded-full shadow-[0_0_10px_rgba(236,72,153,0.4)] animate-pulse shrink-0">
                                       New
                                     </span>
                                   )}
@@ -581,7 +581,7 @@ export const MyCoursesTab: React.FC = () => {
                                 {item.asset?.time_estimation &&
                                   (item.asset.asset_type === 'Video' ||
                                     item.asset.asset_type === 'VideoMashup') && (
-                                    <span className="text-xs text-gray-500 bg-gray-100 dark:bg-white/5 px-2 py-1 rounded-md font-semibold flex-shrink-0 flex items-center gap-1 shadow-sm">
+                                    <span className="text-xs text-gray-500 bg-gray-100 dark:bg-white/5 px-2 py-1 rounded-md font-semibold shrink-0 flex items-center gap-1 shadow-sm">
                                       {Math.ceil(item.asset.time_estimation / 60)}m
                                     </span>
                                   )}
@@ -650,7 +650,7 @@ export const MyCoursesTab: React.FC = () => {
                                     status === 'drm'
                                   }
                                   className={`px-4 py-2 font-semibold rounded-lg text-sm transition-all shadow-sm flex items-center gap-2
-                                    ${status === 'downloading' ? 'bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 cursor-wait opacity-100' : status === 'success' ? 'bg-green-500/10 dark:bg-green-500/20 text-green-600 dark:text-green-400 cursor-default opacity-100' : status === 'drm' ? 'bg-gray-200 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed opacity-100' : status === 'error' ? 'bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400 cursor-pointer opacity-100' : 'bg-gray-100 dark:bg-white/10 hover:bg-blue-600 hover:text-white text-gray-700 dark:text-gray-300 opacity-0 group-hover:opacity-100 focus:opacity-100 cursor-pointer'}`}
+                                    ${status === 'downloading' ? 'bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 cursor-wait opacity-100' : status === 'success' ? 'bg-green-500/10 dark:bg-green-500/20 text-green-600 dark:text-green-400 cursor-default opacity-100' : status === 'drm' ? 'bg-gray-200 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed opacity-100' : status === 'error' ? 'bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400 cursor-pointer opacity-100' : 'bg-gray-100 dark:bg-white/10 hover:bg-blue-600 hover:text-white text-gray-700 dark:text-gray-300 opacity-0 group-hover:opacity-100 cursor-pointer'}`}
                                 >
                                   {status === 'downloading' && (
                                     <>
@@ -750,7 +750,7 @@ export const MyCoursesTab: React.FC = () => {
                   if (e.target === e.currentTarget) setIsDeleteModalOpen(false)
                 }}
               >
-                <div className="w-full max-w-md p-8 bg-white/95 dark:bg-[#0f0f18]/95 border border-gray-200 dark:border-white/10 rounded-[2rem] shadow-2xl flex flex-col items-center text-center animate-in zoom-in-95 duration-200">
+                <div className="w-full max-w-md p-8 bg-white/95 dark:bg-[#0f0f18]/95 border border-gray-200 dark:border-white/10 rounded-4xl shadow-2xl flex flex-col items-center text-center animate-in zoom-in-95 duration-200">
                   {hasLocalFiles ? (
                     <>
                       <div className="p-4 bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400 rounded-2xl mb-5 shadow-inner">
@@ -845,9 +845,9 @@ export const MyCoursesTab: React.FC = () => {
 
             {/* --- SUCCESS TOAST --- */}
             {queuedCount !== null && (
-              <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[110] animate-in slide-in-from-bottom-8 fade-in duration-300">
+              <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-110 animate-in slide-in-from-bottom-8 fade-in duration-300">
                 <div className="flex items-center gap-3 px-6 py-4 bg-white/95 dark:bg-[#12121a]/95 backdrop-blur-xl border border-green-200 dark:border-green-500/30 rounded-2xl shadow-2xl shadow-green-500/10 max-w-md w-full">
-                  <div className="flex-shrink-0 w-10 h-10 bg-green-100 dark:bg-green-500/20 rounded-full flex items-center justify-center text-green-600 dark:text-green-400 shadow-inner">
+                  <div className="shrink-0 w-10 h-10 bg-green-100 dark:bg-green-500/20 rounded-full flex items-center justify-center text-green-600 dark:text-green-400 shadow-inner">
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path
                         strokeLinecap="round"

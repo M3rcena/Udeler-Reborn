@@ -114,7 +114,7 @@ export const SettingsTab: React.FC = () => {
 
       <div className="flex flex-col gap-6">
         {/* Download Location Card */}
-        <div className="p-8 bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-[2rem] shadow-xl">
+        <div className="p-8 bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-4xl shadow-xl">
           <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -135,7 +135,7 @@ export const SettingsTab: React.FC = () => {
               readOnly
               value={appSettings.downloadPath}
               placeholder="Select a folder to save your courses..."
-              className="flex-1 bg-white/50 dark:bg-black/40 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none transition-all cursor-not-allowed"
+              className="flex-1 bg-white/50 dark:bg-black/40 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-gray-900 dark:text-white focus:outline-none transition-all cursor-not-allowed"
             />
             <button
               onClick={handleSelectFolder}
@@ -147,7 +147,7 @@ export const SettingsTab: React.FC = () => {
         </div>
 
         {/* Download Preferences Card */}
-        <div className="p-8 bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-[2rem] shadow-xl relative z-20">
+        <div className="p-8 bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-4xl shadow-xl relative z-20">
           <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-purple-100 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -180,7 +180,7 @@ export const SettingsTab: React.FC = () => {
                 onBlur={(e) => {
                   if (!e.currentTarget.contains(e.relatedTarget)) setIsQualityMenuOpen(false)
                 }}
-                className="w-full flex items-center justify-between bg-white/50 dark:bg-black/40 border border-gray-200 dark:border-white/10 rounded-2xl px-5 py-4 text-gray-900 dark:text-white focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition-all shadow-inner cursor-pointer"
+                className="w-full flex items-center justify-between bg-white/50 dark:bg-black/40 border border-gray-200 dark:border-white/10 rounded-2xl px-5 py-4 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all shadow-inner cursor-pointer"
               >
                 <span className="font-medium">
                   {qualityOptions.find((opt) => opt.id === appSettings.videoQuality)?.label ||
@@ -289,7 +289,7 @@ export const SettingsTab: React.FC = () => {
                 ${
                   isSavingSettings
                     ? 'bg-green-500 shadow-[0_0_20px_rgba(34,197,94,0.4)] scale-[0.99]'
-                    : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 hover:-translate-y-0.5 shadow-[0_0_20px_rgba(79,70,229,0.3)]'
+                    : 'bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 hover:-translate-y-0.5 shadow-[0_0_20px_rgba(79,70,229,0.3)]'
                 }
               `}
         >
@@ -339,8 +339,8 @@ export const SettingsTab: React.FC = () => {
 
       {/* --- FOLDER MIGRATION MODAL --- */}
       {isMoveModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="w-full max-w-md p-8 bg-white/95 dark:bg-[#0f0f18]/95 border border-gray-200 dark:border-white/10 rounded-[2rem] shadow-2xl flex flex-col items-center text-center animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="w-full max-w-md p-8 bg-white/95 dark:bg-[#0f0f18]/95 border border-gray-200 dark:border-white/10 rounded-4xl shadow-2xl flex flex-col items-center text-center animate-in zoom-in-95 duration-200">
             <div className="p-4 bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 rounded-2xl mb-5 shadow-inner">
               <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
@@ -364,7 +364,7 @@ export const SettingsTab: React.FC = () => {
               <button
                 onClick={() => handleConfirmMove(true)}
                 disabled={isMovingFiles}
-                className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl transition-all shadow-lg hover:shadow-blue-500/30 cursor-pointer disabled:opacity-70 disabled:cursor-wait flex justify-center items-center gap-2"
+                className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl transition-all shadow-lg hover:shadow-blue-500/30 cursor-pointer disabled:opacity-70 flex justify-center items-center gap-2"
               >
                 {isMovingFiles ? (
                   <>
@@ -414,9 +414,9 @@ export const SettingsTab: React.FC = () => {
 
       {/* --- ERROR TOAST --- */}
       {moveError && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[110] animate-in slide-in-from-bottom-8 fade-in duration-300">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-110 animate-in slide-in-from-bottom-8 fade-in duration-300">
           <div className="flex items-center gap-3 px-6 py-4 bg-white/95 dark:bg-[#12121a]/95 backdrop-blur-xl border border-red-200 dark:border-red-500/30 rounded-2xl shadow-2xl shadow-red-500/10 max-w-md w-full">
-            <div className="flex-shrink-0 w-10 h-10 bg-red-100 dark:bg-red-500/20 rounded-full flex items-center justify-center text-red-600 dark:text-red-400 shadow-inner">
+            <div className="shrink-0 w-10 h-10 bg-red-100 dark:bg-red-500/20 rounded-full flex items-center justify-center text-red-600 dark:text-red-400 shadow-inner">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"

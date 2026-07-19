@@ -60,11 +60,11 @@ export const AboutTab: React.FC = () => {
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-4xl mx-auto pb-10">
       <div className="flex flex-col gap-6">
         {/* Top Banner / Logo Section */}
-        <div className="relative p-10 bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-[2rem] shadow-xl overflow-hidden flex flex-col items-center text-center">
+        <div className="relative p-10 bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-4xl shadow-xl overflow-hidden flex flex-col items-center text-center">
           {/* Background Glow */}
           <div className="absolute top-[-50%] left-1/2 -translate-x-1/2 w-64 h-64 bg-blue-500/20 dark:bg-blue-500/10 blur-[80px] rounded-full pointer-events-none"></div>
 
-          <div className="relative w-24 h-24 bg-gradient-to-tr from-blue-600 to-purple-600 rounded-3xl shadow-2xl flex items-center justify-center mb-6 transform hover:scale-105 transition-transform duration-500">
+          <div className="relative w-24 h-24 bg-linear-to-tr from-blue-600 to-purple-600 rounded-3xl shadow-2xl flex items-center justify-center mb-6 transform hover:scale-105 transition-transform duration-500">
             <svg
               className="w-12 h-12 text-white"
               fill="none"
@@ -88,7 +88,7 @@ export const AboutTab: React.FC = () => {
 
           <h1 className="text-3xl font-black tracking-tight text-gray-900 dark:text-white mb-2">
             Udeler{' '}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-purple-600">
+            <span className="text-transparent bg-clip-text bg-linear-to-r from-blue-500 to-purple-600">
               Reborn
             </span>
           </h1>
@@ -100,14 +100,14 @@ export const AboutTab: React.FC = () => {
 
         {/* Version & Updates Section */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="relative bg-gradient-to-br from-white/80 to-white/30 dark:from-white/10 dark:to-white/5 backdrop-blur-2xl border border-white/50 dark:border-white/10 rounded-[2rem] shadow-2xl overflow-hidden flex flex-col items-center text-center py-16 px-6 transition-all">
+          <div className="relative bg-linear-to-br from-white/80 to-white/30 dark:from-white/10 dark:to-white/5 backdrop-blur-2xl border border-white/50 dark:border-white/10 rounded-4xl shadow-2xl overflow-hidden flex flex-col items-center text-center py-16 px-6 transition-all">
             {/* Active Animated Background Glows */}
             <div className="absolute top-[-20%] left-[-10%] w-80 h-80 bg-blue-400/30 dark:bg-blue-600/20 blur-[100px] rounded-full pointer-events-none animate-pulse duration-3000"></div>
             <div className="absolute bottom-[-20%] right-[-10%] w-80 h-80 bg-purple-400/30 dark:bg-purple-600/20 blur-[100px] rounded-full pointer-events-none animate-pulse duration-3000 delay-1000"></div>
 
             {/* App Icon / Gear Icon */}
             <div
-              className={`relative z-10 w-24 h-24 bg-gradient-to-tr from-gray-100 to-white dark:from-gray-800 dark:to-gray-900 rounded-full shadow-xl flex items-center justify-center mb-6 border border-gray-200 dark:border-gray-700 transition-all duration-500 ${isCheckingUpdate ? 'scale-95 shadow-blue-500/20' : 'scale-100'}`}
+              className={`relative z-10 w-24 h-24 bg-linear-to-tr from-gray-100 to-white dark:from-gray-800 dark:to-gray-900 rounded-full shadow-xl flex items-center justify-center mb-6 border border-gray-200 dark:border-gray-700 transition-all duration-500 ${isCheckingUpdate ? 'scale-95 shadow-blue-500/20' : 'scale-100'}`}
             >
               <svg
                 className={`w-12 h-12 text-gray-700 dark:text-gray-300 ${isCheckingUpdate ? 'animate-spin text-blue-500' : ''}`}
@@ -132,7 +132,7 @@ export const AboutTab: React.FC = () => {
 
             <h1 className="relative z-10 text-3xl font-black tracking-tight text-gray-900 dark:text-white mb-2">
               Udeler{' '}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-purple-600 dark:from-blue-400 dark:to-purple-500">
+              <span className="text-transparent bg-clip-text bg-linear-to-r from-blue-500 to-purple-600 dark:from-blue-400 dark:to-purple-500">
                 Reborn
               </span>
             </h1>
@@ -154,7 +154,7 @@ export const AboutTab: React.FC = () => {
                   </p>
                   <button
                     onClick={() => openExternalLink(releaseUrl)}
-                    className="px-8 py-3.5 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold rounded-full transition-all shadow-lg hover:shadow-blue-500/30 hover:-translate-y-0.5 cursor-pointer flex items-center gap-2 border border-white/10"
+                    className="px-8 py-3.5 bg-linear-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold rounded-full transition-all shadow-lg hover:shadow-blue-500/30 hover:-translate-y-0.5 cursor-pointer flex items-center gap-2 border border-white/10"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path
@@ -237,7 +237,7 @@ export const AboutTab: React.FC = () => {
           </div>
 
           {/* Links & Credits Section */}
-          <div className="p-8 bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-[2rem] shadow-xl">
+          <div className="p-8 bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-4xl shadow-xl">
             <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6">
               Resources & Credits
             </h3>
@@ -323,7 +323,13 @@ export const AboutTab: React.FC = () => {
 
         {/* Tech Stack Badges */}
         <div className="mt-4 flex flex-wrap justify-center gap-3">
-          {['Electron', 'React 18', 'TypeScript', 'Tailwind CSS', 'Vite'].map((tech) => (
+          {[
+            'Electron v43.1.1',
+            'React v19.2.7',
+            'TypeScript v5.7.2',
+            'Tailwind CSS v4.3.3',
+            'Vite v7.3.6'
+          ].map((tech) => (
             <span
               key={tech}
               className="px-4 py-2 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-gray-600 dark:text-gray-400 text-xs font-bold rounded-full uppercase tracking-wider shadow-sm"
