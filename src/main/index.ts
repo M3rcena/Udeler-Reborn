@@ -1,9 +1,11 @@
-import { app, shell, BrowserWindow, ipcMain, dialog, protocol } from 'electron'
-import { join } from 'path'
-import { electronApp, optimizer, is } from '@electron-toolkit/utils'
-import icon from '../../resources/icon.png?asset'
+import { electronApp, is, optimizer } from '@electron-toolkit/utils'
+import { app, BrowserWindow, dialog, ipcMain, protocol, shell } from 'electron'
 import Store from 'electron-store'
-import { fetchCourseCurriculum, fetchSubscribedCourses } from './udemy'
+import { autoUpdater } from 'electron-updater'
+import * as fs from 'fs-extra'
+import * as path from 'path'
+import { join } from 'path'
+import icon from '../../resources/icon.png?asset'
 import {
   cancelDownload,
   deleteLectureFile,
@@ -12,8 +14,7 @@ import {
   processDownload,
   scanExistingDownloads
 } from './download'
-import * as fs from 'fs-extra'
-import * as path from 'path'
+import { fetchCourseCurriculum, fetchSubscribedCourses } from './udemy'
 
 interface SafeStore {
   get: (key: string) => unknown
@@ -46,11 +47,9 @@ interface AppSettings {
 
 // --- GLOBAL ERROR LOGGER ---
 const debugLogs: string[] = []
-
 const originalConsoleError = console.error
 console.error = (...args) => {
   const timestamp = new Date().toISOString()
-  // Safely stringify objects or strings
   const message = args
     .map((a) =>
       typeof a === 'object' && a !== null
@@ -58,12 +57,10 @@ console.error = (...args) => {
         : String(a)
     )
     .join(' ')
-
   debugLogs.push(`[ERROR] [${timestamp}] ${message}`)
-  originalConsoleError(...args) // Still print to your local terminal
+  originalConsoleError(...args)
 }
 
-// Catch unexpected crashes that bypass try/catch blocks
 process.on('uncaughtException', (error) => {
   console.error('UncaughtException:', error)
 })
@@ -72,7 +69,6 @@ process.on('unhandledRejection', (reason) => {
 })
 
 const StoreClass = (Store as unknown as { default: new () => unknown }).default || Store
-
 const store = new (StoreClass as new () => unknown)() as unknown as SafeStore
 
 function createWindow(): void {
@@ -104,6 +100,125 @@ function createWindow(): void {
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
+}
+
+function createUpdaterWindow(): void {
+  const updaterWindow = new BrowserWindow({
+    width: 320,
+    height: 420,
+    frame: false,
+    transparent: true,
+    resizable: false,
+    show: false,
+    icon: icon,
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false
+    }
+  })
+
+  const updaterHtml = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <style>
+          body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: #09090e;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            border-radius: 16px;
+            border: 1px solid rgba(255,255,255,0.05);
+            overflow: hidden;
+            -webkit-app-region: drag;
+            user-select: none;
+          }
+          .logo {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(to top right, #2563eb, #9333ea);
+            border-radius: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 24px;
+            box-shadow: 0 10px 25px rgba(37, 99, 235, 0.3);
+          }
+          .title { font-size: 22px; font-weight: 900; margin-bottom: 8px; letter-spacing: -0.5px; }
+          .status { font-size: 13px; color: #9ca3af; font-weight: 500; margin-bottom: 24px; }
+          .progress-track { width: 220px; height: 6px; background: rgba(255,255,255,0.1); border-radius: 8px; overflow: hidden; }
+          .progress-fill { height: 100%; background: linear-gradient(to right, #3b82f6, #a855f7); width: 0%; transition: width 0.2s ease-out; }
+        </style>
+      </head>
+      <body>
+        <div class="logo">
+          <svg style="width: 40px; height: 40px; color: white;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+          </svg>
+        </div>
+        <div class="title">Udeler Reborn</div>
+        <div class="status" id="status">Checking for updates...</div>
+        <div class="progress-track">
+          <div class="progress-fill" id="fill"></div>
+        </div>
+        <script>
+          const { ipcRenderer } = require('electron')
+          ipcRenderer.on('update-status', (e, text) => { document.getElementById('status').innerText = text })
+          ipcRenderer.on('update-progress', (e, percent) => { document.getElementById('fill').style.width = percent + '%' })
+        </script>
+      </body>
+    </html>
+  `
+
+  updaterWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(updaterHtml)}`)
+
+  updaterWindow.once('ready-to-show', () => {
+    updaterWindow.show()
+    autoUpdater.checkForUpdates()
+  })
+
+  autoUpdater.on('checking-for-update', () => {
+    updaterWindow.webContents.send('update-status', 'Looking for updates...')
+  })
+
+  autoUpdater.on('update-available', () => {
+    updaterWindow.webContents.send('update-status', 'Update found! Downloading...')
+  })
+
+  autoUpdater.on('update-not-available', () => {
+    updaterWindow.webContents.send('update-status', 'Starting Udeler...')
+    setTimeout(() => {
+      updaterWindow.close()
+      createWindow()
+    }, 1000)
+  })
+
+  autoUpdater.on('error', (err) => {
+    console.error('Updater Error:', err)
+    updaterWindow.webContents.send('update-status', 'Update failed. Starting app...')
+    setTimeout(() => {
+      updaterWindow.close()
+      createWindow()
+    }, 1500)
+  })
+
+  autoUpdater.on('download-progress', (progressObj) => {
+    const percent = Math.round(progressObj.percent)
+    updaterWindow.webContents.send('update-status', `Downloading... ${percent}%`)
+    updaterWindow.webContents.send('update-progress', percent)
+  })
+
+  autoUpdater.on('update-downloaded', () => {
+    updaterWindow.webContents.send('update-status', 'Ready! Restarting...')
+    setTimeout(() => {
+      autoUpdater.quitAndInstall()
+    }, 1500)
+  })
 }
 
 app.whenReady().then(() => {
@@ -413,10 +528,17 @@ app.whenReady().then(() => {
     })
   })
 
-  createWindow()
+  if (is.dev) {
+    createWindow()
+  } else {
+    createUpdaterWindow()
+  }
 
   app.on('activate', function () {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    if (BrowserWindow.getAllWindows().length === 0) {
+      if (is.dev) createWindow()
+      else createUpdaterWindow()
+    }
   })
 })
 

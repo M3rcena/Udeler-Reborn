@@ -43,6 +43,10 @@ appImage:
 npmRebuild: false
 publish:
   provider: github
+  owner: M3rcena
+  repo: Udeler-Reborn
 snap:
   publish:
     provider: github
+    owner: M3rcena
+    repo: Udeler-Reborn
