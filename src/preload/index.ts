@@ -1,5 +1,5 @@
-import { contextBridge } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
+import { contextBridge } from 'electron'
 import { ipcRenderer } from 'electron/renderer'
 import { IpcChannels } from './ipc-types'
 
@@ -25,6 +25,20 @@ const api = {
 
     return (): void => {
       ipcRenderer.removeListener('download-progress', listener)
+    }
+  },
+  onSchedulePause: (callback: () => void): (() => void) => {
+    const listener = (): void => callback()
+    ipcRenderer.on('schedule-pause', listener)
+    return (): void => {
+      ipcRenderer.removeListener('schedule-pause', listener)
+    }
+  },
+  onScheduleResume: (callback: () => void): (() => void) => {
+    const listener = (): void => callback()
+    ipcRenderer.on('schedule-resume', listener)
+    return (): void => {
+      ipcRenderer.removeListener('schedule-resume', listener)
     }
   }
 }

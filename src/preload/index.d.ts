@@ -8,8 +8,10 @@ export interface ApiBridge {
   ) => Promise<IpcChannels[Channel]['returns']>
 
   onDownloadProgress: (
-    callback: (data: { lectureId: number; percentage: number }) => void
+    callback: (data: { lectureId: number; percentage: number; speed: number }) => void
   ) => () => void
+  onSchedulePause: (callback: () => void) => () => void
+  onScheduleResume: (callback: () => void) => () => void
 }
 
 declare global {

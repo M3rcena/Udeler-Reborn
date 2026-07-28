@@ -1,4 +1,12 @@
-import { createContext, ReactNode, useContext, useEffect, useRef, useState } from 'react'
+import {
+  createContext,
+  ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState
+} from 'react'
 import { Course, CurriculumItem, DownloadContextType } from 'src/preload/ipc-types'
 
 const DownloadContext = createContext<DownloadContextType | undefined>(undefined)
@@ -15,6 +23,7 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
     { course: Course; item: CurriculumItem; chapterTitle: string; index: number }[]
   >([])
   const [downloadPercentages, setDownloadPercentages] = useState<Record<number, number>>({})
+  const [downloadSpeeds, setDownloadSpeeds] = useState<Record<number, number>>({})
   const [activeDownloads, setActiveDownloads] = useState<
     Record<number, { title: string; courseTitle: string }>
   >({})
@@ -26,6 +35,10 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
       setDownloadPercentages((prev) => ({
         ...prev,
         [data.lectureId]: data.percentage
+      }))
+      setDownloadSpeeds((prev) => ({
+        ...prev,
+        [data.lectureId]: data.speed
       }))
     })
 
@@ -209,7 +222,7 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
     return newTasks.length // Return the total items queued
   }
 
-  const pauseQueue = (): void => {
+  const pauseQueue = useCallback((): void => {
     isQueuePaused.current = true
     setQueueStatus('paused')
 
@@ -219,9 +232,9 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
         window.api.invoke('pause-download', id)
       }
     })
-  }
+  }, [downloadProgress])
 
-  const resumeQueue = (): void => {
+  const resumeQueue = useCallback((): void => {
     isQueuePaused.current = false
     setQueueStatus('running')
 
@@ -229,7 +242,8 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
     for (let i = 0; i < availableWorkers; i++) {
       setTimeout(processQueue, i * 500)
     }
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const cancelQueue = (): void => {
     isQueuePaused.current = true
@@ -257,12 +271,30 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
     })
   }
 
+  useEffect((): (() => void) => {
+    const unsubPause = window.api.onSchedulePause((): void => {
+      if (queueStatus === 'running') pauseQueue()
+    })
+
+    const unsubResume = window.api.onScheduleResume((): void => {
+      if (queueStatus === 'paused' && downloadQueue.current.length > 0) {
+        resumeQueue()
+      }
+    })
+
+    return (): void => {
+      unsubPause()
+      unsubResume()
+    }
+  }, [queueStatus, pauseQueue, resumeQueue])
+
   return (
     <DownloadContext.Provider
       value={{
         downloadProgress,
         setDownloadProgress,
         downloadPercentages,
+        downloadSpeeds,
         activeDownloads,
         queueStatus,
         queueCount,

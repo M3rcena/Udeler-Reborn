@@ -6,14 +6,15 @@ import * as fs from 'fs-extra'
 import * as path from 'path'
 import { join } from 'path'
 import icon from '../../resources/icon.png?asset'
+import { AppSettings, DownloadedFile, DownloadRequest, SafeStore } from '../preload/ipc-types'
 import {
   cancelDownload,
   deleteLectureFile,
-  DownloadRequest,
   pauseDownload,
   processDownload,
   scanExistingDownloads
 } from './download'
+import { initDownloadScheduler } from './network/scheduler'
 import {
   handleSetProgressBar,
   handleSetRecentCourse,
@@ -21,35 +22,6 @@ import {
   setupOSIntegration
 } from './os-integration'
 import { fetchCourseCurriculum, fetchSubscribedCourses } from './udemy'
-
-interface SafeStore {
-  get: (key: string) => unknown
-  set: (key: string, value: unknown) => void
-  delete: (key: string) => void
-}
-
-interface SubtitleTrack {
-  label: string
-  path: string
-}
-
-interface DownloadedFile {
-  course: string
-  chapter: string
-  file: string
-  path: string
-  type: 'Video' | 'Article' | 'File'
-  size: number
-  subtitles?: SubtitleTrack[]
-}
-
-interface AppSettings {
-  downloadPath: string
-  videoQuality: string
-  skipAttachments: boolean
-  skipSubtitles: boolean
-  autoRetry: boolean
-}
 
 // --- GLOBAL ERROR LOGGER ---
 const debugLogs: string[] = []
@@ -104,6 +76,7 @@ function createWindow(): void {
   })
 
   setupOSIntegration(mainWindow, icon)
+  initDownloadScheduler(mainWindow, store)
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
@@ -320,7 +293,8 @@ app.whenReady().then(() => {
         videoQuality: settings.videoQuality || 'Auto',
         skipAttachments: settings.skipAttachments ?? false,
         skipSubtitles: settings.skipSubtitles ?? false,
-        autoRetry: settings.autoRetry ?? false
+        autoRetry: settings.autoRetry ?? false,
+        maxKbps: settings.maxKbps || 0
       }
 
       return await processDownload(fullRequest)

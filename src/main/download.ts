@@ -1,9 +1,11 @@
-import { net, BrowserWindow } from 'electron'
+import { BrowserWindow, net } from 'electron'
 import * as fs from 'fs'
-import * as path from 'path'
-import * as https from 'https'
 import type { ClientRequest } from 'http'
+import * as https from 'https'
+import * as path from 'path'
 import { z } from 'zod'
+import { DownloadRequest } from '../preload/ipc-types'
+import { ThrottleStream } from './network/throttle'
 
 const activeStreams = new Map<
   number,
@@ -74,52 +76,35 @@ const UdemyAssetResponseSchema = z
 
 type UdemyAssetResponse = z.infer<typeof UdemyAssetResponseSchema>
 
-export interface DownloadRequest {
-  token: string
-  downloadPath: string
-  videoQuality: string
-  skipAttachments: boolean
-  skipSubtitles: boolean
-  autoRetry: boolean
-  courseId: number
-  courseTitle: string
-  chapterTitle: string
-  lectureId: number
-  lectureTitle: string
-  lectureIndex: number
-  type: 'Video' | 'Article' | 'Quiz' | 'File' | 'E-Book'
-  timeEstimation?: number
-}
-
 function downloadExtraFile(url: string, destPath: string): Promise<void> {
-  return new Promise((resolve) => {
+  return new Promise((resolve): void => {
     const file = fs.createWriteStream(destPath)
     const requestOptions = { agent: false }
 
     https
-      .get(url, requestOptions, (res) => {
+      .get(url, requestOptions, (res): void => {
         if (res.statusCode === 301 || res.statusCode === 302) {
           https
             .get(res.headers.location!, requestOptions, (redirectRes) => {
               redirectRes.pipe(file)
-              redirectRes.on('end', () => {
+              redirectRes.on('end', (): void => {
                 file.close()
                 resolve()
               })
             })
-            .on('error', () => {
+            .on('error', (): void => {
               file.close()
               resolve()
             })
         } else {
           res.pipe(file)
-          res.on('end', () => {
+          res.on('end', (): void => {
             file.close()
             resolve()
           })
         }
       })
-      .on('error', () => {
+      .on('error', (): void => {
         file.close()
         resolve()
       })
@@ -171,7 +156,9 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
       if (attempt >= maxAttempts)
         throw new Error(`API failed after ${maxAttempts} retries: ${response.status}`)
 
-      await new Promise((resolve) => setTimeout(resolve, attempt * 2000))
+      await new Promise<void>((resolve): void => {
+        setTimeout(resolve, attempt * 2000)
+      })
       continue
     }
 
@@ -289,7 +276,7 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
 
   const filePath = path.join(targetDir, `${cleanLecture}${fileExtension}`)
 
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve, reject): void => {
     if (canceledDownloads.has(req.lectureId)) return resolve('USER_CANCELED')
 
     let downloadedBytes = 0
@@ -311,7 +298,7 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
     const file = fs.createWriteStream(filePath, fileOptions)
 
     const requestStream = https
-      .get(downloadUrl, requestOptions, (res) => {
+      .get(downloadUrl, requestOptions, (res): void => {
         if (res.statusCode === 200 && downloadedBytes > 0) {
           downloadedBytes = 0
           fs.truncateSync(filePath, 0)
@@ -321,7 +308,7 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
 
         if (res.statusCode === 301 || res.statusCode === 302) {
           const redirectStream = https
-            .get(res.headers.location!, requestOptions, (redirectRes) => {
+            .get(res.headers.location!, requestOptions, (redirectRes): void => {
               if (redirectRes.statusCode === 200 && downloadedBytes > 0) {
                 downloadedBytes = 0
                 fs.truncateSync(filePath, 0)
@@ -330,87 +317,137 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
               const redirectTotalBytes =
                 parseInt(redirectRes.headers['content-length'] || '0', 10) + downloadedBytes
 
-              redirectRes.on('data', (chunk) => {
+              const throttle = new ThrottleStream(req.maxKbps || 0)
+
+              let lastSpeedTime = Date.now()
+              let bytesInWindow = 0
+              let displaySpeed = 0
+              let lastIpcTime = 0
+
+              throttle.on('data', (chunk: Buffer): void => {
                 downloadedBytes += chunk.length
-                const percentage = redirectTotalBytes
-                  ? Math.round((downloadedBytes / redirectTotalBytes) * 100)
-                  : 0
-                const mainWindow = BrowserWindow.getAllWindows()[0]
-                if (mainWindow)
-                  mainWindow.webContents.send('download-progress', {
-                    lectureId: req.lectureId,
-                    percentage
-                  })
+                bytesInWindow += chunk.length
+                const now = Date.now()
+
+                if (now - lastSpeedTime >= 1000) {
+                  displaySpeed = (bytesInWindow / (now - lastSpeedTime)) * 1000
+                  bytesInWindow = 0
+                  lastSpeedTime = now
+                }
+
+                const isFinished = downloadedBytes === redirectTotalBytes
+                if (now - lastIpcTime >= 250 || isFinished) {
+                  const percentage = redirectTotalBytes
+                    ? Math.round((downloadedBytes / redirectTotalBytes) * 100)
+                    : 0
+
+                  const mainWindow = BrowserWindow.getAllWindows()[0]
+                  if (mainWindow) {
+                    mainWindow.webContents.send('download-progress', {
+                      lectureId: req.lectureId,
+                      percentage,
+                      speed: displaySpeed
+                    })
+                  }
+                  lastIpcTime = now
+                }
               })
 
-              redirectRes.on('error', (err) => {
+              redirectRes.pipe(throttle).pipe(file)
+
+              redirectRes.on('error', (err: Error): void => {
+                throttle.destroy()
                 file.close()
                 activeStreams.delete(req.lectureId)
                 if (err.message === 'USER_PAUSED') resolve('USER_PAUSED')
                 else if (err.message === 'USER_CANCELED') resolve('USER_CANCELED')
                 else {
-                  fs.unlink(filePath, () => {})
+                  fs.unlink(filePath, (): void => {})
                   reject(err)
                 }
               })
 
-              redirectRes.pipe(file)
-              redirectRes.on('end', () => {
+              redirectRes.on('end', (): void => {
                 file.close()
                 activeStreams.delete(req.lectureId)
                 resolve(filePath)
               })
             })
-            .on('error', (err) => {
+            .on('error', (err: Error): void => {
               file.close()
               activeStreams.delete(req.lectureId)
               if (err.message === 'USER_PAUSED') resolve('USER_PAUSED')
               else if (err.message === 'USER_CANCELED') resolve('USER_CANCELED')
               else {
-                fs.unlink(filePath, () => {})
+                fs.unlink(filePath, (): void => {})
                 reject(err)
               }
             })
 
           activeStreams.set(req.lectureId, { req: redirectStream, file, filePath })
         } else {
-          res.on('data', (chunk) => {
+          const throttle = new ThrottleStream(req.maxKbps || 0)
+
+          let lastSpeedTime = Date.now()
+          let bytesInWindow = 0
+          let displaySpeed = 0
+          let lastIpcTime = 0
+
+          throttle.on('data', (chunk: Buffer): void => {
             downloadedBytes += chunk.length
-            const percentage = totalBytes ? Math.round((downloadedBytes / totalBytes) * 100) : 0
-            const mainWindow = BrowserWindow.getAllWindows()[0]
-            if (mainWindow)
-              mainWindow.webContents.send('download-progress', {
-                lectureId: req.lectureId,
-                percentage
-              })
+            bytesInWindow += chunk.length
+            const now = Date.now()
+
+            if (now - lastSpeedTime >= 1000) {
+              displaySpeed = (bytesInWindow / (now - lastSpeedTime)) * 1000
+              bytesInWindow = 0
+              lastSpeedTime = now
+            }
+
+            const isFinished = downloadedBytes === totalBytes
+            if (now - lastIpcTime >= 250 || isFinished) {
+              const percentage = totalBytes ? Math.round((downloadedBytes / totalBytes) * 100) : 0
+
+              const mainWindow = BrowserWindow.getAllWindows()[0]
+              if (mainWindow) {
+                mainWindow.webContents.send('download-progress', {
+                  lectureId: req.lectureId,
+                  percentage,
+                  speed: displaySpeed
+                })
+              }
+              lastIpcTime = now
+            }
           })
 
-          res.on('error', (err) => {
+          res.pipe(throttle).pipe(file)
+
+          res.on('error', (err: Error): void => {
+            throttle.destroy()
             file.close()
             activeStreams.delete(req.lectureId)
             if (err.message === 'USER_PAUSED') resolve('USER_PAUSED')
             else if (err.message === 'USER_CANCELED') resolve('USER_CANCELED')
             else {
-              fs.unlink(filePath, () => {})
+              fs.unlink(filePath, (): void => {})
               reject(err)
             }
           })
 
-          res.pipe(file)
-          res.on('end', () => {
+          res.on('end', (): void => {
             file.close()
             activeStreams.delete(req.lectureId)
             resolve(filePath)
           })
         }
       })
-      .on('error', (err) => {
+      .on('error', (err: Error): void => {
         file.close()
         activeStreams.delete(req.lectureId)
         if (err.message === 'USER_PAUSED') resolve('USER_PAUSED')
         else if (err.message === 'USER_CANCELED') resolve('USER_CANCELED')
         else {
-          fs.unlink(filePath, () => {})
+          fs.unlink(filePath, (): void => {})
           reject(err)
         }
       })

@@ -33,6 +33,7 @@ export interface DownloadContextType {
   downloadProgress: Record<number, string>
   setDownloadProgress: React.Dispatch<React.SetStateAction<Record<number, string>>>
   downloadPercentages?: Record<number, number>
+  downloadSpeeds?: Record<number, number>
   activeDownloads: Record<number, { title: string; courseTitle: string }>
   queueStatus: 'idle' | 'running' | 'paused'
   queueCount: number
@@ -55,7 +56,35 @@ export interface DownloadContextType {
   cancelQueue: () => void
 }
 
-interface SubtitleTrack {
+export interface DownloadedFile {
+  course: string
+  chapter: string
+  file: string
+  path: string
+  type: 'Video' | 'Article' | 'File'
+  size: number
+  subtitles?: SubtitleTrack[]
+}
+
+export interface DownloadRequest {
+  token: string
+  downloadPath: string
+  videoQuality: string
+  skipAttachments: boolean
+  skipSubtitles: boolean
+  autoRetry: boolean
+  courseId: number
+  courseTitle: string
+  chapterTitle: string
+  lectureId: number
+  lectureTitle: string
+  lectureIndex: number
+  type: 'Video' | 'Article' | 'Quiz' | 'File' | 'E-Book'
+  timeEstimation?: number
+  maxKbps?: number
+}
+
+export interface SubtitleTrack {
   label: string
   srcLang: string
   path: string
@@ -66,6 +95,25 @@ export interface CurriculumModalProps {
   curriculum: CurriculumItem[]
   isFetchingCurriculum: boolean
   onClose: () => void
+}
+
+// ---- Settings Types
+export interface SafeStore {
+  get: (key: string) => unknown
+  set: (key: string, value: unknown) => void
+  delete: (key: string) => void
+}
+
+export interface AppSettings {
+  downloadPath: string
+  videoQuality: string
+  skipAttachments: boolean
+  skipSubtitles: boolean
+  autoRetry: boolean
+  scheduleEnabled: boolean
+  scheduleStart: string
+  scheduleEnd: string
+  maxKbps: number
 }
 
 // ---- Sidebar Types
