@@ -149,4 +149,8 @@ export interface IpcChannels {
   'delete-lecture': { args: [courseTitle: string, lectureId: number]; returns: boolean }
   'delete-file-by-path': { args: [filePath: string]; returns: boolean }
   'login-udemy': { args: [subdomain?: string]; returns: string | null }
+  'os-set-progress': { args: [progress: number]; returns: boolean }
+  'os-set-tray-tooltip': { args: [text: string]; returns: boolean }
+  'os-set-recent-course': { args: [payload: { title: string; id: number }]; returns: boolean }
+  'os-hide-to-tray': { args: []; returns: boolean }
 }

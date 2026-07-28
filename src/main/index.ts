@@ -14,6 +14,12 @@ import {
   processDownload,
   scanExistingDownloads
 } from './download'
+import {
+  handleSetProgressBar,
+  handleSetRecentCourse,
+  handleSetTrayTooltip,
+  setupOSIntegration
+} from './os-integration'
 import { fetchCourseCurriculum, fetchSubscribedCourses } from './udemy'
 
 interface SafeStore {
@@ -71,8 +77,10 @@ process.on('unhandledRejection', (reason) => {
 const StoreClass = (Store as unknown as { default: new () => unknown }).default || Store
 const store = new (StoreClass as new () => unknown)() as unknown as SafeStore
 
+let mainWindow: BrowserWindow | null = null
+
 function createWindow(): void {
-  const mainWindow = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 1280,
     height: 720,
     show: false,
@@ -86,14 +94,16 @@ function createWindow(): void {
   })
 
   mainWindow.on('ready-to-show', () => {
-    mainWindow.maximize()
-    mainWindow.show()
+    mainWindow!.maximize()
+    mainWindow!.show()
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
     return { action: 'deny' }
   })
+
+  setupOSIntegration(mainWindow, icon)
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
@@ -526,6 +536,29 @@ app.whenReady().then(() => {
         resolve(null)
       })
     })
+  })
+
+  ipcMain.handle('os-set-progress', (_event, progress: number): boolean => {
+    if (mainWindow) handleSetProgressBar(mainWindow, progress)
+    return true
+  })
+
+  ipcMain.handle('os-set-tray-tooltip', (_event, text: string): boolean => {
+    handleSetTrayTooltip(text)
+    return true
+  })
+
+  ipcMain.handle(
+    'os-set-recent-course',
+    (_event, payload: { title: string; id: number }): boolean => {
+      handleSetRecentCourse(payload)
+      return true
+    }
+  )
+
+  ipcMain.handle('os-hide-to-tray', (): boolean => {
+    if (mainWindow) mainWindow.hide()
+    return true
   })
 
   if (is.dev) {

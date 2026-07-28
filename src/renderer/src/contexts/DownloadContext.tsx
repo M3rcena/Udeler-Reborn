@@ -34,10 +34,32 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
     }
   }, [])
 
+  useEffect(() => {
+    const activeKeys = Object.keys(activeDownloads)
+    const totalActive = activeKeys.length
+
+    if (totalActive > 0 || queueCount > 0) {
+      const sum = activeKeys.reduce(
+        (acc, key) => acc + (downloadPercentages[parseInt(key)] || 0),
+        0
+      )
+      const currentGlobalProgress = totalActive > 0 ? sum / (totalActive * 100) : 0
+
+      window.api.invoke('os-set-progress', currentGlobalProgress)
+
+      window.api.invoke(
+        'os-set-tray-tooltip',
+        `Udeler: Downloading ${totalActive} item(s) (${queueCount} in queue)`
+      )
+    } else {
+      window.api.invoke('os-set-progress', -1)
+      window.api.invoke('os-set-tray-tooltip', 'Udeler Reborn - Idle')
+    }
+  }, [activeDownloads, downloadPercentages, queueCount])
+
   const validateDownloadPath = async (): Promise<boolean> => {
     const settings = (await window.api.invoke('store-get', 'app_settings')) as
-      | { downloadPath?: string }
-      | undefined
+      { downloadPath?: string } | undefined
     if (!settings || !settings.downloadPath) {
       setIsPathAlertOpen(true)
       return false
