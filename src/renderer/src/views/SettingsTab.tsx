@@ -11,7 +11,8 @@ export const SettingsTab: React.FC = () => {
     maxKbps: 0,
     scheduleEnabled: false,
     scheduleStart: '01:00',
-    scheduleEnd: '06:00'
+    scheduleEnd: '06:00',
+    closeToTray: false
   })
   const [isSavingSettings, setIsSavingSettings] = useState<boolean>(false)
   const [isQualityMenuOpen, setIsQualityMenuOpen] = useState<boolean>(false)
@@ -252,7 +253,8 @@ export const SettingsTab: React.FC = () => {
               {[
                 { id: 'skipAttachments', label: 'Skip Course Attachments' },
                 { id: 'skipSubtitles', label: 'Skip Subtitles / Closed Captions' },
-                { id: 'autoRetry', label: 'Auto-Retry on Network Error' }
+                { id: 'autoRetry', label: 'Auto-Retry on Network Error' },
+                { id: 'closeToTray', label: 'Keep running in background when closed' }
               ].map((setting) => (
                 <label
                   key={setting.id}

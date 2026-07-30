@@ -114,6 +114,7 @@ export interface AppSettings {
   scheduleStart: string
   scheduleEnd: string
   maxKbps: number
+  closeToTray?: boolean
 }
 
 // ---- Sidebar Types

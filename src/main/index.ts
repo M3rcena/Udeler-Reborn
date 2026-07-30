@@ -50,6 +50,7 @@ const StoreClass = (Store as unknown as { default: new () => unknown }).default 
 const store = new (StoreClass as new () => unknown)() as unknown as SafeStore
 
 let mainWindow: BrowserWindow | null = null
+let isQuitting = false
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -68,6 +69,15 @@ function createWindow(): void {
   mainWindow.on('ready-to-show', () => {
     mainWindow!.maximize()
     mainWindow!.show()
+  })
+
+  mainWindow.on('close', (event) => {
+    const settings = store.get('app_settings') as AppSettings | undefined
+
+    if (!isQuitting && settings?.closeToTray) {
+      event.preventDefault()
+      mainWindow?.hide()
+    }
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -547,6 +557,16 @@ app.whenReady().then(() => {
       else createUpdaterWindow()
     }
   })
+})
+
+app.on('before-quit', () => {
+  isQuitting = true
+})
+
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') {
+    app.quit()
+  }
 })
 
 app.on('window-all-closed', () => {
