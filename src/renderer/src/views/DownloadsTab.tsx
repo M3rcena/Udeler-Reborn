@@ -1,6 +1,6 @@
 import { useDownload } from '@renderer/contexts/DownloadContext'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { DownloadedFile, WatchProgress, WatchProgressControls } from 'src/preload/ipc-types'
+import { Course, DownloadedFile, WatchProgress, WatchProgressControls } from 'src/preload/ipc-types'
 
 function useWatchProgress(
   lectureId: number | null,
@@ -14,8 +14,7 @@ function useWatchProgress(
 
     const loadProgress = async (): Promise<void> => {
       const progress = (await window.api.invoke('store-get', `watch_progress.${lectureId}`)) as
-        | WatchProgress
-        | undefined
+        WatchProgress | undefined
 
       if (progress && !progress.isCompleted && videoRef.current) {
         videoRef.current.currentTime = progress.currentTime
@@ -63,7 +62,12 @@ function useWatchProgress(
   return { handleTimeUpdate, forceSave }
 }
 
-export const DownloadsTab: React.FC = () => {
+interface DownloadsTabProps {
+  playMediaItem?: DownloadedFile | null
+  onMediaHandled?: () => void
+}
+
+export const DownloadsTab: React.FC<DownloadsTabProps> = ({ playMediaItem, onMediaHandled }) => {
   const {
     downloadProgress,
     setDownloadProgress,
@@ -160,6 +164,15 @@ export const DownloadsTab: React.FC = () => {
       fetchDiskData()
     }, 0)
   }, [])
+
+  useEffect(() => {
+    if (playMediaItem) {
+      setTimeout(() => {
+        setSelectedMedia(playMediaItem)
+      })
+      if (onMediaHandled) onMediaHandled()
+    }
+  }, [playMediaItem, onMediaHandled])
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-6xl mx-auto pb-10 flex flex-col h-full relative z-10">
@@ -328,7 +341,7 @@ export const DownloadsTab: React.FC = () => {
                   </svg>
                   <button
                     onClick={() => setActiveChapter(null)}
-                    className={`truncate max-w-[150px] sm:max-w-xs hover:text-blue-500 cursor-pointer transition-colors ${!activeChapter ? '' : 'text-gray-400 dark:text-gray-500 text-lg'}`}
+                    className={`truncate max-w-37.5 sm:max-w-xs hover:text-blue-500 cursor-pointer transition-colors ${!activeChapter ? '' : 'text-gray-400 dark:text-gray-500 text-lg'}`}
                     title={activeCourse}
                   >
                     {activeCourse}
@@ -350,7 +363,7 @@ export const DownloadsTab: React.FC = () => {
                       d="M9 5l7 7-7 7"
                     ></path>
                   </svg>
-                  <span className="truncate max-w-[150px] sm:max-w-xs" title={activeChapter}>
+                  <span className="truncate max-w-37.5 sm:max-w-xs" title={activeChapter}>
                     {activeChapter}
                   </span>
                 </>
@@ -599,7 +612,29 @@ export const DownloadsTab: React.FC = () => {
 
                         <div className="shrink-0 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity self-end sm:self-auto">
                           <button
-                            onClick={async () => {
+                            onClick={async (): Promise<void> => {
+                              try {
+                                const savedCourses = (await window.api.invoke(
+                                  'store-get',
+                                  'cached_courses'
+                                )) as Course[] | undefined
+
+                                const matchedCourse = savedCourses?.find(
+                                  (c: Course) =>
+                                    c.title.replace(/[<>:"/\\|?*]+/g, '-').trim() === item.course
+                                )
+
+                                if (matchedCourse && matchedCourse.id) {
+                                  window.api.invoke('os-set-recent-course', {
+                                    title: item.file,
+                                    id: matchedCourse.id,
+                                    file: item
+                                  })
+                                }
+                              } catch (err) {
+                                console.error('Failed to set recent course for OS tray:', err)
+                              }
+
                               setSelectedMedia(item)
                               await fetchDiskData()
                             }}

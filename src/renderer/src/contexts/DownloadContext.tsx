@@ -29,6 +29,8 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
   >({})
   const activeWorkers = useRef<number>(0)
   const isQueuePaused = useRef<boolean>(false)
+  const totalSessionItems = useRef<number>(0)
+  const completedSessionItems = useRef<number>(0)
 
   useEffect(() => {
     const unsubscribe = window.api.onDownloadProgress((data) => {
@@ -48,27 +50,52 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
   }, [])
 
   useEffect(() => {
+    window.api.invoke('os-update-queue-menu', queueStatus)
+
     const activeKeys = Object.keys(activeDownloads)
     const totalActive = activeKeys.length
 
-    if (totalActive > 0 || queueCount > 0) {
-      const sum = activeKeys.reduce(
+    if (queueStatus === 'idle' && totalActive === 0) {
+      totalSessionItems.current = 0
+      completedSessionItems.current = 0
+      window.api.invoke('os-set-progress', -1)
+      window.api.invoke('os-set-tray-tooltip', 'Udeler Reborn - Idle')
+    } else {
+      const sumOfActivePercentages = activeKeys.reduce(
         (acc, key) => acc + (downloadPercentages[parseInt(key)] || 0),
         0
       )
-      const currentGlobalProgress = totalActive > 0 ? sum / (totalActive * 100) : 0
+      const total = totalSessionItems.current || 1
+      const completed = completedSessionItems.current
 
-      window.api.invoke('os-set-progress', currentGlobalProgress)
+      let globalProgress = (completed + sumOfActivePercentages / 100) / total
+      globalProgress = Math.min(1, Math.max(0.01, globalProgress))
 
+      window.api.invoke('os-set-progress', globalProgress)
       window.api.invoke(
         'os-set-tray-tooltip',
-        `Udeler: Downloading ${totalActive} item(s) (${queueCount} in queue)`
+        `Udeler: ${totalActive} active, ${queueCount} queued`
       )
-    } else {
-      window.api.invoke('os-set-progress', -1)
-      window.api.invoke('os-set-tray-tooltip', 'Udeler Reborn - Idle')
     }
-  }, [activeDownloads, downloadPercentages, queueCount])
+  }, [activeDownloads, downloadPercentages, queueCount, queueStatus])
+
+  useEffect(() => {
+    const loadSavedQueue = async (): Promise<void> => {
+      const savedQueue = (await window.api.invoke('store-get', 'saved_queue')) as
+        typeof downloadQueue.current | undefined
+      if (savedQueue && savedQueue.length > 0) {
+        downloadQueue.current = savedQueue
+        setQueueCount(savedQueue.length)
+        totalSessionItems.current = savedQueue.length
+        setQueueStatus('paused')
+      }
+    }
+    loadSavedQueue()
+  }, [])
+
+  const syncQueueToDisk = (): void => {
+    window.api.invoke('store-set', 'saved_queue', downloadQueue.current)
+  }
 
   const validateDownloadPath = async (): Promise<boolean> => {
     const settings = (await window.api.invoke('store-get', 'app_settings')) as
@@ -112,6 +139,7 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
     }
 
     let isPaused = false
+    let isCanceled = false
 
     try {
       const result = await window.api.invoke('start-download', request)
@@ -122,12 +150,14 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
       setDownloadProgress((prev) => ({ ...prev, [item.id]: 'success' }))
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
+
       if (errorMessage.includes('USER_PAUSED')) {
         setDownloadProgress((prev) => ({ ...prev, [item.id]: 'paused' }))
         downloadQueue.current.unshift({ course, item, chapterTitle, index: lectureIndex })
         isPaused = true
       } else if (errorMessage.includes('USER_CANCELED')) {
         isPaused = true
+        isCanceled = true
       } else if (errorMessage.includes('DRM protected')) {
         setDownloadProgress((prev) => ({ ...prev, [item.id]: 'drm' }))
         window.api.invoke('store-set', `drm_${course.id}.${item.id}`, true)
@@ -136,6 +166,12 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
         setDownloadProgress((prev) => ({ ...prev, [item.id]: 'error' }))
       }
     } finally {
+      if (!isPaused && !isCanceled) {
+        completedSessionItems.current++
+      } else if (isCanceled) {
+        totalSessionItems.current--
+      }
+
       if (!isPaused) {
         setActiveDownloads((prev) => {
           const newMap = { ...prev }
@@ -171,6 +207,7 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
     } catch {
       console.error('Worker failed on item', nextTask.item.id)
     } finally {
+      syncQueueToDisk()
       activeWorkers.current--
       processQueue()
     }
@@ -208,6 +245,7 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
     }
 
     if (newTasks.length === 0) return 0 // Stop early if there is nothing new to add
+    totalSessionItems.current += newTasks.length
 
     downloadQueue.current = [...downloadQueue.current, ...newTasks]
     setQueueCount(downloadQueue.current.length)
@@ -219,6 +257,7 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
       setTimeout(processQueue, i * 500)
     }
 
+    syncQueueToDisk()
     return newTasks.length // Return the total items queued
   }
 
@@ -232,6 +271,8 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
         window.api.invoke('pause-download', id)
       }
     })
+
+    syncQueueToDisk()
   }, [downloadProgress])
 
   const resumeQueue = useCallback((): void => {
@@ -245,7 +286,7 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const cancelQueue = (): void => {
+  const cancelQueue = useCallback((): void => {
     isQueuePaused.current = true
     setQueueStatus('idle')
     downloadQueue.current = []
@@ -269,24 +310,34 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
         })
       }
     })
-  }
 
-  useEffect((): (() => void) => {
-    const unsubPause = window.api.onSchedulePause((): void => {
+    syncQueueToDisk()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    const unsubPause = window.api.onSchedulePause(() => {
       if (queueStatus === 'running') pauseQueue()
     })
 
-    const unsubResume = window.api.onScheduleResume((): void => {
+    const unsubResume = window.api.onScheduleResume(() => {
       if (queueStatus === 'paused' && downloadQueue.current.length > 0) {
         resumeQueue()
       }
     })
 
-    return (): void => {
+    const unsubTray = window.api.onTrayAction((action) => {
+      if (action === 'pause') pauseQueue()
+      else if (action === 'resume') resumeQueue()
+      else if (action === 'cancel') cancelQueue()
+    })
+
+    return () => {
       unsubPause()
       unsubResume()
+      unsubTray()
     }
-  }, [queueStatus, pauseQueue, resumeQueue])
+  }, [queueStatus, pauseQueue, resumeQueue, cancelQueue])
 
   return (
     <DownloadContext.Provider

@@ -1,4 +1,4 @@
-import type { IpcChannels } from '../../../preload/ipc-types'
+import type { DownloadedFile, IpcChannels } from '../../../preload/ipc-types'
 
 declare global {
   interface Window {
@@ -13,6 +13,9 @@ declare global {
       ) => () => void
       onSchedulePause: (callback: () => void) => () => void
       onScheduleResume: (callback: () => void) => () => void
+      onTrayAction: (callback: (action: 'pause' | 'resume' | 'cancel') => void) => () => void
+      onNavigateCourse: (callback: (courseId: number) => void) => () => void
+      onPlayRecentMedia: (callback: (file: DownloadedFile) => void) => () => void
     }
   }
 }

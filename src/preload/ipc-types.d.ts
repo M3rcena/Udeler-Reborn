@@ -200,6 +200,10 @@ export interface IpcChannels {
   'login-udemy': { args: [subdomain?: string]; returns: string | null }
   'os-set-progress': { args: [progress: number]; returns: boolean }
   'os-set-tray-tooltip': { args: [text: string]; returns: boolean }
-  'os-set-recent-course': { args: [payload: { title: string; id: number }]; returns: boolean }
+  'os-set-recent-course': {
+    args: [payload: { title: string; id: number; file?: DownloadedFile }]
+    returns: boolean
+  }
   'os-hide-to-tray': { args: []; returns: boolean }
+  'os-update-queue-menu': { args: [status: 'idle' | 'running' | 'paused']; returns: boolean }
 }

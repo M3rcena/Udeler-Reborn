@@ -19,6 +19,7 @@ import {
   handleSetProgressBar,
   handleSetRecentCourse,
   handleSetTrayTooltip,
+  handleUpdateQueueMenu,
   setupOSIntegration
 } from './os-integration'
 import { fetchCourseCurriculum, fetchSubscribedCourses } from './udemy'
@@ -544,6 +545,14 @@ app.whenReady().then(() => {
     if (mainWindow) mainWindow.hide()
     return true
   })
+
+  ipcMain.handle(
+    'os-update-queue-menu',
+    (_event, status: 'idle' | 'running' | 'paused'): boolean => {
+      handleUpdateQueueMenu(status)
+      return true
+    }
+  )
 
   if (is.dev) {
     createWindow()

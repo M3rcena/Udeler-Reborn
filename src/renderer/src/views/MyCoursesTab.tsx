@@ -2,7 +2,12 @@ import { useDownload } from '@renderer/contexts/DownloadContext'
 import { useCallback, useEffect, useState } from 'react'
 import { Course, CurriculumItem, WatchProgress } from 'src/preload/ipc-types'
 
-export const MyCoursesTab: React.FC = () => {
+interface MyCoursesTabProps {
+  navCourseId?: number | null
+  onNavHandled?: () => void
+}
+
+export const MyCoursesTab: React.FC<MyCoursesTabProps> = ({ navCourseId, onNavHandled }) => {
   // --- GRAB THE BACKGROUND QUEUE ENGINE ---
   const {
     downloadProgress,
@@ -40,6 +45,8 @@ export const MyCoursesTab: React.FC = () => {
     try {
       const data = await window.api.invoke('fetch-courses')
       setCourses(data)
+
+      window.api.invoke('store-set', 'cached_courses', data)
     } catch (error) {
       console.error('Failed to fetch courses:', error)
     } finally {
@@ -58,7 +65,7 @@ export const MyCoursesTab: React.FC = () => {
     course.title.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  const handleViewContent = async (course: Course): Promise<void> => {
+  const handleViewContent = useCallback(async (course: Course): Promise<void> => {
     setSelectedCourse(course)
     setIsFetchingCurriculum(true)
     setNewLectures(new Set())
@@ -145,7 +152,21 @@ export const MyCoursesTab: React.FC = () => {
     } finally {
       setIsFetchingCurriculum(false)
     }
-  }
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    if (navCourseId && courses.length > 0) {
+      const course = courses.find((c) => c.id === navCourseId)
+      if (course) {
+        setTimeout(() => {
+          handleViewContent(course)
+        })
+      }
+      if (onNavHandled) onNavHandled()
+    }
+  }, [navCourseId, courses, onNavHandled, handleViewContent])
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 h-full flex flex-col relative z-10">
@@ -316,10 +337,10 @@ export const MyCoursesTab: React.FC = () => {
                       setTimeout(() => setQueuedCount(null), 3000)
                     }
                   }}
-                  className="group flex items-center h-11 max-w-[44px] hover:max-w-[200px] bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl text-sm transition-all duration-300 ease-out shadow-lg hover:shadow-blue-500/30 overflow-hidden cursor-pointer px-3 whitespace-nowrap gap-2"
+                  className="group flex items-center h-11 max-w-11 hover:max-w-50 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl text-sm transition-all duration-300 ease-out shadow-lg hover:shadow-blue-500/30 overflow-hidden cursor-pointer px-3 whitespace-nowrap gap-2"
                 >
                   <svg
-                    className="w-5 h-5 min-w-[20px]"
+                    className="w-5 h-5 min-w-5"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -339,10 +360,10 @@ export const MyCoursesTab: React.FC = () => {
                 {queueStatus === 'running' && (
                   <button
                     onClick={pauseQueue}
-                    className="group flex items-center h-11 max-w-[44px] hover:max-w-[200px] bg-yellow-500 hover:bg-yellow-400 text-white font-semibold rounded-xl text-sm transition-all duration-300 ease-out shadow-lg shadow-yellow-500/30 overflow-hidden cursor-pointer px-3 whitespace-nowrap gap-2"
+                    className="group flex items-center h-11 max-w-11 hover:max-w-50 bg-yellow-500 hover:bg-yellow-400 text-white font-semibold rounded-xl text-sm transition-all duration-300 ease-out shadow-lg shadow-yellow-500/30 overflow-hidden cursor-pointer px-3 whitespace-nowrap gap-2"
                   >
                     <svg
-                      className="w-5 h-5 min-w-[20px]"
+                      className="w-5 h-5 min-w-5"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -363,10 +384,10 @@ export const MyCoursesTab: React.FC = () => {
                 {queueStatus === 'paused' && (
                   <button
                     onClick={resumeQueue}
-                    className="group flex items-center h-11 max-w-[44px] hover:max-w-[200px] bg-green-500 hover:bg-green-400 text-white font-semibold rounded-xl text-sm transition-all duration-300 ease-out shadow-lg shadow-green-500/30 overflow-hidden cursor-pointer px-3 whitespace-nowrap gap-2"
+                    className="group flex items-center h-11 max-w-11 hover:max-w-50 bg-green-500 hover:bg-green-400 text-white font-semibold rounded-xl text-sm transition-all duration-300 ease-out shadow-lg shadow-green-500/30 overflow-hidden cursor-pointer px-3 whitespace-nowrap gap-2"
                   >
                     <svg
-                      className="w-5 h-5 min-w-[20px]"
+                      className="w-5 h-5 min-w-5"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -393,10 +414,10 @@ export const MyCoursesTab: React.FC = () => {
                 {queueStatus !== 'idle' && (
                   <button
                     onClick={cancelQueue}
-                    className="group flex items-center h-11 max-w-[44px] hover:max-w-[200px] bg-red-600 hover:bg-red-500 text-white font-semibold rounded-xl text-sm transition-all duration-300 ease-out shadow-lg shadow-red-600/30 overflow-hidden cursor-pointer px-3 whitespace-nowrap gap-2"
+                    className="group flex items-center h-11 max-w-11 hover:max-w-50 bg-red-600 hover:bg-red-500 text-white font-semibold rounded-xl text-sm transition-all duration-300 ease-out shadow-lg shadow-red-600/30 overflow-hidden cursor-pointer px-3 whitespace-nowrap gap-2"
                   >
                     <svg
-                      className="w-5 h-5 min-w-[20px]"
+                      className="w-5 h-5 min-w-5"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -428,10 +449,10 @@ export const MyCoursesTab: React.FC = () => {
                     setHasLocalFiles(filesExist)
                     setIsDeleteModalOpen(true)
                   }}
-                  className="group flex items-center h-11 max-w-[44px] hover:max-w-[200px] bg-red-500/10 hover:bg-red-600 text-red-600 dark:text-red-400 hover:text-white font-semibold rounded-xl text-sm transition-all duration-300 ease-out shadow-md overflow-hidden cursor-pointer px-3 whitespace-nowrap gap-2"
+                  className="group flex items-center h-11 max-w-11 hover:max-w-50 bg-red-500/10 hover:bg-red-600 text-red-600 dark:text-red-400 hover:text-white font-semibold rounded-xl text-sm transition-all duration-300 ease-out shadow-md overflow-hidden cursor-pointer px-3 whitespace-nowrap gap-2"
                 >
                   <svg
-                    className="w-5 h-5 min-w-[20px]"
+                    className="w-5 h-5 min-w-5"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"

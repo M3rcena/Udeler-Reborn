@@ -10,7 +10,8 @@ export const TrayTooltipSchema = z.object({
 
 export const RecentCourseSchema = z.object({
   title: z.string().min(1).max(200),
-  id: z.number().positive()
+  id: z.number().positive(),
+  file: z.any().optional()
 })
 
 export type OsProgressPayload = z.infer<typeof OsProgressSchema>

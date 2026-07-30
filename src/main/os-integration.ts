@@ -1,29 +1,80 @@
 import { app, BrowserWindow, Menu, nativeImage, Tray } from 'electron'
+import { DownloadedFile } from '../preload/ipc-types'
 import { OsProgressSchema, RecentCourseSchema, TrayTooltipSchema } from './validation/os-schema'
+import { appVersion } from './version'
 
 let tray: Tray | null = null
+let currentMainWindow: BrowserWindow | null = null
+let lastRecentCourse: { title: string; id: number; file?: DownloadedFile } | null = null
+let lastQueueStatus: 'idle' | 'running' | 'paused' = 'idle'
+
+function rebuildTrayMenu(): void {
+  if (!tray) return
+
+  const menuTemplate: Electron.MenuItemConstructorOptions[] = [
+    { label: `Udeler Reborn ${appVersion}` },
+    { type: 'separator' }
+  ]
+
+  if (lastRecentCourse) {
+    menuTemplate.push(
+      {
+        label: `  Continue Watching: ${lastRecentCourse.title}`,
+        click: () => {
+          currentMainWindow?.show()
+          if (lastRecentCourse?.file) {
+            currentMainWindow?.webContents.send('play-recent-media', lastRecentCourse.file)
+          } else {
+            currentMainWindow?.webContents.send('navigate-course', lastRecentCourse!.id)
+          }
+        }
+      },
+      { type: 'separator' }
+    )
+  }
+
+  if (lastQueueStatus !== 'idle') {
+    if (lastQueueStatus === 'running') {
+      menuTemplate.push({
+        label: '⏸ Pause Downloads',
+        click: () => currentMainWindow?.webContents.send('tray-action', 'pause')
+      })
+    } else if (lastQueueStatus === 'paused') {
+      menuTemplate.push({
+        label: '▶ Resume Downloads',
+        click: () => currentMainWindow?.webContents.send('tray-action', 'resume')
+      })
+    }
+    menuTemplate.push(
+      {
+        label: '⏹ Stop & Clear Queue',
+        click: () => currentMainWindow?.webContents.send('tray-action', 'cancel')
+      },
+      { type: 'separator' }
+    )
+  }
+
+  menuTemplate.push({ label: 'Quit', click: () => app.quit() })
+  tray.setContextMenu(Menu.buildFromTemplate(menuTemplate))
+}
 
 export function setupOSIntegration(mainWindow: BrowserWindow, iconPath: string): void {
+  currentMainWindow = mainWindow
   const trayIcon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 })
+
   tray = new Tray(trayIcon)
-
   tray.setToolTip('Udeler Reborn - Idle')
-
-  const contextMenu = Menu.buildFromTemplate([
-    { label: 'Show Udeler', click: () => mainWindow.show() },
-    { type: 'separator' },
-    { label: 'Quit', click: () => app.quit() }
-  ])
-
-  tray.setContextMenu(contextMenu)
+  rebuildTrayMenu()
 
   tray.on('click', () => {
-    if (mainWindow.isVisible()) {
-      mainWindow.focus()
-    } else {
-      mainWindow.show()
-    }
+    if (mainWindow.isVisible()) mainWindow.focus()
+    else mainWindow.show()
   })
+}
+
+export function handleUpdateQueueMenu(status: 'idle' | 'running' | 'paused'): void {
+  lastQueueStatus = status
+  rebuildTrayMenu()
 }
 
 export function handleSetProgressBar(mainWindow: BrowserWindow, rawProgress: unknown): void {
@@ -45,26 +96,29 @@ export function handleSetTrayTooltip(rawText: unknown): void {
 }
 
 export function handleSetRecentCourse(rawPayload: unknown): void {
-  if (process.platform !== 'win32') return
-
   try {
-    const { title, id } = RecentCourseSchema.parse(rawPayload)
-    app.setJumpList([
-      {
-        type: 'tasks',
-        name: 'Recent Courses',
-        items: [
-          {
-            type: 'task',
-            title: `Resume: ${title}`,
-            program: process.execPath,
-            args: `--resume-course=${id}`,
-            description: `Continue watching ${title}`
-          }
-        ]
-      }
-    ])
+    const { title, id, file } = RecentCourseSchema.parse(rawPayload)
+    lastRecentCourse = { title, id, file }
+
+    if (process.platform === 'win32') {
+      app.setJumpList([
+        {
+          type: 'tasks',
+          name: 'Recent Courses',
+          items: [
+            {
+              type: 'task',
+              title: `Resume: ${title}`,
+              program: process.execPath,
+              args: `--resume-course=${id}`,
+              description: `Continue watching ${title}`
+            }
+          ]
+        }
+      ])
+    }
+    rebuildTrayMenu()
   } catch (error) {
-    console.error('Invalid jump list payload:', error)
+    console.error('Invalid OS payload:', error)
   }
 }

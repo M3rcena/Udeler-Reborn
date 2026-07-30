@@ -1,7 +1,7 @@
 import { electronAPI } from '@electron-toolkit/preload'
 import { contextBridge } from 'electron'
 import { ipcRenderer } from 'electron/renderer'
-import { IpcChannels } from './ipc-types'
+import { DownloadedFile, IpcChannels } from './ipc-types'
 
 const api = {
   invoke: <Channel extends keyof IpcChannels>(
@@ -39,6 +39,36 @@ const api = {
     ipcRenderer.on('schedule-resume', listener)
     return (): void => {
       ipcRenderer.removeListener('schedule-resume', listener)
+    }
+  },
+  onTrayAction: (callback: (action: 'pause' | 'resume' | 'cancel') => void): (() => void) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      action: 'pause' | 'resume' | 'cancel'
+    ): void => {
+      callback(action)
+    }
+    ipcRenderer.on('tray-action', listener)
+    return (): void => {
+      ipcRenderer.removeListener('tray-action', listener)
+    }
+  },
+  onPlayRecentMedia: (callback: (file: DownloadedFile) => void): (() => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, file: DownloadedFile): void => {
+      callback(file)
+    }
+    ipcRenderer.on('play-recent-media', listener)
+    return (): void => {
+      ipcRenderer.removeListener('play-recent-media', listener)
+    }
+  },
+  onNavigateCourse: (callback: (courseId: number) => void): (() => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, courseId: number): void => {
+      callback(courseId)
+    }
+    ipcRenderer.on('navigate-course', listener)
+    return (): void => {
+      ipcRenderer.removeListener('navigate-course', listener)
     }
   }
 }
