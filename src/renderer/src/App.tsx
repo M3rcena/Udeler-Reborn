@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { DownloadedFile } from 'src/preload/ipc-types'
 import { GlobalDownloadWidget } from './components/GlobalDownloadWidget'
 import { PathAlertModal } from './components/PathAlertModal'
+import { SearchModal } from './components/SearchModal'
 import { Sidebar } from './components/Sidebar'
 import { UpdateToast } from './components/UpdateToast'
 import { useAuth } from './contexts/AuthContext'
@@ -17,11 +18,13 @@ function App(): React.JSX.Element {
 
   const [isDarkMode, setIsDarkMode] = useState<boolean>(true)
   const [isAppLoading, setIsAppLoading] = useState<boolean>(true)
+  const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false)
   const [activeTab, setActiveTab] = useState<'courses' | 'downloads' | 'settings' | 'about'>(
     'courses'
   )
   const [navCourseId, setNavCourseId] = useState<number | null>(null)
   const [playMediaItem, setPlayMediaItem] = useState<DownloadedFile | null>(null)
+  const [searchLectureId, setSearchLectureId] = useState<number | null>(null)
 
   useEffect((): void => {
     const initializeApp = async (): Promise<void> => {
@@ -54,6 +57,17 @@ function App(): React.JSX.Element {
       unsubMedia()
       unsubNav()
     }
+  }, [])
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent): void => {
+      if ((e.metaKey || e.ctrlKey) && e.code === 'KeyK') {
+        e.preventDefault()
+        setIsSearchOpen((prev) => !prev)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
 
   const toggleTheme = async (): Promise<void> => {
@@ -113,6 +127,8 @@ function App(): React.JSX.Element {
           <DownloadsTab
             playMediaItem={playMediaItem}
             onMediaHandled={() => setPlayMediaItem(null)}
+            searchLectureId={searchLectureId}
+            onSearchHandled={() => setSearchLectureId(null)}
           />
         )}
 
@@ -131,6 +147,16 @@ function App(): React.JSX.Element {
 
       {/* --- GLOBAL DOWNLOADS MANAGER WIDGET */}
       <GlobalDownloadWidget />
+
+      {/* --- GLOBAL SEARCH MODAL --- */}
+      <SearchModal
+        isOpen={isSearchOpen}
+        onClose={() => setIsSearchOpen(false)}
+        onSelectResult={(lectureId) => {
+          setActiveTab('downloads')
+          setSearchLectureId(lectureId)
+        }}
+      />
     </div>
   )
 }

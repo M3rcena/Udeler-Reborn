@@ -165,6 +165,29 @@ interface WatchProgressControls {
   forceSave: () => Promise<void>
 }
 
+// ---- Search Types
+export interface SearchResult {
+  id: string
+  courseTitle: string
+  chapterTitle: string
+  lectureTitle: string
+  lectureId: number
+  textSnippet: string
+  score: number
+  filePath: string
+  matchType: 'title' | 'transcript'
+}
+
+export interface SearchDocument {
+  id: string
+  courseTitle: string
+  chapterTitle: string
+  lectureTitle: string
+  lectureId: number
+  text: string
+  filePath: string
+}
+
 // ---- Ipc Types
 
 export interface IpcChannels {
@@ -206,4 +229,7 @@ export interface IpcChannels {
   }
   'os-hide-to-tray': { args: []; returns: boolean }
   'os-update-queue-menu': { args: [status: 'idle' | 'running' | 'paused']; returns: boolean }
+  'os-show-item-in-folder': { args: [filePath: string]; returns: void }
+  'search-index': { args: [query: string]; returns: SearchResult[] }
+  'rebuild-search-index': { args: []; returns: boolean }
 }

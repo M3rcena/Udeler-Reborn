@@ -6,7 +6,13 @@ import * as fs from 'fs-extra'
 import * as path from 'path'
 import { join } from 'path'
 import icon from '../../resources/icon.png?asset'
-import { AppSettings, DownloadedFile, DownloadRequest, SafeStore } from '../preload/ipc-types'
+import {
+  AppSettings,
+  DownloadedFile,
+  DownloadRequest,
+  SafeStore,
+  SearchResult
+} from '../preload/ipc-types'
 import {
   cancelDownload,
   deleteLectureFile,
@@ -22,6 +28,7 @@ import {
   handleUpdateQueueMenu,
   setupOSIntegration
 } from './os-integration'
+import { handleSearchQuery, rebuildIndex } from './search-service'
 import { fetchCourseCurriculum, fetchSubscribedCourses } from './udemy'
 
 // --- GLOBAL ERROR LOGGER ---
@@ -553,6 +560,18 @@ app.whenReady().then(() => {
       return true
     }
   )
+
+  ipcMain.handle('os-show-item-in-folder', (_event, filePath: string): void => {
+    shell.showItemInFolder(filePath)
+  })
+
+  ipcMain.handle('search-index', (_event, query: string): SearchResult[] => {
+    return handleSearchQuery(query)
+  })
+
+  ipcMain.handle('rebuild-search-index', async (): Promise<boolean> => {
+    return await rebuildIndex(store)
+  })
 
   if (is.dev) {
     createWindow()

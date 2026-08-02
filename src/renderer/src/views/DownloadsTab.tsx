@@ -65,9 +65,16 @@ function useWatchProgress(
 interface DownloadsTabProps {
   playMediaItem?: DownloadedFile | null
   onMediaHandled?: () => void
+  searchLectureId?: number | null
+  onSearchHandled?: () => void
 }
 
-export const DownloadsTab: React.FC<DownloadsTabProps> = ({ playMediaItem, onMediaHandled }) => {
+export const DownloadsTab: React.FC<DownloadsTabProps> = ({
+  playMediaItem,
+  onMediaHandled,
+  searchLectureId,
+  onSearchHandled
+}) => {
   const {
     downloadProgress,
     setDownloadProgress,
@@ -95,6 +102,8 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({ playMediaItem, onMed
 
   const [activeCourse, setActiveCourse] = useState<string | null>(null)
   const [activeChapter, setActiveChapter] = useState<string | null>(null)
+
+  const [glowLectureId, setGlowLectureId] = useState<number | null>(null)
 
   const coursesList = useMemo(
     () => Array.from(new Set(downloadedFiles.map((f) => f.course))),
@@ -129,6 +138,30 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({ playMediaItem, onMed
       }, 0)
     }
   }, [coursesList, chaptersList, activeCourse, activeChapter])
+
+  useEffect(() => {
+    if (searchLectureId && downloadedFiles.length > 0) {
+      const targetFile = downloadedFiles.find(
+        (f) =>
+          f.file.includes(`[ID_${searchLectureId}]`) && (f.type === 'Video' || f.type === 'Article')
+      )
+
+      if (targetFile) {
+        setTimeout(() => {
+          setActiveCourse(targetFile.course)
+          setActiveChapter(targetFile.chapter)
+
+          setSelectedMedia(targetFile)
+
+          setGlowLectureId(searchLectureId)
+        })
+
+        setTimeout(() => setGlowLectureId(null), 4000)
+      }
+
+      if (onSearchHandled) onSearchHandled()
+    }
+  }, [searchLectureId, downloadedFiles, onSearchHandled])
 
   const stats = useMemo(() => {
     const statuses = Object.values(downloadProgress)
@@ -550,11 +583,16 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({ playMediaItem, onMed
                     const match = item.file.match(/\[ID_(\d+)\]/)
                     const lectureId = match ? parseInt(match[1], 10) : null
                     const progressData = lectureId ? watchProgressMap[lectureId] : null
+                    const isGlowing = glowLectureId !== null && glowLectureId === lectureId
 
                     return (
                       <div
                         key={index}
-                        className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-white dark:bg-black/20 border border-gray-100 dark:border-white/5 rounded-xl hover:border-blue-500/30 transition-all group gap-4"
+                        className={`flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border rounded-xl hover:border-blue-500/30 transition-all group gap-4 ${
+                          isGlowing
+                            ? 'bg-blue-50/50 dark:bg-blue-900/20 border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.6)] animate-pulse duration-1000'
+                            : 'bg-white dark:bg-black/20 border-gray-100 dark:border-white/5'
+                        }`}
                       >
                         <div className="flex items-center gap-4 flex-1 min-w-0 w-full pr-4">
                           <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 shrink-0">
