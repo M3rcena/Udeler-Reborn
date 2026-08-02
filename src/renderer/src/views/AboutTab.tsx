@@ -180,7 +180,7 @@ export const AboutTab: React.FC = () => {
                     </svg>
                     Unreleased Build
                   </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 max-w-[250px] leading-relaxed">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 max-w-62.5 leading-relaxed">
                     You are running a higher version than the official release. This build may
                     contain bugs.
                   </p>

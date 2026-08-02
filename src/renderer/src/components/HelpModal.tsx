@@ -4,7 +4,7 @@ import { HelpModalProps } from 'src/preload/ipc-types'
 export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 dark:bg-black/70 backdrop-blur-md transition-opacity">
-      <div className="relative bg-white dark:bg-[#111118] border border-gray-200 dark:border-white/10 rounded-[2rem] p-8 sm:p-10 max-w-xl w-full shadow-2xl animate-in fade-in zoom-in-95 duration-300">
+      <div className="relative bg-white dark:bg-[#111118] border border-gray-200 dark:border-white/10 rounded-4xl p-8 sm:p-10 max-w-xl w-full shadow-2xl animate-in fade-in zoom-in-95 duration-300">
         {/* Close Button */}
         <button
           onClick={onClose}
@@ -43,7 +43,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
         {/* Instruction Steps - Cards Layout */}
         <div className="flex flex-col gap-4">
           <div className="flex items-start gap-5 p-5 rounded-2xl bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/5 transition-colors hover:bg-gray-100 dark:hover:bg-white/10">
-            <div className="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-full bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 font-bold text-lg shadow-inner">
+            <div className="shrink-0 w-10 h-10 flex items-center justify-center rounded-full bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 font-bold text-lg shadow-inner">
               1
             </div>
             <p className="text-gray-700 dark:text-gray-300 leading-relaxed mt-1.5">
@@ -53,7 +53,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
           </div>
 
           <div className="flex items-start gap-5 p-5 rounded-2xl bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/5 transition-colors hover:bg-gray-100 dark:hover:bg-white/10">
-            <div className="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-full bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 font-bold text-lg shadow-inner">
+            <div className="shrink-0 w-10 h-10 flex items-center justify-center rounded-full bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 font-bold text-lg shadow-inner">
               2
             </div>
             <p className="text-gray-700 dark:text-gray-300 leading-relaxed mt-1.5">
@@ -66,7 +66,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
           </div>
 
           <div className="flex items-start gap-5 p-5 rounded-2xl bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/5 transition-colors hover:bg-gray-100 dark:hover:bg-white/10">
-            <div className="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-full bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 font-bold text-lg shadow-inner">
+            <div className="shrink-0 w-10 h-10 flex items-center justify-center rounded-full bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 font-bold text-lg shadow-inner">
               3
             </div>
             <p className="text-gray-700 dark:text-gray-300 leading-relaxed mt-1.5">
@@ -77,7 +77,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
           </div>
 
           <div className="flex items-start gap-5 p-5 rounded-2xl bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-500/20 transition-colors">
-            <div className="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-full bg-blue-600 text-white font-bold text-lg shadow-lg shadow-blue-500/30">
+            <div className="shrink-0 w-10 h-10 flex items-center justify-center rounded-full bg-blue-600 text-white font-bold text-lg shadow-lg shadow-blue-500/30">
               4
             </div>
             <p className="text-gray-700 dark:text-gray-300 leading-relaxed mt-1.5">
