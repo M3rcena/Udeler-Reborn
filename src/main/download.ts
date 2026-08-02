@@ -326,9 +326,12 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
       let bytesInWindow = 0
       let displaySpeed = 0
       let lastIpcTime = 0
+      let hashFinalized = false
 
       throttle.on('data', (chunk: Buffer): void => {
-        hashStream.update(chunk)
+        if (!hashFinalized) {
+          hashStream.update(chunk)
+        }
         downloadedBytes += chunk.length
         bytesInWindow += chunk.length
 
@@ -357,6 +360,7 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
       res.pipe(throttle).pipe(file)
 
       res.on('error', (err: Error): void => {
+        hashFinalized = true
         throttle.destroy()
         file.close()
         activeStreams.delete(req.lectureId)
@@ -372,24 +376,30 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
         file.close()
         activeStreams.delete(req.lectureId)
 
-        const finalHash = hashStream.digest('hex')
-        const blobPath = path.join(blobsDir, finalHash + fileExtension)
+        if (!hashFinalized) {
+          hashFinalized = true
+          const finalHash = hashStream.digest('hex')
+          const blobPath = path.join(blobsDir, finalHash + fileExtension)
 
-        if (checkBlobExists(finalHash) && fs.existsSync(blobPath)) {
-          const tempStats = fs.statSync(tempFilePath)
-          addReclaimedBytes(tempStats.size)
-          fs.unlinkSync(tempFilePath)
-        } else {
-          fs.renameSync(tempFilePath, blobPath)
-          const blobStats = fs.statSync(blobPath)
-          insertBlob(finalHash, blobStats.size, fileExtension)
+          if (checkBlobExists(finalHash) && fs.existsSync(blobPath)) {
+            const tempStats = fs.statSync(tempFilePath)
+            const existingBlobStats = fs.statSync(blobPath)
+
+            if (existingBlobStats.nlink > 1) {
+              addReclaimedBytes(tempStats.size)
+            }
+            fs.unlinkSync(tempFilePath)
+          } else {
+            fs.renameSync(tempFilePath, blobPath)
+            const blobStats = fs.statSync(blobPath)
+            insertBlob(finalHash, blobStats.size, fileExtension)
+          }
+
+          if (fs.existsSync(filePath)) fs.unlinkSync(filePath)
+          fs.linkSync(blobPath, filePath)
+          recordLectureLink(req.courseId, req.lectureId, finalHash)
+          resolve(filePath)
         }
-
-        if (fs.existsSync(filePath)) fs.unlinkSync(filePath)
-        fs.linkSync(blobPath, filePath)
-        recordLectureLink(req.courseId, req.lectureId, finalHash)
-
-        resolve(filePath)
       })
     }
 

@@ -26,6 +26,8 @@ export const SettingsTab: React.FC = () => {
   const [moveError, setMoveError] = useState<string | null>(null)
 
   const [reclaimedBytes, setReclaimedBytes] = useState<number>(0)
+  const [isCleaning, setIsCleaning] = useState<boolean>(false)
+  const [gcResult, setGcResult] = useState<{ purgedCount: number; freedBytes: number } | null>(null)
 
   const qualityOptions = [
     { id: 'Auto', label: 'Auto (Best Available)' },
@@ -122,6 +124,21 @@ export const SettingsTab: React.FC = () => {
     const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
     const i = Math.floor(Math.log(bytes) / Math.log(k))
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  }
+
+  const handleRunGC = async (): Promise<void> => {
+    setIsCleaning(true)
+    setGcResult(null)
+    try {
+      const result = await window.api.invoke('run-garbage-collector')
+      setGcResult(result)
+      setReclaimedBytes(result.newTotalReclaimed)
+    } catch (error) {
+      console.error('GC failed:', error)
+    } finally {
+      setIsCleaning(false)
+      setTimeout(() => setGcResult(null), 6000)
+    }
   }
 
   return (
@@ -588,20 +605,49 @@ export const SettingsTab: React.FC = () => {
 
         {/* Storage Stats Card */}
         <div className="p-8 bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-4xl shadow-xl">
-          <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
-                ></path>
-              </svg>
-            </div>
-            Storage Optimization
-          </h3>
-          <div className="flex items-center justify-between p-6 bg-emerald-50/50 dark:bg-emerald-500/5 border border-emerald-200 dark:border-emerald-500/20 rounded-2xl shadow-inner transition-all hover:bg-emerald-50 dark:hover:bg-emerald-500/10">
+          <div className="flex justify-between items-start mb-6">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
+                  ></path>
+                </svg>
+              </div>
+              Storage Optimization
+            </h3>
+            <button
+              onClick={handleRunGC}
+              disabled={isCleaning}
+              className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl transition-all shadow-md hover:shadow-emerald-500/30 cursor-pointer disabled:opacity-50 flex items-center gap-2 text-sm"
+            >
+              {isCleaning ? (
+                <>
+                  <svg
+                    className="w-4 h-4 animate-spin"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                    ></path>
+                  </svg>
+                  Sweeping...
+                </>
+              ) : (
+                'Clean Orphaned Blobs'
+              )}
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between p-6 bg-emerald-50/50 dark:bg-emerald-500/5 border border-emerald-200 dark:border-emerald-500/20 rounded-2xl shadow-inner transition-all hover:bg-emerald-50 dark:hover:bg-emerald-500/10 mb-4">
             <div>
               <p className="text-sm font-bold text-emerald-800 dark:text-emerald-400">
                 Disk Space Reclaimed
@@ -614,6 +660,27 @@ export const SettingsTab: React.FC = () => {
               {formatBytes(reclaimedBytes)}
             </p>
           </div>
+
+          {gcResult && (
+            <div className="animate-in fade-in slide-in-from-top-2 p-4 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 rounded-xl flex items-center gap-3 text-blue-700 dark:text-blue-400 text-sm font-medium">
+              <svg
+                className="w-5 h-5 shrink-0"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                ></path>
+              </svg>
+              {gcResult.purgedCount > 0
+                ? `Cleanup complete: Permanently removed ${gcResult.purgedCount} orphaned files, freeing up ${formatBytes(gcResult.freedBytes)} of disk space.`
+                : 'Cleanup complete: No orphaned files found. Your storage is perfectly optimized!'}
+            </div>
+          )}
         </div>
 
         {/* Library Health */}

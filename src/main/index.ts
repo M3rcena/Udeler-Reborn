@@ -5,6 +5,7 @@ import { autoUpdater } from 'electron-updater'
 import * as fs from 'fs-extra'
 import * as path from 'path'
 import { join } from 'path'
+import { Worker } from 'worker_threads'
 import icon from '../../resources/icon.png?asset'
 import {
   AppSettings,
@@ -14,7 +15,7 @@ import {
   SafeStore,
   SearchResult
 } from '../preload/ipc-types'
-import { getStorageStats, initDb } from './database/db'
+import { getStorageStats, initDb, runGarbageCollector } from './database/db'
 import {
   cancelDownload,
   deleteLectureFile,
@@ -32,7 +33,6 @@ import {
 } from './os-integration'
 import { handleSearchQuery, rebuildIndex } from './search-service'
 import { fetchCourseCurriculum, fetchSubscribedCourses } from './udemy'
-import { Worker } from 'worker_threads'
 
 // --- GLOBAL ERROR LOGGER ---
 const debugLogs: string[] = []
@@ -269,6 +269,15 @@ app.whenReady().then(() => {
   ipcMain.handle('get-storage-stats', (): number => {
     return getStorageStats()
   })
+
+  ipcMain.handle(
+    'run-garbage-collector',
+    async (): Promise<{ purgedCount: number; freedBytes: number }> => {
+      const settings = store.get('app_settings') as AppSettings | undefined
+      if (!settings || !settings.downloadPath) return { purgedCount: 0, freedBytes: 0 }
+      return runGarbageCollector(settings.downloadPath)
+    }
+  )
 
   ipcMain.handle('fetch-courses', async (): Promise<unknown> => {
     const token = store.get('udemy_token') as string | undefined

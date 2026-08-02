@@ -1,4 +1,5 @@
 import Database from 'better-sqlite3'
+import * as fs from 'fs'
 import * as path from 'path'
 
 let db: Database.Database | null = null
@@ -54,10 +55,71 @@ export function addReclaimedBytes(bytes: number): void {
   db.prepare('UPDATE stats SET reclaimed_bytes = reclaimed_bytes + ? WHERE id = 1').run(bytes)
 }
 
+export function subtractReclaimedBytes(bytes: number): number {
+  if (!db) return 0
+  db.prepare('UPDATE stats SET reclaimed_bytes = MAX(0, reclaimed_bytes - ?) WHERE id = 1').run(
+    bytes
+  )
+
+  const row = db.prepare('SELECT reclaimed_bytes FROM stats WHERE id = 1').get() as {
+    reclaimed_bytes: number
+  }
+  return row ? row.reclaimed_bytes : 0
+}
+
 export function getStorageStats(): number {
   if (!db) return 0
   const row = db.prepare('SELECT reclaimed_bytes FROM stats WHERE id = 1').get() as {
     reclaimed_bytes: number
   }
   return row ? row.reclaimed_bytes : 0
+}
+
+export function runGarbageCollector(downloadPath: string): {
+  purgedCount: number
+  freedBytes: number
+  newTotalReclaimed: number
+} {
+  if (!db) return { purgedCount: 0, freedBytes: 0, newTotalReclaimed: 0 }
+
+  const blobsDir = path.join(downloadPath, '.blobs')
+  if (!fs.existsSync(blobsDir)) return { purgedCount: 0, freedBytes: 0, newTotalReclaimed: 0 }
+
+  let purgedCount = 0
+  let freedBytes = 0
+
+  const files = fs.readdirSync(blobsDir)
+  for (const file of files) {
+    if (
+      file.startsWith('temp_') ||
+      file.endsWith('.db') ||
+      file.endsWith('.db-wal') ||
+      file.endsWith('.db-shm')
+    ) {
+      continue
+    }
+
+    const blobPath = path.join(blobsDir, file)
+    const stats = fs.statSync(blobPath)
+
+    if (stats.nlink === 1) {
+      freedBytes += stats.size
+      purgedCount++
+
+      fs.unlinkSync(blobPath)
+
+      const hash = file.split('.')[0]
+      db.prepare('DELETE FROM lectures WHERE hash = ?').run(hash)
+      db.prepare('DELETE FROM blobs WHERE hash = ?').run(hash)
+    }
+  }
+
+  let newTotalReclaimed = 0
+  if (freedBytes > 0) {
+    newTotalReclaimed = subtractReclaimedBytes(freedBytes)
+  } else {
+    newTotalReclaimed = getStorageStats()
+  }
+
+  return { purgedCount, freedBytes, newTotalReclaimed }
 }

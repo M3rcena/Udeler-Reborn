@@ -216,6 +216,10 @@ export interface IpcChannels {
   'store-set': { args: [key: string, value: unknown]; returns: void }
   'store-delete': { args: [key: string]; returns: void }
   'get-storage-stats': { args: []; returns: number }
+  'run-garbage-collector': {
+    args: []
+    returns: { purgedCount: number; freedBytes: number; newTotalReclaimed: number }
+  }
   'fetch-courses': { args: []; returns: Course[] }
   'fetch-curriculum': { args: [courseId: number]; returns: CurriculumItem[] }
   'select-folder': { args: []; returns: string | null }
