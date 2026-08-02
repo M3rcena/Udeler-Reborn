@@ -12,6 +12,7 @@ export interface ApiBridge {
   ) => () => void
   onSchedulePause: (callback: () => void) => () => void
   onScheduleResume: (callback: () => void) => () => void
+  onIntegrityProgress: (callback: (data: IntegrityProgress) => void) => () => void
 }
 
 declare global {

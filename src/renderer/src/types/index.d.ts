@@ -1,4 +1,4 @@
-import type { DownloadedFile, IpcChannels } from '../../../preload/ipc-types'
+import type { DownloadedFile, IntegrityProgress, IpcChannels } from '../../../preload/ipc-types'
 
 declare global {
   interface Window {
@@ -16,6 +16,7 @@ declare global {
       onTrayAction: (callback: (action: 'pause' | 'resume' | 'cancel') => void) => () => void
       onNavigateCourse: (callback: (courseId: number) => void) => () => void
       onPlayRecentMedia: (callback: (file: DownloadedFile) => void) => () => void
+      onIntegrityProgress: (callback: (data: IntegrityProgress) => void) => () => void
     }
   }
 }

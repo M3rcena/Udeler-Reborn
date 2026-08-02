@@ -1,3 +1,4 @@
+import { LibraryHealthPanel } from '@renderer/components/LibraryHealthPanel'
 import { useEffect, useState } from 'react'
 
 export const SettingsTab: React.FC = () => {
@@ -614,6 +615,9 @@ export const SettingsTab: React.FC = () => {
             </p>
           </div>
         </div>
+
+        {/* Library Health */}
+        <LibraryHealthPanel />
 
         {/* Troubleshooting Section */}
         <div className="mb-8 bg-white dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-2xl p-6 shadow-sm">

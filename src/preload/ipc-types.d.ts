@@ -188,6 +188,26 @@ export interface SearchDocument {
   filePath: string
 }
 
+// ---- Integrity Scans Types
+export type IntegrityStatus = 'size_mismatch' | 'hash_mismatch' | 'archived_corrupted'
+
+export interface IntegrityIssue {
+  lectureId: number
+  courseTitle: string
+  chapterTitle: string
+  fileName: string
+  filePath: string
+  status: IntegrityStatus
+  expectedHash?: string
+}
+
+export interface IntegrityProgress {
+  scanned: number
+  total: number
+  currentFile: string
+  issuesFound: number
+}
+
 // ---- Ipc Types
 
 export interface IpcChannels {
@@ -233,4 +253,5 @@ export interface IpcChannels {
   'os-show-item-in-folder': { args: [filePath: string]; returns: void }
   'search-index': { args: [query: string]; returns: SearchResult[] }
   'rebuild-search-index': { args: []; returns: boolean }
+  'start-integrity-scan': { args: []; returns: IntegrityIssue[] }
 }

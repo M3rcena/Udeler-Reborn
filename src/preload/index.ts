@@ -1,7 +1,7 @@
 import { electronAPI } from '@electron-toolkit/preload'
 import { contextBridge } from 'electron'
 import { ipcRenderer } from 'electron/renderer'
-import { DownloadedFile, IpcChannels } from './ipc-types'
+import { DownloadedFile, IntegrityProgress, IpcChannels } from './ipc-types'
 
 const api = {
   invoke: <Channel extends keyof IpcChannels>(
@@ -69,6 +69,15 @@ const api = {
     ipcRenderer.on('navigate-course', listener)
     return (): void => {
       ipcRenderer.removeListener('navigate-course', listener)
+    }
+  },
+  onIntegrityProgress: (callback: (data: IntegrityProgress) => void): (() => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, data: IntegrityProgress): void => {
+      callback(data)
+    }
+    ipcRenderer.on('integrity-progress', listener)
+    return (): void => {
+      ipcRenderer.removeListener('integrity-progress', listener)
     }
   }
 }

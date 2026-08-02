@@ -10,6 +10,7 @@ import {
   AppSettings,
   DownloadedFile,
   DownloadRequest,
+  IntegrityIssue,
   SafeStore,
   SearchResult
 } from '../preload/ipc-types'
@@ -31,6 +32,7 @@ import {
 } from './os-integration'
 import { handleSearchQuery, rebuildIndex } from './search-service'
 import { fetchCourseCurriculum, fetchSubscribedCourses } from './udemy'
+import { Worker } from 'worker_threads'
 
 // --- GLOBAL ERROR LOGGER ---
 const debugLogs: string[] = []
@@ -580,6 +582,32 @@ app.whenReady().then(() => {
 
   ipcMain.handle('rebuild-search-index', async (): Promise<boolean> => {
     return await rebuildIndex(store)
+  })
+
+  ipcMain.handle('start-integrity-scan', async (event): Promise<IntegrityIssue[]> => {
+    const settings = store.get('app_settings') as AppSettings | undefined
+    if (!settings?.downloadPath) return []
+
+    return new Promise((resolve, reject) => {
+      const worker = new Worker(path.join(__dirname, 'integrity-worker.js'), {
+        workerData: { downloadPath: settings.downloadPath }
+      })
+
+      worker.on('message', (msg) => {
+        if (msg.type === 'progress') {
+          event.sender.send('integrity-progress', msg.data)
+        } else if (msg.type === 'done') {
+          resolve(msg.issues)
+        } else if (msg.type === 'error') {
+          reject(new Error(msg.error))
+        }
+      })
+
+      worker.on('error', reject)
+      worker.on('exit', (code) => {
+        if (code !== 0) reject(new Error(`Worker stopped with exit code ${code}`))
+      })
+    })
   })
 
   const settings = store.get('app_settings') as AppSettings | undefined
