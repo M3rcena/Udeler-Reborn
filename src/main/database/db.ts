@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3'
 import * as fs from 'fs'
 import * as path from 'path'
+import { CourseVolumeMapping, CourseVolumeRow, VolumeRow } from '../../preload/ipc-types'
 
 let db: Database.Database | null = null
 
@@ -27,6 +28,17 @@ export function initDb(downloadPath: string): void {
       reclaimed_bytes INTEGER DEFAULT 0
     );
     INSERT OR IGNORE INTO stats (id, reclaimed_bytes) VALUES (1, 0);
+    CREATE TABLE IF NOT EXISTS volumes (
+      id TEXT PRIMARY KEY,
+      name TEXT,
+      root_path TEXT,
+      is_available INTEGER DEFAULT 1
+    );
+    CREATE TABLE IF NOT EXISTS course_volumes (
+      course_id INTEGER PRIMARY KEY,
+      volume_id TEXT,
+      FOREIGN KEY(volume_id) REFERENCES volumes(id)
+    );
   `)
 }
 
@@ -122,4 +134,68 @@ export function runGarbageCollector(downloadPath: string): {
   }
 
   return { purgedCount, freedBytes, newTotalReclaimed }
+}
+
+/* --- VOLUME MANAGEMENT HELPERS --- */
+export function getAllVolumes(): VolumeRow[] {
+  if (!db) return []
+  return db.prepare('SELECT * FROM volumes').all() as VolumeRow[]
+}
+
+export function registerVolume(id: string, name: string, rootPath: string): void {
+  if (!db) return
+  db.prepare(
+    'INSERT OR IGNORE INTO volumes (id, name, root_path, is_available) VALUES (?, ?, ?, 1)'
+  ).run(id, name, rootPath)
+}
+
+export function updateVolumeStatus(id: string, isAvailable: number): void {
+  if (!db) return
+  db.prepare('UPDATE volumes SET is_available = ? WHERE id = ?').run(isAvailable, id)
+}
+
+export function pinCourseToVolume(courseId: number, volumeId: string): void {
+  if (!db) return
+  db.prepare('INSERT OR REPLACE INTO course_volumes (course_id, volume_id) VALUES (?, ?)').run(
+    courseId,
+    volumeId
+  )
+}
+
+export function unpinCourseFromVolume(courseId: number): void {
+  if (!db) return
+  db.prepare('DELETE FROM course_volumes WHERE course_id = ?').run(courseId)
+}
+
+export function getBlobsForCourse(courseId: number): { hash: string; ext: string }[] {
+  if (!db) return []
+  return db
+    .prepare(
+      'SELECT b.hash, b.ext FROM lectures l JOIN blobs b ON l.hash = b.hash WHERE l.course_id = ?'
+    )
+    .all(courseId) as { hash: string; ext: string }[]
+}
+
+export function getCourseVolumeMappings(): Record<number, CourseVolumeMapping> {
+  if (!db) return {}
+  const rows = db
+    .prepare(
+      `
+    SELECT cv.course_id, v.id as volumeId, v.name, v.is_available, v.root_path
+    FROM course_volumes cv
+    JOIN volumes v ON cv.volume_id = v.id
+  `
+    )
+    .all() as CourseVolumeRow[]
+
+  const map: Record<number, CourseVolumeMapping> = {}
+  for (const row of rows) {
+    map[row.course_id] = {
+      volumeId: row.volumeId,
+      name: row.name,
+      isAvailable: row.is_available === 1,
+      rootPath: row.root_path
+    }
+  }
+  return map
 }

@@ -9,13 +9,25 @@ import { Worker } from 'worker_threads'
 import icon from '../../resources/icon.png?asset'
 import {
   AppSettings,
+  CourseVolumeMapping,
   DownloadedFile,
   DownloadRequest,
   IntegrityIssue,
   SafeStore,
-  SearchResult
+  SearchResult,
+  VolumeRow
 } from '../preload/ipc-types'
-import { getStorageStats, initDb, runGarbageCollector } from './database/db'
+import {
+  getAllVolumes,
+  getBlobsForCourse,
+  getCourseVolumeMappings,
+  getStorageStats,
+  initDb,
+  pinCourseToVolume,
+  registerVolume,
+  runGarbageCollector,
+  unpinCourseFromVolume
+} from './database/db'
 import {
   cancelDownload,
   deleteLectureFile,
@@ -33,6 +45,47 @@ import {
 } from './os-integration'
 import { handleSearchQuery, rebuildIndex } from './search-service'
 import { fetchCourseCurriculum, fetchSubscribedCourses } from './udemy'
+import { startVolumeWatcher } from './volume-watcher'
+
+async function moveCourseFiles(
+  courseId: number,
+  courseTitle: string,
+  sourceRoot: string,
+  destRoot: string
+): Promise<void> {
+  const cleanCourseName = courseTitle.replace(/[<>:"/\\|?*]+/g, '-').trim()
+  const sourceCourse = path.join(sourceRoot, cleanCourseName)
+  const destCourse = path.join(destRoot, cleanCourseName)
+
+  if (fs.existsSync(sourceCourse)) {
+    try {
+      await fs.move(sourceCourse, destCourse, { overwrite: true })
+    } catch (err) {
+      console.error('Failed to move course directory:', err)
+    }
+  }
+
+  const blobsToMove = getBlobsForCourse(courseId)
+  const sourceBlobsDir = path.join(sourceRoot, '.blobs')
+  const destBlobsDir = path.join(destRoot, '.blobs')
+
+  if (blobsToMove.length > 0 && fs.existsSync(sourceBlobsDir)) {
+    await fs.ensureDir(destBlobsDir)
+    for (const blob of blobsToMove) {
+      const fileName = blob.hash + blob.ext
+      const sourceBlob = path.join(sourceBlobsDir, fileName)
+      const destBlob = path.join(destBlobsDir, fileName)
+
+      if (fs.existsSync(sourceBlob)) {
+        try {
+          await fs.move(sourceBlob, destBlob, { overwrite: true })
+        } catch (err) {
+          console.error(`Failed to move blob ${fileName}:`, err)
+        }
+      }
+    }
+  }
+}
 
 // --- GLOBAL ERROR LOGGER ---
 const debugLogs: string[] = []
@@ -104,6 +157,8 @@ function createWindow(): void {
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
+
+  startVolumeWatcher(mainWindow)
 }
 
 function createUpdaterWindow(): void {
@@ -312,11 +367,90 @@ app.whenReady().then(() => {
     return null
   })
 
+  ipcMain.handle('get-volume-mappings', (): Record<number, CourseVolumeMapping> => {
+    return getCourseVolumeMappings()
+  })
+
+  ipcMain.handle('register-volume', async (): Promise<string | null> => {
+    const { canceled, filePaths } = await dialog.showOpenDialog({
+      properties: ['openDirectory'],
+      title: 'Select External Drive or NAS Folder'
+    })
+    if (!canceled && filePaths.length > 0) {
+      const rootPath = filePaths[0]
+      const driveName = path.basename(rootPath) || rootPath
+      const volumeId = crypto.randomUUID()
+      registerVolume(volumeId, driveName, rootPath)
+      return volumeId
+    }
+    return null
+  })
+
+  ipcMain.handle('get-all-volumes', (): VolumeRow[] => {
+    return getAllVolumes()
+  })
+
+  ipcMain.handle(
+    'pin-course',
+    async (
+      _event,
+      courseId: number,
+      courseTitle: string,
+      volumeId: string,
+      shouldMove: boolean
+    ): Promise<boolean> => {
+      if (shouldMove) {
+        const settings = store.get('app_settings') as AppSettings | undefined
+        const allVolumes = getAllVolumes()
+        const targetVol = allVolumes.find((v) => v.id === volumeId)
+
+        if (settings?.downloadPath && targetVol?.root_path && targetVol.is_available === 1) {
+          await moveCourseFiles(courseId, courseTitle, settings.downloadPath, targetVol.root_path)
+        }
+      }
+
+      pinCourseToVolume(courseId, volumeId)
+      return true
+    }
+  )
+
+  ipcMain.handle(
+    'unpin-course',
+    async (
+      _event,
+      courseId: number,
+      courseTitle: string,
+      shouldMove: boolean
+    ): Promise<boolean> => {
+      const volumeMappings = getCourseVolumeMappings()
+      const mapping = volumeMappings[courseId]
+      if (!mapping) return false
+
+      if (shouldMove && mapping.isAvailable) {
+        const settings = store.get('app_settings') as AppSettings | undefined
+        if (settings?.downloadPath && mapping.rootPath) {
+          await moveCourseFiles(courseId, courseTitle, mapping.rootPath, settings.downloadPath)
+        }
+      }
+
+      unpinCourseFromVolume(courseId)
+      return true
+    }
+  )
+
   ipcMain.handle(
     'start-download',
     async (
       _event,
-      req: Omit<DownloadRequest, 'token' | 'downloadPath' | 'videoQuality'>
+      req: Omit<
+        DownloadRequest,
+        | 'token'
+        | 'downloadPath'
+        | 'videoQuality'
+        | 'skipAttachments'
+        | 'skipSubtitles'
+        | 'autoRetry'
+      >
     ): Promise<string> => {
       const token = store.get('udemy_token') as string | undefined
       const settings = store.get('app_settings') as AppSettings | undefined
@@ -324,10 +458,19 @@ app.whenReady().then(() => {
       if (!token) throw new Error('No token found')
       if (!settings || !settings.downloadPath) throw new Error('No download path set in settings!')
 
+      const volumeMappings = getCourseVolumeMappings()
+      const courseVolume = volumeMappings[req.courseId]
+      let finalDownloadPath = settings.downloadPath
+
+      if (courseVolume) {
+        if (!courseVolume.isAvailable) throw new Error('Target drive is currently offline')
+        finalDownloadPath = courseVolume.rootPath
+      }
+
       const fullRequest: DownloadRequest = {
         ...req,
         token,
-        downloadPath: settings.downloadPath,
+        downloadPath: finalDownloadPath,
         videoQuality: settings.videoQuality || 'Auto',
         skipAttachments: settings.skipAttachments ?? false,
         skipSubtitles: settings.skipSubtitles ?? false,
@@ -339,88 +482,121 @@ app.whenReady().then(() => {
     }
   )
 
-  ipcMain.handle('get-all-downloads', async () => {
+  ipcMain.handle('get-all-downloads', async (): Promise<DownloadedFile[]> => {
     const settings = store.get('app_settings') as AppSettings | undefined
     if (!settings || !settings.downloadPath) return []
 
-    const results: DownloadedFile[] = []
-    if (!fs.existsSync(settings.downloadPath)) return results
+    const cachedDownloads = (store.get('cached_downloads') || []) as DownloadedFile[]
+    const newDownloads: DownloadedFile[] = []
 
-    const courses = fs.readdirSync(settings.downloadPath)
-    for (const course of courses) {
-      const coursePath = path.join(settings.downloadPath, course)
-      if (!fs.statSync(coursePath).isDirectory()) continue
+    const allVolumes = getAllVolumes()
+    const offlineVolumeIds = new Set<string>()
 
-      const chapters = fs.readdirSync(coursePath)
-      for (const chapter of chapters) {
-        const chapterPath = path.join(coursePath, chapter)
-        if (!fs.statSync(chapterPath).isDirectory()) continue
+    for (const vol of allVolumes) {
+      if (vol.is_available === 0) {
+        offlineVolumeIds.add(vol.id)
+      }
+    }
 
-        const files = fs.readdirSync(chapterPath)
-        const vttFiles = files.filter((f) => f.endsWith('.vtt'))
+    const scanDrive = (basePath: string, volId: string, volName: string): void => {
+      if (!fs.existsSync(basePath)) return
 
-        for (const file of files) {
-          if (file.endsWith('.vtt')) continue
+      const courses = fs.readdirSync(basePath)
+      for (const course of courses) {
+        if (course.startsWith('.')) continue
 
-          const filePath = path.join(chapterPath, file)
-          const type = file.endsWith('.mp4') ? 'Video' : file.endsWith('.html') ? 'Article' : 'File'
+        const coursePath = path.join(basePath, course)
+        if (!fs.statSync(coursePath).isDirectory()) continue
 
-          const stat = fs.statSync(filePath)
-          const sizeMB = Math.round(stat.size / (1024 * 1024))
+        const chapters = fs.readdirSync(coursePath)
+        for (const chapter of chapters) {
+          const chapterPath = path.join(coursePath, chapter)
+          if (!fs.statSync(chapterPath).isDirectory()) continue
 
-          const item: DownloadedFile = {
-            course,
-            chapter,
-            file,
-            path: filePath,
-            type,
-            size: sizeMB
+          const files = fs.readdirSync(chapterPath)
+          const vttFiles = files.filter((f: string) => f.endsWith('.vtt'))
+
+          for (const file of files) {
+            if (file.endsWith('.vtt')) continue
+            const filePath = path.join(chapterPath, file)
+            const type = file.endsWith('.mp4')
+              ? 'Video'
+              : file.endsWith('.html')
+                ? 'Article'
+                : 'File'
+            const stat = fs.statSync(filePath)
+            const sizeMB = Math.round(stat.size / (1024 * 1024))
+
+            const item: DownloadedFile = {
+              course,
+              chapter,
+              file,
+              path: filePath,
+              type: type as 'Video' | 'Article' | 'File',
+              size: sizeMB,
+              volumeId: volId,
+              volumeName: volName,
+              isOffline: false
+            }
+
+            if (type === 'Video') {
+              const baseName = file.replace('.mp4', '')
+              item.subtitles = vttFiles
+                .filter((vtt: string) => vtt.startsWith(baseName))
+                .map((vtt: string) => {
+                  let label = vtt.replace(baseName + '_', '').replace('.vtt', '')
+                  label = label.replace('.autogenerated', ' (Auto)')
+                  if (label === vtt.replace('.vtt', '')) label = 'English (Auto)'
+
+                  let srcLang = 'en'
+                  const lower = label.toLowerCase()
+                  if (lower.includes('es_') || lower.includes('spanish')) srcLang = 'es'
+                  else if (lower.includes('pt_') || lower.includes('portuguese')) srcLang = 'pt'
+                  else if (lower.includes('fr_') || lower.includes('french')) srcLang = 'fr'
+                  else if (lower.includes('de_') || lower.includes('german')) srcLang = 'de'
+                  else if (lower.includes('it_') || lower.includes('italian')) srcLang = 'it'
+                  else if (lower.includes('ja_') || lower.includes('japanese')) srcLang = 'ja'
+                  else if (lower.includes('zh_') || lower.includes('chinese')) srcLang = 'zh'
+                  else if (lower.includes('ar_') || lower.includes('arabic')) srcLang = 'ar'
+                  else {
+                    const match = label.match(/^([a-zA-Z]{2})[_-]/)
+                    if (match) srcLang = match[1].toLowerCase()
+                  }
+
+                  const vttPath = path.join(chapterPath, vtt)
+                  let vttContent = fs.readFileSync(vttPath, 'utf8')
+                  vttContent = vttContent.replace(/^\uFEFF/, '').trim()
+                  if (!vttContent.startsWith('WEBVTT')) {
+                    vttContent = 'WEBVTT\n\n' + vttContent
+                  }
+                  const base64Vtt = Buffer.from(vttContent).toString('base64')
+                  const dataUri = `data:text/vtt;charset=utf-8;base64,${base64Vtt}`
+                  return { label, srcLang, path: dataUri }
+                })
+            }
+            newDownloads.push(item)
           }
-
-          if (type === 'Video') {
-            const baseName = file.replace('.mp4', '')
-            item.subtitles = vttFiles
-              .filter((vtt) => vtt.startsWith(baseName))
-              .map((vtt) => {
-                let label = vtt.replace(baseName + '_', '').replace('.vtt', '')
-                label = label.replace('.autogenerated', ' (Auto)')
-                if (label === vtt.replace('.vtt', '')) label = 'English (Auto)'
-
-                let srcLang = 'en' // Default fallback
-                const lower = label.toLowerCase()
-
-                if (lower.includes('es_') || lower.includes('spanish')) srcLang = 'es'
-                else if (lower.includes('pt_') || lower.includes('portuguese')) srcLang = 'pt'
-                else if (lower.includes('fr_') || lower.includes('french')) srcLang = 'fr'
-                else if (lower.includes('de_') || lower.includes('german')) srcLang = 'de'
-                else if (lower.includes('it_') || lower.includes('italian')) srcLang = 'it'
-                else if (lower.includes('ja_') || lower.includes('japanese')) srcLang = 'ja'
-                else if (lower.includes('zh_') || lower.includes('chinese')) srcLang = 'zh'
-                else if (lower.includes('ar_') || lower.includes('arabic')) srcLang = 'ar'
-                else {
-                  const match = label.match(/^([a-zA-Z]{2})[_-]/)
-                  if (match) srcLang = match[1].toLowerCase()
-                }
-
-                const vttPath = path.join(chapterPath, vtt)
-                let vttContent = fs.readFileSync(vttPath, 'utf8')
-                vttContent = vttContent.replace(/^\uFEFF/, '').trim()
-                if (!vttContent.startsWith('WEBVTT')) {
-                  vttContent = 'WEBVTT\n\n' + vttContent
-                }
-
-                const base64Vtt = Buffer.from(vttContent).toString('base64')
-                const dataUri = `data:text/vtt;charset=utf-8;base64,${base64Vtt}`
-
-                return { label, srcLang, path: dataUri }
-              })
-          }
-
-          results.push(item)
         }
       }
     }
-    return results
+
+    scanDrive(settings.downloadPath, 'default', `Local Drive (${settings.downloadPath})`)
+
+    for (const vol of allVolumes) {
+      if (vol.is_available === 1 && vol.root_path) {
+        scanDrive(vol.root_path, vol.id, `${vol.name} (${vol.root_path})`)
+      }
+    }
+
+    for (const cached of cachedDownloads) {
+      if (cached.volumeId && offlineVolumeIds.has(cached.volumeId)) {
+        newDownloads.push({ ...cached, isOffline: true })
+      }
+    }
+
+    store.set('cached_downloads', newDownloads)
+
+    return newDownloads
   })
 
   ipcMain.handle(
@@ -429,41 +605,77 @@ app.whenReady().then(() => {
       const settings = store.get('app_settings') as AppSettings | undefined
       if (!settings || !settings.downloadPath) return {}
 
-      return scanExistingDownloads(settings.downloadPath, courseTitle)
+      const basePaths = new Set<string>()
+      basePaths.add(settings.downloadPath)
+
+      const volumeMappings = getCourseVolumeMappings()
+      for (const mapping of Object.values(volumeMappings)) {
+        if (mapping.isAvailable && mapping.rootPath) {
+          basePaths.add(mapping.rootPath)
+        }
+      }
+
+      let combinedMap: Record<number, string> = {}
+      for (const basePath of basePaths) {
+        const map = scanExistingDownloads(basePath, courseTitle)
+        combinedMap = { ...combinedMap, ...map }
+      }
+      return combinedMap
     }
   )
 
   ipcMain.handle('delete-course-folder', async (_event, courseTitle: string): Promise<boolean> => {
-    const settings = store.get('app_settings') as { downloadPath?: string } | undefined
+    const settings = store.get('app_settings') as AppSettings | undefined
     if (!settings || !settings.downloadPath) throw new Error('No download path found')
 
     const cleanCourseName = courseTitle.replace(/[<>:"/\\|?*]+/g, '-').trim()
-    const courseFolder = path.join(settings.downloadPath, cleanCourseName)
+    let deleted = false
 
-    if (fs.existsSync(courseFolder)) {
-      fs.rmSync(courseFolder, { recursive: true, force: true })
-      return true
+    const basePaths = new Set<string>()
+    basePaths.add(settings.downloadPath)
+
+    const volumeMappings = getCourseVolumeMappings()
+    for (const mapping of Object.values(volumeMappings)) {
+      if (mapping.isAvailable && mapping.rootPath) {
+        basePaths.add(mapping.rootPath)
+      }
     }
-    return false
+
+    for (const basePath of basePaths) {
+      const courseFolder = path.join(basePath, cleanCourseName)
+      if (fs.existsSync(courseFolder)) {
+        fs.rmSync(courseFolder, { recursive: true, force: true })
+        deleted = true
+      }
+
+      runGarbageCollector(basePath)
+    }
+
+    return deleted
   })
 
   ipcMain.handle('cancel-download', async (_event, lectureId: number): Promise<boolean> => {
     return cancelDownload(lectureId)
   })
 
-  ipcMain.handle('pause-download', (_, lectureId) => pauseDownload(lectureId))
-
-  ipcMain.handle('moveDownloadsFolder', async (_, oldPath: string, newPath: string) => {
-    try {
-      if (await fs.pathExists(oldPath)) {
-        await fs.move(oldPath, newPath, { overwrite: true })
-      }
-      return true
-    } catch (error) {
-      console.error('Failed to move directory:', error)
-      throw error
-    }
+  ipcMain.handle('pause-download', (_event, lectureId: number): boolean => {
+    return pauseDownload(lectureId)
   })
+
+  ipcMain.handle(
+    'moveDownloadsFolder',
+    async (_event, oldPath: string, newPath: string): Promise<boolean> => {
+      try {
+        if (await fs.pathExists(oldPath)) {
+          await fs.move(oldPath, newPath, { overwrite: true })
+        }
+        return true
+      } catch (error) {
+        console.error('Failed to move directory:', error)
+        throw error
+      }
+    }
+  )
 
   protocol.registerFileProtocol('local', (request, callback) => {
     const url = request.url.slice('local://'.length)
@@ -476,13 +688,51 @@ app.whenReady().then(() => {
     async (_event, courseTitle: string, lectureId: number): Promise<boolean> => {
       const settings = store.get('app_settings') as AppSettings | undefined
       if (!settings || !settings.downloadPath) return false
-      return deleteLectureFile(settings.downloadPath, courseTitle, lectureId)
+
+      const basePaths = new Set<string>()
+      basePaths.add(settings.downloadPath)
+
+      const volumeMappings = getCourseVolumeMappings()
+      for (const mapping of Object.values(volumeMappings)) {
+        if (mapping.isAvailable && mapping.rootPath) {
+          basePaths.add(mapping.rootPath)
+        }
+      }
+
+      let deleted = false
+      for (const basePath of basePaths) {
+        if (deleteLectureFile(basePath, courseTitle, lectureId)) {
+          deleted = true
+        }
+
+        runGarbageCollector(basePath)
+      }
+
+      return deleted
     }
   )
 
   ipcMain.handle('delete-file-by-path', async (_event, filePath: string): Promise<boolean> => {
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath)
+
+      const settings = store.get('app_settings') as AppSettings | undefined
+      if (!settings || !settings.downloadPath) return true
+
+      const basePaths = new Set<string>()
+      basePaths.add(settings.downloadPath)
+
+      const volumeMappings = getCourseVolumeMappings()
+      for (const mapping of Object.values(volumeMappings)) {
+        if (mapping.isAvailable && mapping.rootPath) {
+          basePaths.add(mapping.rootPath)
+        }
+      }
+
+      for (const basePath of basePaths) {
+        runGarbageCollector(basePath)
+      }
+
       return true
     }
     return false

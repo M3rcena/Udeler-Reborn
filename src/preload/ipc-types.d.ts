@@ -64,6 +64,9 @@ export interface DownloadedFile {
   type: 'Video' | 'Article' | 'File'
   size: number
   subtitles?: SubtitleTrack[]
+  volumeId?: string
+  volumeName?: string
+  isOffline?: boolean
 }
 
 export interface DownloadRequest {
@@ -208,6 +211,44 @@ export interface IntegrityProgress {
   issuesFound: number
 }
 
+// ---- Volume Types
+export interface CourseVolumeMapping {
+  volumeId: string
+  name: string
+  isAvailable: boolean
+  rootPath: string
+}
+
+export interface VolumeRow {
+  id: string
+  name: string
+  root_path: string
+  is_available: number
+}
+
+export interface CourseVolumeRow {
+  course_id: number
+  volumeId: string
+  name: string
+  is_available: number
+  root_path: string
+}
+
+export interface RawVolume {
+  id: string
+  name: string
+  isOffline: boolean
+  course?: string
+}
+
+export interface GroupedVolume {
+  id: string
+  name: string
+  isOffline: boolean
+  courses: Set<string>
+  isPinned: boolean
+}
+
 // ---- Ipc Types
 
 export interface IpcChannels {
@@ -258,4 +299,15 @@ export interface IpcChannels {
   'search-index': { args: [query: string]; returns: SearchResult[] }
   'rebuild-search-index': { args: []; returns: boolean }
   'start-integrity-scan': { args: []; returns: IntegrityIssue[] }
+  'get-volume-mappings': { args: []; returns: Record<number, CourseVolumeMapping> }
+  'register-volume': { args: []; returns: string | null }
+  'pin-course': {
+    args: [courseId: number, courseTitle: string, volumeId: string, shouldMove: boolean]
+    returns: boolean
+  }
+  'get-all-volumes': { args: []; returns: VolumeRow[] }
+  'unpin-course': {
+    args: [courseId: number, courseTitle: string, shouldMove: boolean]
+    returns: boolean
+  }
 }

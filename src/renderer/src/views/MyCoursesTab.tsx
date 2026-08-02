@@ -1,6 +1,12 @@
 import { useDownload } from '@renderer/contexts/DownloadContext'
 import { useCallback, useEffect, useState } from 'react'
-import { Course, CurriculumItem, WatchProgress } from 'src/preload/ipc-types'
+import {
+  Course,
+  CourseVolumeMapping,
+  CurriculumItem,
+  VolumeRow,
+  WatchProgress
+} from 'src/preload/ipc-types'
 
 interface MyCoursesTabProps {
   navCourseId?: number | null
@@ -39,6 +45,18 @@ export const MyCoursesTab: React.FC<MyCoursesTabProps> = ({ navCourseId, onNavHa
 
   const [queuedCount, setQueuedCount] = useState<number | null>(null)
 
+  const [volumeMappings, setVolumeMappings] = useState<Record<number, CourseVolumeMapping>>({})
+  const [unpinModalConfig, setUnpinModalConfig] = useState<{
+    isOpen: boolean
+    type: 'online' | 'offline' | null
+  }>({ isOpen: false, type: null })
+  const [isUnpinning, setIsUnpinning] = useState<boolean>(false)
+  const [pinModalConfig, setPinModalConfig] = useState<{
+    isOpen: boolean
+    volumeId: string
+    volumeName: string
+  } | null>(null)
+
   // --- DATA FETCHING ---
   const loadCourses = useCallback(async (): Promise<void> => {
     setIsFetchingCourses(true)
@@ -60,6 +78,16 @@ export const MyCoursesTab: React.FC<MyCoursesTabProps> = ({ navCourseId, onNavHa
       loadCourses()
     }, 0)
   }, [loadCourses])
+
+  useEffect((): (() => void) => {
+    window.api.invoke('get-volume-mappings').then(setVolumeMappings)
+    const unsub = window.api.onVolumeMappingsUpdated(
+      (newMappings: Record<number, CourseVolumeMapping>): void => {
+        setVolumeMappings(newMappings)
+      }
+    )
+    return (): void => unsub()
+  }, [])
 
   const filteredCourses = courses.filter((course) =>
     course.title.toLowerCase().includes(searchQuery.toLowerCase())
@@ -168,6 +196,9 @@ export const MyCoursesTab: React.FC<MyCoursesTabProps> = ({ navCourseId, onNavHa
     }
   }, [navCourseId, courses, onNavHandled, handleViewContent])
 
+  const currentMapping = selectedCourse ? volumeMappings[selectedCourse.id] : undefined
+  const isModalOffline = currentMapping ? !currentMapping.isAvailable : false
+
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 h-full flex flex-col relative z-10">
       {/* Header Toolbar (Search & Refresh) */}
@@ -243,38 +274,78 @@ export const MyCoursesTab: React.FC<MyCoursesTabProps> = ({ navCourseId, onNavHa
         ) : filteredCourses.length > 0 ? (
           // Actual Course Grid
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredCourses.map((course: Course) => (
-              <div
-                key={course.id}
-                className="group flex flex-col bg-white/70 dark:bg-white/5 backdrop-blur-md border border-gray-200 dark:border-white/10 rounded-2xl overflow-hidden shadow-lg transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:border-blue-500/30 cursor-pointer"
-              >
-                {/* Course Image */}
-                <div className="relative aspect-video overflow-hidden bg-gray-200 dark:bg-gray-800">
-                  <img
-                    src={course.image_480x270}
-                    alt={course.title}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                    loading="lazy"
-                  />
-                  <div className="absolute inset-0 bg-linear-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                </div>
+            {filteredCourses.map((course: Course) => {
+              const mapping = volumeMappings[course.id]
+              const isOffline = mapping && !mapping.isAvailable
 
-                {/* Course Info */}
-                <div className="p-5 flex flex-col flex-1">
-                  <h3 className="text-gray-900 dark:text-white font-bold text-sm line-clamp-2 mb-4 leading-snug group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors">
-                    {course.title}
-                  </h3>
-                  <div className="mt-auto">
-                    <button
-                      onClick={() => handleViewContent(course)}
-                      className="w-full py-2.5 bg-gray-100 dark:bg-black/30 hover:bg-blue-600 hover:text-white text-gray-800 dark:text-gray-300 font-semibold rounded-xl transition-all duration-300 shadow-inner group-hover:shadow-[0_0_15px_rgba(37,99,235,0.4)] cursor-pointer text-sm"
+              return (
+                <div
+                  key={course.id}
+                  className="group relative flex flex-col bg-white/70 dark:bg-white/5 backdrop-blur-md border border-gray-200 dark:border-white/10 rounded-2xl overflow-hidden shadow-lg transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:border-blue-500/30 cursor-pointer"
+                >
+                  {/* --- OFFLINE STATE OVERLAY --- */}
+                  {isOffline && (
+                    <div className="absolute top-3 right-3 z-20 pointer-events-none">
+                      <span className="px-2.5 py-1.5 bg-red-500/90 backdrop-blur-md text-white text-[10px] font-black uppercase tracking-widest rounded-lg shadow-lg border border-red-400/50 flex items-center gap-1.5">
+                        <svg
+                          className="w-3.5 h-3.5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2.5"
+                            d="M18.364 5.636a9 9 0 010 12.728m0 0l-2.829-2.829m2.829 2.829L21 21M15.536 8.464a5 5 0 010 7.072m0 0l-2.829-2.829m-4.243-4.242a5 5 0 00-1.415 7.072m0 0L3 21m2.828-9.9a9 9 0 01-1.414-7.071"
+                          />
+                        </svg>
+                        Drive Offline
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Course Image */}
+                  <div
+                    className={`relative aspect-video overflow-hidden bg-gray-200 dark:bg-gray-800 ${isOffline ? 'grayscale opacity-75' : ''}`}
+                  >
+                    <img
+                      src={course.image_480x270}
+                      alt={course.title}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      loading="lazy"
+                    />
+                    <div className="absolute inset-0 bg-linear-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                  </div>
+
+                  {/* Course Info */}
+                  <div className="p-5 flex flex-col flex-1">
+                    <h3
+                      className={`font-bold text-sm line-clamp-2 leading-snug transition-colors ${isOffline ? 'text-gray-500 mb-1' : 'text-gray-900 dark:text-white group-hover:text-blue-500 dark:group-hover:text-blue-400 mb-4'}`}
                     >
-                      View Content
-                    </button>
+                      {course.title}
+                    </h3>
+
+                    {isOffline && (
+                      <p className="text-xs text-red-500/80 font-bold line-clamp-1 mb-3">
+                        Archived on: {mapping.name}
+                      </p>
+                    )}
+
+                    <div className="mt-auto z-30">
+                      <button
+                        onClick={(): void => {
+                          handleViewContent(course)
+                        }}
+                        className={`w-full py-2.5 font-semibold rounded-xl transition-all duration-300 shadow-inner cursor-pointer text-sm ${isOffline ? 'bg-gray-200 dark:bg-white/5 text-gray-400 dark:text-gray-600 hover:bg-gray-300 dark:hover:bg-white/10' : 'bg-gray-100 dark:bg-black/30 hover:bg-blue-600 hover:text-white text-gray-800 dark:text-gray-300 group-hover:shadow-[0_0_15px_rgba(37,99,235,0.4)]'}`}
+                      >
+                        {isOffline ? 'View (Offline)' : 'View Content'}
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         ) : (
           // Empty State
@@ -312,14 +383,14 @@ export const MyCoursesTab: React.FC<MyCoursesTabProps> = ({ navCourseId, onNavHa
                 <img
                   src={selectedCourse.image_480x270}
                   alt="Thumbnail"
-                  className="w-16 h-12 object-cover rounded-lg shadow-sm"
+                  className={`w-16 h-12 object-cover rounded-lg shadow-sm ${isModalOffline ? 'grayscale opacity-50' : ''}`}
                 />
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900 dark:text-white line-clamp-1">
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white line-clamp-1 flex items-center gap-2">
                     {selectedCourse.title}
                   </h2>
                   <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">
-                    Course Curriculum
+                    Course Curriculum {currentMapping && `- Saved to ${currentMapping.name}`}
                   </p>
                 </div>
               </div>
@@ -327,6 +398,7 @@ export const MyCoursesTab: React.FC<MyCoursesTabProps> = ({ navCourseId, onNavHa
                 {/* Queue Controls */}
                 <button
                   onClick={async () => {
+                    if (isModalOffline) return
                     const addedCount = await startDownloadQueue(
                       selectedCourse,
                       curriculum,
@@ -337,7 +409,8 @@ export const MyCoursesTab: React.FC<MyCoursesTabProps> = ({ navCourseId, onNavHa
                       setTimeout(() => setQueuedCount(null), 3000)
                     }
                   }}
-                  className="group flex items-center h-11 max-w-11 hover:max-w-50 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl text-sm transition-all duration-300 ease-out shadow-lg hover:shadow-blue-500/30 overflow-hidden cursor-pointer px-3 whitespace-nowrap gap-2"
+                  disabled={isModalOffline}
+                  className={`group flex items-center h-11 max-w-11 hover:max-w-50 ${isModalOffline ? 'bg-gray-400 dark:bg-gray-800 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500 cursor-pointer'} text-white font-semibold rounded-xl text-sm transition-all duration-300 ease-out shadow-lg overflow-hidden px-3 whitespace-nowrap gap-2`}
                 >
                   <svg
                     className="w-5 h-5 min-w-5"
@@ -443,13 +516,15 @@ export const MyCoursesTab: React.FC<MyCoursesTabProps> = ({ navCourseId, onNavHa
 
                 <button
                   onClick={() => {
+                    if (isModalOffline) return
+
                     const filesExist = Object.values(downloadProgress).some(
                       (status) => status === 'success' || status === 'drm'
                     )
                     setHasLocalFiles(filesExist)
                     setIsDeleteModalOpen(true)
                   }}
-                  className="group flex items-center h-11 max-w-11 hover:max-w-50 bg-red-500/10 hover:bg-red-600 text-red-600 dark:text-red-400 hover:text-white font-semibold rounded-xl text-sm transition-all duration-300 ease-out shadow-md overflow-hidden cursor-pointer px-3 whitespace-nowrap gap-2"
+                  className={`group flex items-center h-11 max-w-11 hover:max-w-50 ${isModalOffline ? 'bg-gray-400 dark:bg-gray-800 cursor-not-allowed' : 'bg-red-500/10 hover:bg-red-600 cursor-pointer'} text-red-600 dark:text-red-400 hover:text-white font-semibold rounded-xl text-sm transition-all duration-300 ease-out shadow-md overflow-hidden px-3 whitespace-nowrap gap-2`}
                 >
                   <svg
                     className="w-5 h-5 min-w-5"
@@ -470,6 +545,60 @@ export const MyCoursesTab: React.FC<MyCoursesTabProps> = ({ navCourseId, onNavHa
                 </button>
 
                 <div className="w-px h-6 bg-gray-200 dark:bg-white/10 mx-1"></div>
+
+                <button
+                  onClick={async (): Promise<void> => {
+                    if (currentMapping) {
+                      setUnpinModalConfig({
+                        isOpen: true,
+                        type: isModalOffline ? 'offline' : 'online'
+                      })
+                    } else {
+                      const volId = await window.api.invoke('register-volume')
+                      if (volId && selectedCourse) {
+                        const allVols = (await window.api.invoke('get-all-volumes')) as VolumeRow[]
+                        const vol = allVols.find((v) => v.id === volId)
+                        setPinModalConfig({
+                          isOpen: true,
+                          volumeId: volId,
+                          volumeName: vol?.name || 'External Drive'
+                        })
+                      }
+                    }
+                  }}
+                  className={`group flex items-center h-11 ${currentMapping ? 'bg-red-600 hover:bg-red-500 text-white shadow-red-600/30' : 'bg-purple-600 hover:bg-purple-500 text-white shadow-purple-500/30'} font-semibold rounded-xl text-sm transition-all duration-300 ease-out shadow-lg cursor-pointer px-4 whitespace-nowrap gap-2`}
+                >
+                  {currentMapping ? (
+                    <svg
+                      className="w-5 h-5 min-w-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M18.364 5.636a9 9 0 010 12.728m0 0l-2.829-2.829m2.829 2.829L21 21M15.536 8.464a5 5 0 010 7.072m0 0l-2.829-2.829m-4.243-4.242a5 5 0 00-1.415 7.072m0 0L3 21m2.828-9.9a9 9 0 01-1.414-7.071"
+                      ></path>
+                    </svg>
+                  ) : (
+                    <svg
+                      className="w-5 h-5 min-w-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
+                      ></path>
+                    </svg>
+                  )}
+                  <span>{currentMapping ? `Unpin: ${currentMapping.name}` : 'Pin to Drive'}</span>
+                </button>
 
                 <button
                   onClick={() => setSelectedCourse(null)}
@@ -656,6 +785,7 @@ export const MyCoursesTab: React.FC<MyCoursesTabProps> = ({ navCourseId, onNavHa
                               <div className="flex items-center gap-2">
                                 <button
                                   onClick={async () => {
+                                    if (isModalOffline) return
                                     const isValid = await validateDownloadPath()
                                     if (isValid)
                                       handleDownloadItem(
@@ -668,10 +798,23 @@ export const MyCoursesTab: React.FC<MyCoursesTabProps> = ({ navCourseId, onNavHa
                                   disabled={
                                     status === 'downloading' ||
                                     status === 'success' ||
-                                    status === 'drm'
+                                    status === 'drm' ||
+                                    isModalOffline
                                   }
                                   className={`px-4 py-2 font-semibold rounded-lg text-sm transition-all shadow-sm flex items-center gap-2
-                                    ${status === 'downloading' ? 'bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 cursor-wait opacity-100' : status === 'success' ? 'bg-green-500/10 dark:bg-green-500/20 text-green-600 dark:text-green-400 cursor-default opacity-100' : status === 'drm' ? 'bg-gray-200 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed opacity-100' : status === 'error' ? 'bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400 cursor-pointer opacity-100' : 'bg-gray-100 dark:bg-white/10 hover:bg-blue-600 hover:text-white text-gray-700 dark:text-gray-300 opacity-0 group-hover:opacity-100 cursor-pointer'}`}
+                                    ${
+                                      status === 'downloading'
+                                        ? 'bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 cursor-wait opacity-100'
+                                        : status === 'success'
+                                          ? 'bg-green-500/10 dark:bg-green-500/20 text-green-600 dark:text-green-400 cursor-default opacity-100'
+                                          : status === 'drm'
+                                            ? 'bg-gray-200 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed opacity-100'
+                                            : status === 'error'
+                                              ? 'bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400 cursor-pointer opacity-100'
+                                              : isModalOffline
+                                                ? 'bg-gray-200 dark:bg-white/5 text-gray-400 dark:text-gray-600 cursor-not-allowed opacity-100'
+                                                : 'bg-gray-100 dark:bg-white/10 hover:bg-blue-600 hover:text-white text-gray-700 dark:text-gray-300 opacity-0 group-hover:opacity-100 cursor-pointer'
+                                    }`}
                                 >
                                   {status === 'downloading' && (
                                     <>
@@ -858,6 +1001,295 @@ export const MyCoursesTab: React.FC<MyCoursesTabProps> = ({ navCourseId, onNavHa
                       >
                         Understood
                       </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* --- PIN CUSTOM MODAL --- */}
+            {pinModalConfig?.isOpen && (
+              <div
+                className="absolute inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200"
+                onClick={(e) => {
+                  if (e.target === e.currentTarget && !isUnpinning) setPinModalConfig(null)
+                }}
+              >
+                <div className="w-full max-w-md p-8 bg-white/95 dark:bg-[#0f0f18]/95 border border-gray-200 dark:border-white/10 rounded-4xl shadow-2xl flex flex-col items-center text-center animate-in zoom-in-95 duration-200">
+                  <div className="p-4 bg-purple-100 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400 rounded-2xl mb-5 shadow-inner">
+                    <svg
+                      className="w-10 h-10"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
+                      ></path>
+                    </svg>
+                  </div>
+                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
+                    Pin Course?
+                  </h3>
+                  <p className="text-gray-500 dark:text-gray-400 text-sm leading-relaxed mb-6">
+                    You are about to pin this course to{' '}
+                    <span className="font-semibold text-gray-800 dark:text-gray-200">
+                      {pinModalConfig.volumeName}
+                    </span>
+                    . Would you like to automatically transfer any existing downloaded files to this
+                    drive?
+                  </p>
+
+                  <div className="flex flex-col gap-3 w-full">
+                    <button
+                      onClick={async () => {
+                        setIsUnpinning(true)
+                        const success = await window.api.invoke(
+                          'pin-course',
+                          selectedCourse.id,
+                          selectedCourse.title,
+                          pinModalConfig.volumeId,
+                          true
+                        )
+                        if (success) {
+                          const newMappings = await window.api.invoke('get-volume-mappings')
+                          setVolumeMappings(newMappings)
+                        }
+                        setIsUnpinning(false)
+                        setPinModalConfig(null)
+                      }}
+                      disabled={isUnpinning}
+                      className="w-full py-3 bg-purple-600 hover:bg-purple-500 text-white font-semibold rounded-xl transition-all shadow-lg hover:shadow-purple-500/30 flex justify-center items-center gap-2 cursor-pointer disabled:opacity-70"
+                    >
+                      {isUnpinning ? (
+                        <>
+                          <svg
+                            className="w-5 h-5 animate-spin"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="2"
+                              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                            ></path>
+                          </svg>{' '}
+                          Moving...
+                        </>
+                      ) : (
+                        'Yes, Move Files & Pin'
+                      )}
+                    </button>
+
+                    {!isUnpinning && (
+                      <>
+                        <button
+                          onClick={async () => {
+                            setIsUnpinning(true)
+                            const success = await window.api.invoke(
+                              'pin-course',
+                              selectedCourse.id,
+                              selectedCourse.title,
+                              pinModalConfig.volumeId,
+                              false
+                            )
+                            if (success) {
+                              const newMappings = await window.api.invoke('get-volume-mappings')
+                              setVolumeMappings(newMappings)
+                            }
+                            setIsUnpinning(false)
+                            setPinModalConfig(null)
+                          }}
+                          className="w-full py-3 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-800 dark:text-white font-semibold rounded-xl transition-all cursor-pointer"
+                        >
+                          No, Pin Only (New Downloads)
+                        </button>
+                        <button
+                          onClick={() => setPinModalConfig(null)}
+                          className="w-full py-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 font-medium transition-colors cursor-pointer text-sm"
+                        >
+                          Cancel
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* --- UNPIN CUSTOM MODALS --- */}
+            {unpinModalConfig.isOpen && (
+              <div
+                className="absolute inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200"
+                onClick={(e) => {
+                  if (e.target === e.currentTarget && !isUnpinning)
+                    setUnpinModalConfig({ isOpen: false, type: null })
+                }}
+              >
+                <div className="w-full max-w-md p-8 bg-white/95 dark:bg-[#0f0f18]/95 border border-gray-200 dark:border-white/10 rounded-4xl shadow-2xl flex flex-col items-center text-center animate-in zoom-in-95 duration-200">
+                  {unpinModalConfig.type === 'offline' ? (
+                    <>
+                      <div className="p-4 bg-yellow-100 dark:bg-yellow-500/20 text-yellow-600 dark:text-yellow-500 rounded-2xl mb-5 shadow-inner">
+                        <svg
+                          className="w-10 h-10"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                          ></path>
+                        </svg>
+                      </div>
+                      <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
+                        Drive is Offline
+                      </h3>
+                      <p className="text-gray-500 dark:text-gray-400 text-sm leading-relaxed mb-6">
+                        The pinned drive is currently unplugged. You can unpin the course, but any
+                        existing files{' '}
+                        <span className="font-semibold text-gray-800 dark:text-gray-200">
+                          cannot be moved
+                        </span>{' '}
+                        and will remain permanently on the offline drive.
+                      </p>
+
+                      <div className="flex flex-col gap-3 w-full">
+                        <button
+                          onClick={async () => {
+                            setIsUnpinning(true)
+                            const success = await window.api.invoke(
+                              'unpin-course',
+                              selectedCourse.id,
+                              selectedCourse.title,
+                              false
+                            )
+                            if (success) {
+                              const newMappings = await window.api.invoke('get-volume-mappings')
+                              setVolumeMappings(newMappings)
+                            }
+                            setIsUnpinning(false)
+                            setUnpinModalConfig({ isOpen: false, type: null })
+                          }}
+                          disabled={isUnpinning}
+                          className="w-full py-3 bg-red-600 hover:bg-red-500 text-white font-semibold rounded-xl transition-all shadow-lg hover:shadow-red-600/30 cursor-pointer disabled:opacity-70"
+                        >
+                          {isUnpinning ? 'Unpinning...' : 'Yes, Unpin & Leave Files Behind'}
+                        </button>
+                        <button
+                          onClick={() => setUnpinModalConfig({ isOpen: false, type: null })}
+                          disabled={isUnpinning}
+                          className="w-full py-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 font-medium transition-colors cursor-pointer text-sm"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="p-4 bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400 rounded-2xl mb-5 shadow-inner">
+                        <svg
+                          className="w-10 h-10"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                          ></path>
+                        </svg>
+                      </div>
+                      <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
+                        Unpin Course?
+                      </h3>
+                      <p className="text-gray-500 dark:text-gray-400 text-sm leading-relaxed mb-6">
+                        You are about to remove this course from its pinned drive. Would you like to
+                        automatically transfer the downloaded files back to your local folder?
+                      </p>
+
+                      <div className="flex flex-col gap-3 w-full">
+                        <button
+                          onClick={async () => {
+                            setIsUnpinning(true)
+                            const success = await window.api.invoke(
+                              'unpin-course',
+                              selectedCourse.id,
+                              selectedCourse.title,
+                              true
+                            )
+                            if (success) {
+                              const newMappings = await window.api.invoke('get-volume-mappings')
+                              setVolumeMappings(newMappings)
+                            }
+                            setIsUnpinning(false)
+                            setUnpinModalConfig({ isOpen: false, type: null })
+                          }}
+                          disabled={isUnpinning}
+                          className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl transition-all shadow-lg hover:shadow-blue-500/30 flex justify-center items-center gap-2 cursor-pointer disabled:opacity-70"
+                        >
+                          {isUnpinning ? (
+                            <>
+                              <svg
+                                className="w-5 h-5 animate-spin"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth="2"
+                                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                                ></path>
+                              </svg>{' '}
+                              Moving...
+                            </>
+                          ) : (
+                            'Yes, Move Files & Unpin'
+                          )}
+                        </button>
+
+                        {!isUnpinning && (
+                          <>
+                            <button
+                              onClick={async () => {
+                                setIsUnpinning(true)
+                                const success = await window.api.invoke(
+                                  'unpin-course',
+                                  selectedCourse.id,
+                                  selectedCourse.title,
+                                  false
+                                )
+                                if (success) {
+                                  const newMappings = await window.api.invoke('get-volume-mappings')
+                                  setVolumeMappings(newMappings)
+                                }
+                                setIsUnpinning(false)
+                                setUnpinModalConfig({ isOpen: false, type: null })
+                              }}
+                              className="w-full py-3 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-800 dark:text-white font-semibold rounded-xl transition-all cursor-pointer"
+                            >
+                              No, Unpin Only (Leave Files)
+                            </button>
+                            <button
+                              onClick={() => setUnpinModalConfig({ isOpen: false, type: null })}
+                              className="w-full py-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 font-medium transition-colors cursor-pointer text-sm"
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </>
                   )}
                 </div>

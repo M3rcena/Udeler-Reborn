@@ -13,6 +13,9 @@ export interface ApiBridge {
   onSchedulePause: (callback: () => void) => () => void
   onScheduleResume: (callback: () => void) => () => void
   onIntegrityProgress: (callback: (data: IntegrityProgress) => void) => () => void
+  onVolumeMappingsUpdated: (
+    callback: (mappings: Record<number, CourseVolumeMapping>) => void
+  ) => () => void
 }
 
 declare global {

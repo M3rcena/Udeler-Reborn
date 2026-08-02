@@ -1,7 +1,7 @@
 import { electronAPI } from '@electron-toolkit/preload'
 import { contextBridge } from 'electron'
 import { ipcRenderer } from 'electron/renderer'
-import { DownloadedFile, IntegrityProgress, IpcChannels } from './ipc-types'
+import { CourseVolumeMapping, DownloadedFile, IntegrityProgress, IpcChannels } from './ipc-types'
 
 const api = {
   invoke: <Channel extends keyof IpcChannels>(
@@ -78,6 +78,20 @@ const api = {
     ipcRenderer.on('integrity-progress', listener)
     return (): void => {
       ipcRenderer.removeListener('integrity-progress', listener)
+    }
+  },
+  onVolumeMappingsUpdated: (
+    callback: (mappings: Record<number, CourseVolumeMapping>) => void
+  ): (() => void) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      mappings: Record<number, CourseVolumeMapping>
+    ): void => {
+      callback(mappings)
+    }
+    ipcRenderer.on('volume-mappings-updated', listener)
+    return (): void => {
+      ipcRenderer.removeListener('volume-mappings-updated', listener)
     }
   }
 }

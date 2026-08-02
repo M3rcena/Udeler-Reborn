@@ -1,6 +1,15 @@
 import { useDownload } from '@renderer/contexts/DownloadContext'
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { Course, DownloadedFile, WatchProgress, WatchProgressControls } from 'src/preload/ipc-types'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  Course,
+  CourseVolumeMapping,
+  DownloadedFile,
+  GroupedVolume,
+  RawVolume,
+  VolumeRow,
+  WatchProgress,
+  WatchProgressControls
+} from 'src/preload/ipc-types'
 
 function useWatchProgress(
   lectureId: number | null,
@@ -105,6 +114,9 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({
 
   const [glowLectureId, setGlowLectureId] = useState<number | null>(null)
 
+  const [allVolumes, setAllVolumes] = useState<VolumeRow[]>([])
+  const [volumeMappings, setVolumeMappings] = useState<Record<number, CourseVolumeMapping>>({})
+
   const coursesList = useMemo(
     () => Array.from(new Set(downloadedFiles.map((f) => f.course))),
     [downloadedFiles]
@@ -125,6 +137,86 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({
         : [],
     [downloadedFiles, activeCourse, activeChapter]
   )
+
+  const volumeList = useMemo(() => {
+    const activePinnedVolumeIds = new Set<string>(
+      Object.values(volumeMappings).map((m: CourseVolumeMapping): string => String(m.volumeId))
+    )
+
+    const rawVols: RawVolume[] = []
+
+    allVolumes.forEach((v: VolumeRow): void => {
+      if (activePinnedVolumeIds.has(String(v.id))) {
+        rawVols.push({
+          id: String(v.id),
+          name: v.name,
+          isOffline: v.is_available === 0
+        })
+      }
+    })
+
+    downloadedFiles.forEach((f: DownloadedFile): void => {
+      if (!f.course) return
+      rawVols.push({
+        id: String(f.volumeId || 'default'),
+        name: f.volumeName || 'Local Drive',
+        isOffline: !!f.isOffline,
+        course: f.course
+      })
+    })
+
+    const normalize = (n: string): string =>
+      n
+        .replace(/\s*\([^)]+\)$/, '')
+        .trim()
+        .toLowerCase()
+
+    const grouped = new Map<string, GroupedVolume>()
+
+    rawVols.forEach((raw: RawVolume): void => {
+      const normName = normalize(raw.name)
+      const key = raw.id === 'default' || normName === 'local drive' ? 'default' : normName
+
+      if (!grouped.has(key)) {
+        grouped.set(key, {
+          id: key === 'default' ? 'default' : raw.id,
+          name: raw.name,
+          isOffline: raw.isOffline,
+          courses: new Set<string>(),
+          isPinned: activePinnedVolumeIds.has(raw.id)
+        })
+      }
+
+      const group = grouped.get(key)!
+
+      if (raw.name.length > group.name.length) {
+        group.name = raw.name
+      }
+
+      if (key !== 'default' && activePinnedVolumeIds.has(raw.id) && !group.isPinned) {
+        group.id = raw.id
+        group.isPinned = true
+      }
+
+      if (raw.course) {
+        group.courses.add(raw.course)
+      }
+    })
+
+    return Array.from(grouped.values())
+      .filter((g: GroupedVolume): boolean => g.courses.size > 0 || g.isPinned)
+      .map((g: GroupedVolume) => ({
+        id: g.id,
+        name: g.name,
+        isOffline: g.isOffline,
+        courses: Array.from(g.courses)
+      }))
+      .sort((a, b): number => {
+        if (a.id === 'default') return -1
+        if (b.id === 'default') return 1
+        return a.name.localeCompare(b.name)
+      })
+  }, [downloadedFiles, allVolumes, volumeMappings])
 
   useEffect(() => {
     if (activeCourse && !coursesList.includes(activeCourse)) {
@@ -174,29 +266,37 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({
     }
   }, [downloadProgress])
 
-  const fetchDiskData = async (): Promise<void> => {
+  const fetchDiskData = useCallback(async (): Promise<void> => {
     setIsScanning(true)
     try {
-      const [files, progress] = await Promise.all([
+      const [files, progress, volumes, mappings] = await Promise.all([
         window.api.invoke('get-all-downloads'),
         window.api.invoke('store-get', 'watch_progress') as Promise<
           Record<number, WatchProgress> | undefined
-        >
+        >,
+        window.api.invoke('get-all-volumes') as Promise<VolumeRow[]>,
+        window.api.invoke('get-volume-mappings') as Promise<Record<number, CourseVolumeMapping>>
       ])
       setDownloadedFiles(files)
       if (progress) setWatchProgressMap(progress)
+      setAllVolumes(volumes)
+      if (mappings) setVolumeMappings(mappings)
     } catch (err) {
       console.error('Failed to scan downloads', err)
     } finally {
       setIsScanning(false)
     }
-  }
+  }, [])
 
-  useEffect(() => {
+  useEffect((): (() => void) => {
     setTimeout(() => {
       fetchDiskData()
-    }, 0)
-  }, [])
+    })
+    const unsub = window.api.onVolumeMappingsUpdated(() => {
+      fetchDiskData()
+    })
+    return (): void => unsub()
+  }, [fetchDiskData])
 
   useEffect(() => {
     if (playMediaItem) {
@@ -473,55 +573,113 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({
             ) : (
               <>
                 {!activeCourse &&
-                  coursesList.map((course) => {
-                    const count = downloadedFiles.filter((f) => f.course === course).length
-                    return (
-                      <div
-                        key={course}
-                        onClick={() => setActiveCourse(course)}
-                        className="flex items-center gap-4 p-4 bg-white dark:bg-black/20 border border-gray-100 dark:border-white/5 rounded-xl hover:border-blue-500/30 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-all cursor-pointer group"
-                      >
-                        <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400">
-                          <svg
-                            className="w-6 h-6"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="2"
-                              d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
-                            ></path>
-                          </svg>
-                        </div>
-                        <div className="flex-1 truncate">
-                          <p className="text-gray-900 dark:text-white font-bold text-sm truncate">
-                            {course}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {count} file{count !== 1 ? 's' : ''}
-                          </p>
-                        </div>
-                        <div className="opacity-0 group-hover:opacity-100 transition-opacity text-blue-500">
-                          <svg
-                            className="w-5 h-5"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="2"
-                              d="M9 5l7 7-7 7"
-                            ></path>
-                          </svg>
-                        </div>
+                  volumeList.map((vol) => (
+                    <div key={vol.id} className="mb-6 last:mb-0">
+                      <div className="flex items-center gap-2 mb-3 px-1">
+                        <svg
+                          className="w-5 h-5 text-gray-400"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
+                          />
+                        </svg>
+                        <h3 className="text-sm font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                          {vol.name}
+                        </h3>
+                        {vol.isOffline && (
+                          <span className="px-2 py-0.5 rounded-md bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400 text-xs font-bold uppercase tracking-wider ml-2 shadow-sm">
+                            Offline
+                          </span>
+                        )}
                       </div>
-                    )
-                  })}
+                      <div className="flex flex-col gap-3">
+                        {vol.courses.length === 0 ? (
+                          <div className="p-4 rounded-xl border border-dashed border-gray-200 dark:border-white/10 text-center text-sm text-gray-500 dark:text-gray-400">
+                            No downloaded courses found on this drive.
+                          </div>
+                        ) : (
+                          vol.courses.map((course: string) => {
+                            const count = downloadedFiles.filter(
+                              (f) => f.course === course && f.volumeId === vol.id
+                            ).length
+
+                            return (
+                              <div
+                                key={course}
+                                onClick={(): void => {
+                                  if (!vol.isOffline) setActiveCourse(course)
+                                }}
+                                className={`flex items-center gap-4 p-4 bg-white dark:bg-black/20 border border-gray-100 dark:border-white/5 rounded-xl transition-all group ${
+                                  vol.isOffline
+                                    ? 'opacity-50 grayscale cursor-not-allowed'
+                                    : 'hover:border-blue-500/30 hover:bg-blue-50 dark:hover:bg-blue-500/10 cursor-pointer'
+                                }`}
+                              >
+                                <div
+                                  className={`p-2 rounded-lg ${
+                                    vol.isOffline
+                                      ? 'bg-gray-100 dark:bg-white/5 text-gray-500'
+                                      : 'bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400'
+                                  }`}
+                                >
+                                  <svg
+                                    className="w-6 h-6"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth="2"
+                                      d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
+                                    ></path>
+                                  </svg>
+                                </div>
+                                <div className="flex-1 truncate">
+                                  <p
+                                    className={`font-bold text-sm truncate ${
+                                      vol.isOffline
+                                        ? 'text-gray-500 dark:text-gray-400'
+                                        : 'text-gray-900 dark:text-white'
+                                    }`}
+                                  >
+                                    {course}
+                                  </p>
+                                  <p className="text-xs text-gray-500">
+                                    {count} file{count !== 1 ? 's' : ''}
+                                  </p>
+                                </div>
+                                {!vol.isOffline && (
+                                  <div className="opacity-0 group-hover:opacity-100 transition-opacity text-blue-500">
+                                    <svg
+                                      className="w-5 h-5"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth="2"
+                                        d="M9 5l7 7-7 7"
+                                      ></path>
+                                    </svg>
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })
+                        )}
+                      </div>
+                    </div>
+                  ))}
 
                 {activeCourse &&
                   !activeChapter &&

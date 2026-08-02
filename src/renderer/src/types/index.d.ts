@@ -17,6 +17,9 @@ declare global {
       onNavigateCourse: (callback: (courseId: number) => void) => () => void
       onPlayRecentMedia: (callback: (file: DownloadedFile) => void) => () => void
       onIntegrityProgress: (callback: (data: IntegrityProgress) => void) => () => void
+      onVolumeMappingsUpdated: (
+        callback: (mappings: Record<number, CourseVolumeMapping>) => void
+      ) => () => void
     }
   }
 }

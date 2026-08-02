@@ -395,8 +395,21 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
             insertBlob(finalHash, blobStats.size, fileExtension)
           }
 
-          if (fs.existsSync(filePath)) fs.unlinkSync(filePath)
-          fs.linkSync(blobPath, filePath)
+          if (fs.existsSync(filePath)) {
+            try {
+              fs.rmSync(filePath, { recursive: true, force: true })
+            } catch (rmErr: unknown) {
+              console.error('Failed to remove existing destination:', rmErr)
+            }
+          }
+
+          try {
+            fs.linkSync(blobPath, filePath)
+          } catch {
+            console.warn('Hard link not supported on this volume. Falling back to file copy.')
+            fs.copyFileSync(blobPath, filePath)
+          }
+
           recordLectureLink(req.courseId, req.lectureId, finalHash)
           resolve(filePath)
         }
