@@ -20,6 +20,7 @@
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
     "start": "electron-vite preview",
     "dev": "electron-vite dev",
+    "prebuild": "tsx scripts/prebuild.ts",
     "build": "npm run typecheck && electron-vite build && electron-builder --publish always",
     "postinstall": "electron-builder install-app-deps",
     "build:unpack": "npm run build && electron-builder --dir",
@@ -58,6 +59,7 @@
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "tailwindcss": "^4.3.3",
+    "tsx": "^4.23.4",
     "typescript": "~5.7.2",
     "vite": "^7.3.6"
   }
