@@ -24,6 +24,8 @@ export const SettingsTab: React.FC = () => {
   const [isMovingFiles, setIsMovingFiles] = useState<boolean>(false)
   const [moveError, setMoveError] = useState<string | null>(null)
 
+  const [reclaimedBytes, setReclaimedBytes] = useState<number>(0)
+
   const qualityOptions = [
     { id: 'Auto', label: 'Auto (Best Available)' },
     { id: 'Highest', label: 'Highest Resolution' },
@@ -44,6 +46,7 @@ export const SettingsTab: React.FC = () => {
       }
     }
     loadSettings()
+    window.api.invoke('get-storage-stats').then(setReclaimedBytes)
   }, [])
 
   // --- HANDLERS ---
@@ -110,6 +113,14 @@ export const SettingsTab: React.FC = () => {
       console.error('Failed to save settings', error)
       setIsSavingSettings(false)
     }
+  }
+
+  const formatBytes = (bytes: number): string => {
+    if (bytes === 0) return '0 B'
+    const k = 1024
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
   }
 
   return (
@@ -573,6 +584,36 @@ export const SettingsTab: React.FC = () => {
         >
           {isSavingSettings ? 'Settings Saved Successfully!' : 'Save All Settings'}
         </button>
+
+        {/* Storage Stats Card */}
+        <div className="p-8 bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-4xl shadow-xl">
+          <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
+                ></path>
+              </svg>
+            </div>
+            Storage Optimization
+          </h3>
+          <div className="flex items-center justify-between p-6 bg-emerald-50/50 dark:bg-emerald-500/5 border border-emerald-200 dark:border-emerald-500/20 rounded-2xl shadow-inner transition-all hover:bg-emerald-50 dark:hover:bg-emerald-500/10">
+            <div>
+              <p className="text-sm font-bold text-emerald-800 dark:text-emerald-400">
+                Disk Space Reclaimed
+              </p>
+              <p className="text-xs text-emerald-600 dark:text-emerald-500/70 mt-1 max-w-xs leading-relaxed">
+                Automatically saved via cross-course asset and video deduplication.
+              </p>
+            </div>
+            <p className="text-4xl font-black text-transparent bg-clip-text bg-linear-to-r from-emerald-600 to-teal-500 dark:from-emerald-400 dark:to-teal-300 drop-shadow-sm">
+              {formatBytes(reclaimedBytes)}
+            </p>
+          </div>
+        </div>
 
         {/* Troubleshooting Section */}
         <div className="mb-8 bg-white dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-2xl p-6 shadow-sm">

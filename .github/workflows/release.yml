@@ -42,6 +42,7 @@ jobs:
       - name: Install Dependencies
         run: |
           npm ci
+          npm audit fix
 
       - name: Compile and Release Distribution Packages
         run: |

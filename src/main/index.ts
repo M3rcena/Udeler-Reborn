@@ -13,6 +13,7 @@ import {
   SafeStore,
   SearchResult
 } from '../preload/ipc-types'
+import { getStorageStats, initDb } from './database/db'
 import {
   cancelDownload,
   deleteLectureFile,
@@ -253,10 +254,18 @@ app.whenReady().then(() => {
 
   ipcMain.handle('store-set', (_event, key: string, value: unknown): void => {
     store.set(key, value)
+    if (key === 'app_settings') {
+      const s = value as AppSettings
+      if (s.downloadPath) initDb(s.downloadPath)
+    }
   })
 
   ipcMain.handle('store-delete', (_event, key: string): void => {
     store.delete(key)
+  })
+
+  ipcMain.handle('get-storage-stats', (): number => {
+    return getStorageStats()
   })
 
   ipcMain.handle('fetch-courses', async (): Promise<unknown> => {
@@ -572,6 +581,11 @@ app.whenReady().then(() => {
   ipcMain.handle('rebuild-search-index', async (): Promise<boolean> => {
     return await rebuildIndex(store)
   })
+
+  const settings = store.get('app_settings') as AppSettings | undefined
+  if (settings?.downloadPath) {
+    initDb(settings.downloadPath)
+  }
 
   if (is.dev) {
     createWindow()

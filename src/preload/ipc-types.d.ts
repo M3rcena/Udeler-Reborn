@@ -195,6 +195,7 @@ export interface IpcChannels {
   'store-get': { args: [key: string]; returns: unknown }
   'store-set': { args: [key: string, value: unknown]; returns: void }
   'store-delete': { args: [key: string]; returns: void }
+  'get-storage-stats': { args: []; returns: number }
   'fetch-courses': { args: []; returns: Course[] }
   'fetch-curriculum': { args: [courseId: number]; returns: CurriculumItem[] }
   'select-folder': { args: []; returns: string | null }
