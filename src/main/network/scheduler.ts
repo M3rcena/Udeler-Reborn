@@ -11,7 +11,7 @@ export function initDownloadScheduler(mainWindow: BrowserWindow, store: SafeStor
     if (!settings?.scheduleEnabled || !settings?.scheduleStart || !settings?.scheduleEnd) return
 
     const now = new Date()
-    const currentMinutes = now.getHours() * 60 + now.getMinutes() + 1 // DO NOT ASK ME WHY THE +1 ... FOR SOME REASON IT WAS GIVING 1 MINUTE BEHIND THE CURRENT TIME.
+    const currentMinutes = now.getHours() * 60 + now.getMinutes()
 
     const [startH, startM] = settings.scheduleStart.split(':').map(Number)
     const [endH, endM] = settings.scheduleEnd.split(':').map(Number)

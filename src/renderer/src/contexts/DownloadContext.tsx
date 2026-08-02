@@ -7,7 +7,7 @@ import {
   useRef,
   useState
 } from 'react'
-import { Course, CurriculumItem, DownloadContextType } from 'src/preload/ipc-types'
+import { AppSettings, Course, CurriculumItem, DownloadContextType } from 'src/preload/ipc-types'
 
 const DownloadContext = createContext<DownloadContextType | undefined>(undefined)
 
@@ -22,13 +22,16 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
   const downloadQueue = useRef<
     { course: Course; item: CurriculumItem; chapterTitle: string; index: number }[]
   >([])
+
   const [downloadPercentages, setDownloadPercentages] = useState<Record<number, number>>({})
   const [downloadSpeeds, setDownloadSpeeds] = useState<Record<number, number>>({})
   const [activeDownloads, setActiveDownloads] = useState<
     Record<number, { title: string; courseTitle: string }>
   >({})
+
   const activeWorkers = useRef<number>(0)
   const isQueuePaused = useRef<boolean>(false)
+  const manualOverride = useRef<boolean>(false)
   const totalSessionItems = useRef<number>(0)
   const completedSessionItems = useRef<number>(0)
 
@@ -190,7 +193,10 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
     setQueueCount(downloadQueue.current.length)
 
     if (!nextTask) {
-      if (activeWorkers.current === 0) setQueueStatus('idle')
+      if (activeWorkers.current === 0) {
+        setQueueStatus('idle')
+        manualOverride.current = false
+      }
       return
     }
 
@@ -223,6 +229,25 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
     const isValid = await validateDownloadPath()
     if (!isValid) return 0
 
+    const settings = (await window.api.invoke('store-get', 'app_settings')) as
+      AppSettings | undefined
+    let isWithinScheduleWindow = true
+
+    if (settings?.scheduleEnabled && settings?.scheduleStart && settings?.scheduleEnd) {
+      const now = new Date()
+      const currentMinutes = now.getHours() * 60 + now.getMinutes()
+      const [startH, startM] = settings.scheduleStart.split(':').map(Number)
+      const [endH, endM] = settings.scheduleEnd.split(':').map(Number)
+      const startMinutes = startH * 60 + startM
+      const endMinutes = endH * 60 + endM
+
+      if (startMinutes < endMinutes) {
+        isWithinScheduleWindow = currentMinutes >= startMinutes && currentMinutes < endMinutes
+      } else {
+        isWithinScheduleWindow = currentMinutes >= startMinutes || currentMinutes < endMinutes
+      }
+    }
+
     let trackingTitle = currentChapterTitle
     let lectureCounter = 1
     const newTasks: typeof downloadQueue.current = []
@@ -244,24 +269,32 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
       newTasks.push({ course, item, chapterTitle: trackingTitle, index: currentIndex })
     }
 
-    if (newTasks.length === 0) return 0 // Stop early if there is nothing new to add
-    totalSessionItems.current += newTasks.length
+    if (newTasks.length === 0) return 0
 
+    totalSessionItems.current += newTasks.length
     downloadQueue.current = [...downloadQueue.current, ...newTasks]
     setQueueCount(downloadQueue.current.length)
-    isQueuePaused.current = false
-    setQueueStatus('running')
 
-    const availableWorkers = Math.max(0, 3 - activeWorkers.current)
-    for (let i = 0; i < availableWorkers; i++) {
-      setTimeout(processQueue, i * 500)
+    const shouldRun = isWithinScheduleWindow || manualOverride.current
+
+    if (shouldRun) {
+      isQueuePaused.current = false
+      setQueueStatus('running')
+      const availableWorkers = Math.max(0, 3 - activeWorkers.current)
+      for (let i = 0; i < availableWorkers; i++) {
+        setTimeout(processQueue, i * 500)
+      }
+    } else {
+      isQueuePaused.current = true
+      setQueueStatus('paused')
     }
 
     syncQueueToDisk()
-    return newTasks.length // Return the total items queued
+    return newTasks.length
   }
 
   const pauseQueue = useCallback((): void => {
+    manualOverride.current = false
     isQueuePaused.current = true
     setQueueStatus('paused')
 
@@ -271,11 +304,39 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
         window.api.invoke('pause-download', id)
       }
     })
-
     syncQueueToDisk()
   }, [downloadProgress])
 
   const resumeQueue = useCallback((): void => {
+    manualOverride.current = true
+    isQueuePaused.current = false
+    setQueueStatus('running')
+
+    const availableWorkers = Math.max(0, 3 - activeWorkers.current)
+    for (let i = 0; i < availableWorkers; i++) {
+      setTimeout(processQueue, i * 500)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const schedulePause = useCallback((): void => {
+    if (manualOverride.current || isQueuePaused.current) return
+    isQueuePaused.current = true
+    setQueueStatus('paused')
+
+    Object.entries(downloadProgress).forEach(([idStr, status]) => {
+      if (status === 'downloading') {
+        const id = parseInt(idStr)
+        window.api.invoke('pause-download', id)
+      }
+    })
+    syncQueueToDisk()
+  }, [downloadProgress])
+
+  const scheduleResume = useCallback((): void => {
+    manualOverride.current = false
+    if (!isQueuePaused.current) return
+
     isQueuePaused.current = false
     setQueueStatus('running')
 
@@ -287,6 +348,7 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
   }, [])
 
   const cancelQueue = useCallback((): void => {
+    manualOverride.current = false
     isQueuePaused.current = true
     setQueueStatus('idle')
     downloadQueue.current = []
@@ -297,12 +359,12 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
         const id = parseInt(idStr)
         window.api.invoke('cancel-download', id)
 
-        // Clear it cleanly
         setDownloadProgress((prev) => {
           const newMap = { ...prev }
           delete newMap[id]
           return newMap
         })
+
         setActiveDownloads((prev) => {
           const newMap = { ...prev }
           delete newMap[id]
@@ -317,12 +379,14 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   useEffect(() => {
     const unsubPause = window.api.onSchedulePause(() => {
-      if (queueStatus === 'running') pauseQueue()
+      if (queueStatus === 'running') schedulePause()
     })
 
     const unsubResume = window.api.onScheduleResume(() => {
       if (queueStatus === 'paused' && downloadQueue.current.length > 0) {
-        resumeQueue()
+        scheduleResume()
+      } else {
+        manualOverride.current = false
       }
     })
 
@@ -337,7 +401,7 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
       unsubResume()
       unsubTray()
     }
-  }, [queueStatus, pauseQueue, resumeQueue, cancelQueue])
+  }, [queueStatus, schedulePause, scheduleResume, pauseQueue, resumeQueue, cancelQueue])
 
   return (
     <DownloadContext.Provider
