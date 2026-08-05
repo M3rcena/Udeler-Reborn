@@ -1,7 +1,12 @@
 import { electronAPI } from '@electron-toolkit/preload'
 import { contextBridge } from 'electron'
 import { ipcRenderer } from 'electron/renderer'
-import { CourseVolumeMapping, DownloadedFile, IntegrityProgress, IpcChannels } from './ipc-types'
+import {
+  CourseVolumeMapping,
+  DownloadedFile,
+  IntegrityProgress,
+  IpcChannels
+} from './types/ipc-types'
 
 const api = {
   invoke: <Channel extends keyof IpcChannels>(

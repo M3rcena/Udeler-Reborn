@@ -1,7 +1,6 @@
-import { PathAlertModalProps } from 'src/preload/ipc-types'
+import { PathAlertModalProps } from 'src/preload/types/ipc-types'
 
 export const PathAlertModal: React.FC<PathAlertModalProps> = ({ isOpen, onClose }) => {
-  // If the modal isn't open, don't render anything
   if (!isOpen) return null
 
   return (

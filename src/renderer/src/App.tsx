@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { DownloadedFile } from 'src/preload/ipc-types'
+import { DownloadedFile } from 'src/preload/types/ipc-types'
 import { GlobalDownloadWidget } from './components/GlobalDownloadWidget'
 import { PathAlertModal } from './components/PathAlertModal'
 import { SearchModal } from './components/SearchModal'

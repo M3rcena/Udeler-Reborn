@@ -1,15 +1,15 @@
 import { useDownload } from '@renderer/contexts/DownloadContext'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  Course,
-  CourseVolumeMapping,
-  DownloadedFile,
-  GroupedVolume,
-  RawVolume,
-  VolumeRow,
-  WatchProgress,
-  WatchProgressControls
-} from 'src/preload/ipc-types'
+    Course,
+    CourseVolumeMapping,
+    DownloadedFile,
+    GroupedVolume,
+    RawVolume,
+    VolumeRow,
+    WatchProgress,
+    WatchProgressControls
+} from 'src/preload/types/ipc-types'
 
 function useWatchProgress(
   lectureId: number | null,

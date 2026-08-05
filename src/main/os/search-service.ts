@@ -1,6 +1,12 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import { AppSettings, Course, SafeStore, SearchDocument, SearchResult } from '../preload/ipc-types'
+import {
+  AppSettings,
+  Course,
+  SafeStore,
+  SearchDocument,
+  SearchResult
+} from '../../preload/types/ipc-types'
 
 let documents: SearchDocument[] = []
 

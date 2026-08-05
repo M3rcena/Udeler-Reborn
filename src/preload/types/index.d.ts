@@ -1,5 +1,5 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
-import { IpcChannels } from './ipc-types'
+import { IpcChannels } from '../ipc-types'
 
 export interface ApiBridge {
   invoke: <Channel extends keyof IpcChannels>(

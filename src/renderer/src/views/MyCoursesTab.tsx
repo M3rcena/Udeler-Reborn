@@ -6,7 +6,7 @@ import {
   CurriculumItem,
   VolumeRow,
   WatchProgress
-} from 'src/preload/ipc-types'
+} from 'src/preload/types/ipc-types'
 
 interface MyCoursesTabProps {
   navCourseId?: number | null

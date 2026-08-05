@@ -3,7 +3,7 @@ import * as crypto from 'crypto'
 import * as fs from 'fs'
 import * as path from 'path'
 import { parentPort, workerData } from 'worker_threads'
-import { IntegrityIssue } from '../preload/ipc-types'
+import { IntegrityIssue } from '../../preload/types/ipc-types'
 
 const { downloadPath } = workerData
 

@@ -1,4 +1,4 @@
-import { SidebarProps } from 'src/preload/ipc-types'
+import { SidebarProps } from 'src/preload/types/ipc-types'
 import brandLogo from '../assets/brand.png?url'
 
 export const Sidebar: React.FC<SidebarProps> = ({

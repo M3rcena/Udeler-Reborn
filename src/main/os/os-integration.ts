@@ -1,7 +1,7 @@
 import { app, BrowserWindow, Menu, nativeImage, Tray } from 'electron'
-import { DownloadedFile } from '../preload/ipc-types'
-import { OsProgressSchema, RecentCourseSchema, TrayTooltipSchema } from './validation/os-schema'
-import { appVersion } from './version'
+import { DownloadedFile } from '../../preload/types/ipc-types'
+import { OsProgressSchema, RecentCourseSchema, TrayTooltipSchema } from '../validation/os-schema'
+import { appVersion } from '../version'
 
 let tray: Tray | null = null
 let currentMainWindow: BrowserWindow | null = null

@@ -1,10 +1,10 @@
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 import { app, BrowserWindow, dialog, ipcMain, protocol, shell } from 'electron'
-import Store from 'electron-store'
 import { autoUpdater } from 'electron-updater'
 import * as fs from 'fs-extra'
 import * as path from 'path'
 import { join } from 'path'
+import { Readable } from 'stream'
 import { Worker } from 'worker_threads'
 import icon from '../../resources/icon.png?asset'
 import {
@@ -13,10 +13,9 @@ import {
   DownloadedFile,
   DownloadRequest,
   IntegrityIssue,
-  SafeStore,
   SearchResult,
   VolumeRow
-} from '../preload/ipc-types'
+} from '../preload/types/ipc-types'
 import {
   getAllVolumes,
   getBlobsForCourse,
@@ -28,6 +27,7 @@ import {
   runGarbageCollector,
   unpinCourseFromVolume
 } from './database/db'
+import { store } from './database/store'
 import {
   cancelDownload,
   deleteLectureFile,
@@ -42,10 +42,19 @@ import {
   handleSetTrayTooltip,
   handleUpdateQueueMenu,
   setupOSIntegration
-} from './os-integration'
-import { handleSearchQuery, rebuildIndex } from './search-service'
+} from './os/os-integration'
+import { handleSearchQuery, rebuildIndex } from './os/search-service'
+import {
+  decryptFileSync,
+  decryptToken,
+  encryptToken,
+  getVaultKey,
+  isFileEncrypted,
+  VAULT_MAGIC_HEADER,
+  VaultDecryptStream
+} from './security/vault'
 import { fetchCourseCurriculum, fetchSubscribedCourses } from './udemy'
-import { startVolumeWatcher } from './volume-watcher'
+import { startVolumeWatcher } from './workers/volume-watcher'
 
 async function moveCourseFiles(
   courseId: number,
@@ -109,9 +118,6 @@ process.on('uncaughtException', (error) => {
 process.on('unhandledRejection', (reason) => {
   console.error('UnhandledRejection:', reason)
 })
-
-const StoreClass = (Store as unknown as { default: new () => unknown }).default || Store
-const store = new (StoreClass as new () => unknown)() as unknown as SafeStore
 
 let mainWindow: BrowserWindow | null = null
 let isQuitting = false
@@ -306,11 +312,19 @@ app.whenReady().then(() => {
   })
 
   ipcMain.handle('store-get', (_event, key: string): unknown => {
-    return store.get(key)
+    const value = store.get(key)
+    if (key === 'udemy_token' && typeof value === 'string') {
+      return decryptToken(value)
+    }
+    return value
   })
 
   ipcMain.handle('store-set', (_event, key: string, value: unknown): void => {
-    store.set(key, value)
+    if (key === 'udemy_token' && typeof value === 'string') {
+      store.set(key, encryptToken(value))
+    } else {
+      store.set(key, value)
+    }
     if (key === 'app_settings') {
       const s = value as AppSettings
       if (s.downloadPath) initDb(s.downloadPath)
@@ -564,11 +578,28 @@ app.whenReady().then(() => {
                   }
 
                   const vttPath = path.join(chapterPath, vtt)
-                  let vttContent = fs.readFileSync(vttPath, 'utf8')
+                  let vttContent = ''
+
+                  if (isFileEncrypted(vttPath)) {
+                    const vaultKey = getVaultKey()
+                    if (vaultKey) {
+                      try {
+                        const decrypted: Buffer = decryptFileSync(vttPath, vaultKey)
+                        vttContent = decrypted.toString('utf8')
+                      } catch (err: unknown) {
+                        console.error('Failed to decrypt VTT:', err)
+                        return { label, srcLang, path: '' }
+                      }
+                    }
+                  } else {
+                    vttContent = fs.readFileSync(vttPath, 'utf8')
+                  }
+
                   vttContent = vttContent.replace(/^\uFEFF/, '').trim()
                   if (!vttContent.startsWith('WEBVTT')) {
                     vttContent = 'WEBVTT\n\n' + vttContent
                   }
+
                   const base64Vtt = Buffer.from(vttContent).toString('base64')
                   const dataUri = `data:text/vtt;charset=utf-8;base64,${base64Vtt}`
                   return { label, srcLang, path: dataUri }
@@ -644,10 +675,9 @@ app.whenReady().then(() => {
     for (const basePath of basePaths) {
       const courseFolder = path.join(basePath, cleanCourseName)
       if (fs.existsSync(courseFolder)) {
-        fs.rmSync(courseFolder, { recursive: true, force: true })
+        await fs.remove(courseFolder)
         deleted = true
       }
-
       runGarbageCollector(basePath)
     }
 
@@ -677,10 +707,72 @@ app.whenReady().then(() => {
     }
   )
 
-  protocol.registerFileProtocol('local', (request, callback) => {
+  protocol.handle('local', async (request: Request): Promise<Response> => {
     const url = request.url.slice('local://'.length)
     const decodedPath = decodeURIComponent(url)
-    callback({ path: decodedPath })
+
+    if (!fs.existsSync(decodedPath)) {
+      return new Response(null, { status: 404, statusText: 'File not found' })
+    }
+
+    let contentType = 'video/mp4'
+    if (decodedPath.endsWith('.html')) contentType = 'text/html'
+    else if (decodedPath.endsWith('.vtt')) contentType = 'text/vtt'
+
+    const stat = fs.statSync(decodedPath)
+    let fileSize = stat.size
+
+    if (isFileEncrypted(decodedPath)) {
+      const vaultKey = getVaultKey()
+      if (!vaultKey) {
+        return new Response('Vault Key Unavailable', { status: 403 })
+      }
+
+      if (decodedPath.endsWith('.vtt') || decodedPath.endsWith('.html')) {
+        try {
+          const decryptedBuffer = decryptFileSync(decodedPath, vaultKey)
+          const webSafeBuffer = new Uint8Array(decryptedBuffer)
+
+          return new Response(webSafeBuffer, {
+            headers: {
+              'Content-Type': contentType === 'text/vtt' ? 'text/vtt; charset=utf-8' : contentType,
+              'Access-Control-Allow-Origin': '*',
+              'Cache-Control': 'no-store'
+            }
+          })
+        } catch {
+          return new Response('Decryption failed', { status: 500 })
+        }
+      }
+
+      fileSize = fileSize - VAULT_MAGIC_HEADER.length - 16 - 16
+      const fileStream = fs.createReadStream(decodedPath)
+      const decryptor = new VaultDecryptStream(vaultKey)
+      fileStream.pipe(decryptor)
+
+      fileStream.on('error', () => decryptor.destroy())
+      decryptor.on('error', () => {})
+
+      const webStream = Readable.toWeb(decryptor) as ReadableStream<Uint8Array>
+
+      return new Response(webStream, {
+        headers: {
+          'Content-Type': contentType,
+          'Cache-Control': 'no-store',
+          'Content-Length': fileSize.toString(),
+          'Accept-Ranges': 'none'
+        }
+      })
+    }
+
+    const fileStream = fs.createReadStream(decodedPath)
+    return new Response(Readable.toWeb(fileStream) as ReadableStream<Uint8Array>, {
+      headers: {
+        'Content-Type': contentType,
+        'Content-Length': fileSize.toString(),
+        'Accept-Ranges': 'none'
+      }
+    })
   })
 
   ipcMain.handle(

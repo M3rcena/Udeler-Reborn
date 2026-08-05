@@ -13,7 +13,8 @@ export const SettingsTab: React.FC = () => {
     scheduleEnabled: false,
     scheduleStart: '01:00',
     scheduleEnd: '06:00',
-    closeToTray: false
+    closeToTray: false,
+    vaultMode: false
   })
   const [isSavingSettings, setIsSavingSettings] = useState<boolean>(false)
   const [isQualityMenuOpen, setIsQualityMenuOpen] = useState<boolean>(false)
@@ -587,6 +588,36 @@ export const SettingsTab: React.FC = () => {
             </div>
           </div>
         </div>
+
+        <label className="flex items-center justify-between cursor-pointer group mt-4 pt-4 border-t border-gray-200 dark:border-white/10">
+          <div>
+            <span className="text-sm font-bold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+              Vault Mode (Encrypted Storage)
+            </span>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 max-w-62.5">
+              Encrypts downloaded videos and auth tokens on disk using your OS Keychain.
+            </p>
+          </div>
+          <div className="relative">
+            <input
+              type="checkbox"
+              className="sr-only"
+              checked={appSettings.vaultMode as boolean}
+              onChange={(e) =>
+                setAppSettings((prev) => ({
+                  ...prev,
+                  vaultMode: e.target.checked
+                }))
+              }
+            />
+            <div
+              className={`block w-12 h-7 rounded-full transition-all duration-300 ${appSettings.vaultMode ? 'bg-purple-600 shadow-[0_0_12px_rgba(147,51,234,0.5)]' : 'bg-gray-300 dark:bg-gray-600'}`}
+            ></div>
+            <div
+              className={`absolute left-1 top-1 bg-white w-5 h-5 rounded-full transition-transform duration-300 ${appSettings.vaultMode ? 'translate-x-5' : ''}`}
+            ></div>
+          </div>
+        </label>
 
         {/* Save Button */}
         <button

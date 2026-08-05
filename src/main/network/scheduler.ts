@@ -1,5 +1,5 @@
 import { BrowserWindow } from 'electron'
-import { AppSettings, SafeStore } from '../../preload/ipc-types'
+import { AppSettings, SafeStore } from '../../preload/types/ipc-types'
 
 let scheduleInterval: NodeJS.Timeout | null = null
 

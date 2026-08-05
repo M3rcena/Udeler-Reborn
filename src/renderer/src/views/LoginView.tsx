@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { LoginViewProps } from 'src/preload/ipc-types'
+import { LoginViewProps } from 'src/preload/types/ipc-types'
 import { HelpModal } from '../components/HelpModal'
 import { useAuth } from '../contexts/AuthContext'
 

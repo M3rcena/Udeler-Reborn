@@ -1,6 +1,6 @@
 import { BrowserWindow } from 'electron'
 import * as fs from 'fs'
-import { getAllVolumes, getCourseVolumeMappings, updateVolumeStatus } from './database/db'
+import { getAllVolumes, getCourseVolumeMappings, updateVolumeStatus } from '../database/db'
 
 let watcherInterval: NodeJS.Timeout | null = null
 

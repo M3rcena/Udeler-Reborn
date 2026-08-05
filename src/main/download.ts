@@ -5,9 +5,11 @@ import type { ClientRequest, IncomingMessage } from 'http'
 import * as https from 'https'
 import * as path from 'path'
 import { z } from 'zod'
-import { DownloadRequest } from '../preload/ipc-types'
+import { AppSettings, DownloadRequest } from '../preload/types/ipc-types'
 import { addReclaimedBytes, checkBlobExists, insertBlob, recordLectureLink } from './database/db'
+import { store } from './database/store'
 import { ThrottleStream } from './network/throttle'
+import { encryptAndWriteFileSync, getVaultKey, VaultEncryptStream } from './security/vault'
 
 const activeStreams = new Map<
   number,
@@ -123,6 +125,10 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
 
   const targetDir = path.join(req.downloadPath, cleanCourse, cleanChapter)
 
+  const settings = store.get('app_settings') as AppSettings | undefined
+  const isVaultMode = settings?.vaultMode ?? false
+  const vaultKey = isVaultMode ? getVaultKey() : null
+
   if (!fs.existsSync(targetDir)) {
     fs.mkdirSync(targetDir, { recursive: true })
   }
@@ -135,7 +141,12 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
         <body>Redirecting to Udemy Quiz...</body>
       </html>
     `
-    fs.writeFileSync(filePath, htmlShortcut)
+
+    if (isVaultMode && vaultKey) {
+      encryptAndWriteFileSync(filePath, htmlShortcut, vaultKey)
+    } else {
+      fs.writeFileSync(filePath, htmlShortcut)
+    }
     return filePath
   }
 
@@ -200,7 +211,15 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
         const capRes = await net.fetch(subtitleUrl)
         if (capRes.ok) {
           const capText = await capRes.text()
-          fs.writeFileSync(path.join(targetDir, `${cleanLecture}_${localeName}.vtt`), capText)
+          if (isVaultMode && vaultKey) {
+            encryptAndWriteFileSync(
+              path.join(targetDir, `${cleanLecture}_${localeName}.vtt`),
+              capText,
+              vaultKey
+            )
+          } else {
+            fs.writeFileSync(path.join(targetDir, `${cleanLecture}_${localeName}.vtt`), capText)
+          }
         }
       } catch (err) {
         console.warn(`Failed to download subtitle: ${cap.locale || cap.title}`, err)
@@ -240,7 +259,11 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
         </body>
         </html>
       `
-    fs.writeFileSync(filePath, articleHtml)
+    if (isVaultMode && vaultKey) {
+      encryptAndWriteFileSync(filePath, articleHtml, vaultKey)
+    } else {
+      fs.writeFileSync(filePath, articleHtml)
+    }
     return filePath
   }
 
@@ -293,8 +316,14 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
   if (fs.existsSync(tempFilePath)) {
     const stats = fs.statSync(tempFilePath)
     if (stats.size > 0) {
-      downloadedBytes = stats.size
-      fileOptions = { flags: 'a' }
+      if (isVaultMode && vaultKey && fileExtension === '.mp4') {
+        downloadedBytes = 0
+        fs.truncateSync(tempFilePath, 0)
+        fileOptions = { flags: 'w' }
+      } else {
+        downloadedBytes = stats.size
+        fileOptions = { flags: 'a' }
+      }
     }
   } else if (fs.existsSync(filePath)) {
     return filePath
@@ -357,12 +386,23 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
         }
       })
 
-      res.pipe(throttle).pipe(file)
+      let encryptor: VaultEncryptStream | null = null
+
+      if (isVaultMode && vaultKey) {
+        encryptor = new VaultEncryptStream(vaultKey)
+        res.pipe(throttle).pipe(encryptor).pipe(file)
+      } else {
+        res.pipe(throttle).pipe(file)
+      }
 
       res.on('error', (err: Error): void => {
         hashFinalized = true
+        res.unpipe()
+        throttle.unpipe()
+        if (encryptor) encryptor.unpipe()
         throttle.destroy()
-        file.close()
+        if (encryptor) encryptor.destroy()
+        file.destroy()
         activeStreams.delete(req.lectureId)
         if (err.message === 'USER_PAUSED') resolve('USER_PAUSED')
         else if (err.message === 'USER_CANCELED') resolve('USER_CANCELED')
@@ -372,8 +412,7 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
         }
       })
 
-      res.on('end', (): void => {
-        file.close()
+      file.on('finish', (): void => {
         activeStreams.delete(req.lectureId)
 
         if (!hashFinalized) {
@@ -505,7 +544,7 @@ export function cancelDownload(lectureId: number): boolean {
   const active = activeStreams.get(lectureId)
   if (active) {
     active.req.destroy(new Error('USER_CANCELED'))
-    active.file.close()
+    active.file.destroy()
 
     if (fs.existsSync(active.filePath)) {
       fs.unlinkSync(active.filePath)

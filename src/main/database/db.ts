@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3'
 import * as fs from 'fs'
 import * as path from 'path'
-import { CourseVolumeMapping, CourseVolumeRow, VolumeRow } from '../../preload/ipc-types'
+import { CourseVolumeMapping, CourseVolumeRow, VolumeRow } from '../../preload/types/ipc-types'
 
 let db: Database.Database | null = null
 

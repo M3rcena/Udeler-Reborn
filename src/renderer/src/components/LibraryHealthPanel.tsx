@@ -1,6 +1,6 @@
 import { useDownload } from '@renderer/contexts/DownloadContext'
 import React, { useEffect, useState } from 'react'
-import { Course, CurriculumItem, IntegrityIssue, IntegrityProgress } from 'src/preload/ipc-types'
+import { Course, CurriculumItem, IntegrityIssue, IntegrityProgress } from 'src/preload/types/ipc-types'
 
 export const LibraryHealthPanel: React.FC = () => {
   const { handleDownloadItem } = useDownload()
@@ -33,10 +33,8 @@ export const LibraryHealthPanel: React.FC = () => {
 
   const handleRepair = async (issue: IntegrityIssue): Promise<void> => {
     try {
-      // 1. Delete the corrupted file (and blob link)
       await window.api.invoke('delete-lecture', issue.courseTitle, issue.lectureId)
 
-      // 2. Locate the course and curriculum in the cache to rebuild the queue item
       const cachedCourses = (await window.api.invoke('store-get', 'cached_courses')) as Course[]
       const course = cachedCourses.find(
         (c) => c.title.replace(/[<>:"/\\|?*]+/g, '-').trim() === issue.courseTitle
@@ -52,10 +50,8 @@ export const LibraryHealthPanel: React.FC = () => {
       const item = curriculum.find((i) => i.id === issue.lectureId)
       if (!item) throw new Error('Lecture not found in live curriculum.')
 
-      // 3. Remove it from the local UI state so it doesn't render
       setIssues((prev) => prev.filter((i) => i.lectureId !== issue.lectureId))
 
-      // 4. Send directly to the queue. The background engine handles delta/hashing automatically.
       await handleDownloadItem(course, item, issue.chapterTitle, 0)
     } catch (err) {
       console.error('Failed to initiate repair:', err)

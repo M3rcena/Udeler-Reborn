@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { SearchResult } from 'src/preload/ipc-types'
+import { SearchResult } from 'src/preload/types/ipc-types'
 
 interface SearchModalProps {
   isOpen: boolean

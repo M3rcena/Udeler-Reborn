@@ -1,13 +1,13 @@
 import {
-  createContext,
-  ReactNode,
-  useCallback,
-  useContext,
-  useEffect,
-  useRef,
-  useState
+    createContext,
+    ReactNode,
+    useCallback,
+    useContext,
+    useEffect,
+    useRef,
+    useState
 } from 'react'
-import { AppSettings, Course, CurriculumItem, DownloadContextType } from 'src/preload/ipc-types'
+import { AppSettings, Course, CurriculumItem, DownloadContextType } from 'src/preload/types/ipc-types'
 
 const DownloadContext = createContext<DownloadContextType | undefined>(undefined)
 

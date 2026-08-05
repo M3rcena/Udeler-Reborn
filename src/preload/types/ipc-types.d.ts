@@ -1,4 +1,4 @@
-import type { DownloadRequest } from '../main/download'
+import type { DownloadRequest } from '../../main/download'
 
 // ---- Courses / Downloads Types
 
@@ -118,6 +118,7 @@ export interface AppSettings {
   scheduleEnd: string
   maxKbps: number
   closeToTray?: boolean
+  vaultMode?: boolean
 }
 
 // ---- Sidebar Types
