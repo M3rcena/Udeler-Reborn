@@ -845,21 +845,36 @@ app.whenReady().then(() => {
   )
 
   registerSecureIpc('delete-file-by-path', async (_event, filePath: string): Promise<boolean> => {
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath)
+    const settings = store.get('app_settings') as AppSettings | undefined
 
-      const settings = store.get('app_settings') as AppSettings | undefined
-      if (!settings || !settings.downloadPath) return true
+    const basePaths = new Set<string>()
+    if (settings?.downloadPath) basePaths.add(settings.downloadPath)
 
-      const basePaths = new Set<string>()
-      basePaths.add(settings.downloadPath)
-
-      const volumeMappings = getCourseVolumeMappings()
-      for (const mapping of Object.values(volumeMappings)) {
-        if (mapping.isAvailable && mapping.rootPath) {
-          basePaths.add(mapping.rootPath)
-        }
+    const volumeMappings = getCourseVolumeMappings()
+    for (const mapping of Object.values(volumeMappings)) {
+      if (mapping.isAvailable && mapping.rootPath) {
+        basePaths.add(mapping.rootPath)
       }
+    }
+
+    if (basePaths.size === 0) return false
+
+    const resolvedTarget = path.resolve(filePath)
+    const isWithinAllowedBase = Array.from(basePaths).some((basePath) => {
+      const resolvedBase = path.resolve(basePath)
+      const relative = path.relative(resolvedBase, resolvedTarget)
+      return relative !== '' && !relative.startsWith('..') && !path.isAbsolute(relative)
+    })
+
+    if (!isWithinAllowedBase) {
+      console.warn(
+        `[SECURITY] Blocked delete-file-by-path outside allowed roots: ${resolvedTarget}`
+      )
+      return false
+    }
+
+    if (fs.existsSync(resolvedTarget)) {
+      fs.unlinkSync(resolvedTarget)
 
       for (const basePath of basePaths) {
         runGarbageCollector(basePath)

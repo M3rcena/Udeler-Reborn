@@ -88,7 +88,7 @@ export function decryptFileSync(filePath: string, key: Buffer): Buffer {
   if (fileData.length < 38) throw new Error('File too small to be encrypted')
 
   const header = fileData.subarray(0, 6)
-  if (header.toString() !== 'UDLRV4') return fileData
+  if (!header.equals(VAULT_MAGIC_HEADER)) return fileData
 
   const iv = fileData.subarray(6, 22)
   const authTag = fileData.subarray(fileData.length - 16)
