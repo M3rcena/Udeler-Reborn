@@ -1,5 +1,5 @@
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
-import { app, BrowserWindow, dialog, ipcMain, protocol, shell } from 'electron'
+import { app, BrowserWindow, dialog, protocol, session, shell } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import * as fs from 'fs-extra'
 import * as path from 'path'
@@ -9,7 +9,9 @@ import { Worker } from 'worker_threads'
 import icon from '../../resources/icon.png?asset'
 import {
   AppSettings,
+  Course,
   CourseVolumeMapping,
+  CurriculumItem,
   DownloadedFile,
   DownloadRequest,
   IntegrityIssue,
@@ -44,6 +46,7 @@ import {
   setupOSIntegration
 } from './os/os-integration'
 import { handleSearchQuery, rebuildIndex } from './os/search-service'
+import { getAuditStats, registerSecureIpc } from './security/audit'
 import {
   decryptFileSync,
   decryptToken,
@@ -293,7 +296,18 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  ipcMain.handle('export-debug-logs', async (): Promise<boolean> => {
+  session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
+    console.warn(
+      `[SECURITY] Blocked permission request for '${permission}' from ${webContents.getURL()}`
+    )
+    callback(false)
+  })
+
+  registerSecureIpc('get-security-audit-stats', () => {
+    return getAuditStats()
+  })
+
+  registerSecureIpc('export-debug-logs', async (): Promise<boolean> => {
     const { canceled, filePath } = await dialog.showSaveDialog({
       title: 'Save Debug Logs',
       defaultPath: 'udeler-debug-logs.txt',
@@ -311,7 +325,7 @@ app.whenReady().then(() => {
     return false
   })
 
-  ipcMain.handle('store-get', (_event, key: string): unknown => {
+  registerSecureIpc('store-get', (_event, key: string): unknown => {
     const value = store.get(key)
     if (key === 'udemy_token' && typeof value === 'string') {
       return decryptToken(value)
@@ -319,7 +333,7 @@ app.whenReady().then(() => {
     return value
   })
 
-  ipcMain.handle('store-set', (_event, key: string, value: unknown): void => {
+  registerSecureIpc('store-set', (_event, key: string, value: unknown): void => {
     if (key === 'udemy_token' && typeof value === 'string') {
       store.set(key, encryptToken(value))
     } else {
@@ -331,45 +345,68 @@ app.whenReady().then(() => {
     }
   })
 
-  ipcMain.handle('store-delete', (_event, key: string): void => {
+  registerSecureIpc('store-delete', (_event, key: string): void => {
     store.delete(key)
   })
 
-  ipcMain.handle('get-storage-stats', (): number => {
+  registerSecureIpc('get-storage-stats', (): number => {
     return getStorageStats()
   })
 
-  ipcMain.handle(
+  registerSecureIpc(
     'run-garbage-collector',
-    async (): Promise<{ purgedCount: number; freedBytes: number }> => {
+    async (): Promise<{ purgedCount: number; freedBytes: number; newTotalReclaimed: number }> => {
       const settings = store.get('app_settings') as AppSettings | undefined
-      if (!settings || !settings.downloadPath) return { purgedCount: 0, freedBytes: 0 }
+      if (!settings || !settings.downloadPath)
+        return { purgedCount: 0, freedBytes: 0, newTotalReclaimed: 0 }
       return runGarbageCollector(settings.downloadPath)
     }
   )
 
-  ipcMain.handle('fetch-courses', async (): Promise<unknown> => {
+  registerSecureIpc('fetch-courses', async (): Promise<Course[]> => {
     const token = store.get('udemy_token') as string | undefined
     const subdomain = store.get('udemy_subdomain') as string | undefined
-
-    if (!token) {
-      throw new Error('No token found')
-    }
-
-    const courses = await fetchSubscribedCourses(token, subdomain)
-    return courses
-  })
-
-  ipcMain.handle('fetch-curriculum', async (_event, courseId: number): Promise<unknown> => {
-    const token = store.get('udemy_token') as string | undefined
-    const subdomain = store.get('udemy_subdomain') as string | undefined
-
     if (!token) throw new Error('No token found')
 
-    return await fetchCourseCurriculum(token, courseId, subdomain)
+    const rawCourses = await fetchSubscribedCourses(token, subdomain)
+
+    return rawCourses.map((c) => ({
+      id: c.id,
+      title: c.title,
+      url: c.url,
+      image_480x270: c.image_480x270 || ''
+    }))
   })
 
-  ipcMain.handle('select-folder', async (): Promise<string | null> => {
+  registerSecureIpc(
+    'fetch-curriculum',
+    async (_event, courseId: number): Promise<CurriculumItem[]> => {
+      const token = store.get('udemy_token') as string | undefined
+      const subdomain = store.get('udemy_subdomain') as string | undefined
+      if (!token) throw new Error('No token found')
+
+      const rawItems = await fetchCourseCurriculum(token, courseId, subdomain)
+
+      return rawItems.map((item): CurriculumItem => {
+        const mappedItem: CurriculumItem = {
+          id: item.id,
+          title: item.title,
+          _class: item._class as 'chapter' | 'lecture' | 'quiz' | 'practice'
+        }
+
+        if (item.asset && item.asset.asset_type) {
+          mappedItem.asset = {
+            asset_type: item.asset.asset_type,
+            time_estimation: item.asset.time_estimation ?? undefined
+          }
+        }
+
+        return mappedItem
+      })
+    }
+  )
+
+  registerSecureIpc('select-folder', async (): Promise<string | null> => {
     const { canceled, filePaths } = await dialog.showOpenDialog({
       properties: ['openDirectory'],
       title: 'Select Download Folder'
@@ -381,11 +418,11 @@ app.whenReady().then(() => {
     return null
   })
 
-  ipcMain.handle('get-volume-mappings', (): Record<number, CourseVolumeMapping> => {
+  registerSecureIpc('get-volume-mappings', (): Record<number, CourseVolumeMapping> => {
     return getCourseVolumeMappings()
   })
 
-  ipcMain.handle('register-volume', async (): Promise<string | null> => {
+  registerSecureIpc('register-volume', async (): Promise<string | null> => {
     const { canceled, filePaths } = await dialog.showOpenDialog({
       properties: ['openDirectory'],
       title: 'Select External Drive or NAS Folder'
@@ -400,11 +437,11 @@ app.whenReady().then(() => {
     return null
   })
 
-  ipcMain.handle('get-all-volumes', (): VolumeRow[] => {
+  registerSecureIpc('get-all-volumes', (): VolumeRow[] => {
     return getAllVolumes()
   })
 
-  ipcMain.handle(
+  registerSecureIpc(
     'pin-course',
     async (
       _event,
@@ -428,7 +465,7 @@ app.whenReady().then(() => {
     }
   )
 
-  ipcMain.handle(
+  registerSecureIpc(
     'unpin-course',
     async (
       _event,
@@ -452,7 +489,7 @@ app.whenReady().then(() => {
     }
   )
 
-  ipcMain.handle(
+  registerSecureIpc(
     'start-download',
     async (
       _event,
@@ -496,7 +533,7 @@ app.whenReady().then(() => {
     }
   )
 
-  ipcMain.handle('get-all-downloads', async (): Promise<DownloadedFile[]> => {
+  registerSecureIpc('get-all-downloads', async (): Promise<DownloadedFile[]> => {
     const settings = store.get('app_settings') as AppSettings | undefined
     if (!settings || !settings.downloadPath) return []
 
@@ -630,7 +667,7 @@ app.whenReady().then(() => {
     return newDownloads
   })
 
-  ipcMain.handle(
+  registerSecureIpc(
     'check-local-downloads',
     async (_event, courseTitle: string): Promise<Record<number, string>> => {
       const settings = store.get('app_settings') as AppSettings | undefined
@@ -655,44 +692,47 @@ app.whenReady().then(() => {
     }
   )
 
-  ipcMain.handle('delete-course-folder', async (_event, courseTitle: string): Promise<boolean> => {
-    const settings = store.get('app_settings') as AppSettings | undefined
-    if (!settings || !settings.downloadPath) throw new Error('No download path found')
+  registerSecureIpc(
+    'delete-course-folder',
+    async (_event, courseTitle: string): Promise<boolean> => {
+      const settings = store.get('app_settings') as AppSettings | undefined
+      if (!settings || !settings.downloadPath) throw new Error('No download path found')
 
-    const cleanCourseName = courseTitle.replace(/[<>:"/\\|?*]+/g, '-').trim()
-    let deleted = false
+      const cleanCourseName = courseTitle.replace(/[<>:"/\\|?*]+/g, '-').trim()
+      let deleted = false
 
-    const basePaths = new Set<string>()
-    basePaths.add(settings.downloadPath)
+      const basePaths = new Set<string>()
+      basePaths.add(settings.downloadPath)
 
-    const volumeMappings = getCourseVolumeMappings()
-    for (const mapping of Object.values(volumeMappings)) {
-      if (mapping.isAvailable && mapping.rootPath) {
-        basePaths.add(mapping.rootPath)
+      const volumeMappings = getCourseVolumeMappings()
+      for (const mapping of Object.values(volumeMappings)) {
+        if (mapping.isAvailable && mapping.rootPath) {
+          basePaths.add(mapping.rootPath)
+        }
       }
-    }
 
-    for (const basePath of basePaths) {
-      const courseFolder = path.join(basePath, cleanCourseName)
-      if (fs.existsSync(courseFolder)) {
-        await fs.remove(courseFolder)
-        deleted = true
+      for (const basePath of basePaths) {
+        const courseFolder = path.join(basePath, cleanCourseName)
+        if (fs.existsSync(courseFolder)) {
+          await fs.remove(courseFolder)
+          deleted = true
+        }
+        runGarbageCollector(basePath)
       }
-      runGarbageCollector(basePath)
+
+      return deleted
     }
+  )
 
-    return deleted
-  })
-
-  ipcMain.handle('cancel-download', async (_event, lectureId: number): Promise<boolean> => {
+  registerSecureIpc('cancel-download', async (_event, lectureId: number): Promise<boolean> => {
     return cancelDownload(lectureId)
   })
 
-  ipcMain.handle('pause-download', (_event, lectureId: number): boolean => {
+  registerSecureIpc('pause-download', (_event, lectureId: number): boolean => {
     return pauseDownload(lectureId)
   })
 
-  ipcMain.handle(
+  registerSecureIpc(
     'moveDownloadsFolder',
     async (_event, oldPath: string, newPath: string): Promise<boolean> => {
       try {
@@ -775,7 +815,7 @@ app.whenReady().then(() => {
     })
   })
 
-  ipcMain.handle(
+  registerSecureIpc(
     'delete-lecture',
     async (_event, courseTitle: string, lectureId: number): Promise<boolean> => {
       const settings = store.get('app_settings') as AppSettings | undefined
@@ -804,7 +844,7 @@ app.whenReady().then(() => {
     }
   )
 
-  ipcMain.handle('delete-file-by-path', async (_event, filePath: string): Promise<boolean> => {
+  registerSecureIpc('delete-file-by-path', async (_event, filePath: string): Promise<boolean> => {
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath)
 
@@ -830,7 +870,7 @@ app.whenReady().then(() => {
     return false
   })
 
-  ipcMain.handle('login-udemy', async (_event, subdomain?: string): Promise<string | null> => {
+  registerSecureIpc('login-udemy', async (_event, subdomain?: string): Promise<string | null> => {
     return new Promise((resolve) => {
       const targetUrl = subdomain
         ? `https://${subdomain}.udemy.com`
@@ -892,17 +932,17 @@ app.whenReady().then(() => {
     })
   })
 
-  ipcMain.handle('os-set-progress', (_event, progress: number): boolean => {
+  registerSecureIpc('os-set-progress', (_event, progress: number): boolean => {
     if (mainWindow) handleSetProgressBar(mainWindow, progress)
     return true
   })
 
-  ipcMain.handle('os-set-tray-tooltip', (_event, text: string): boolean => {
+  registerSecureIpc('os-set-tray-tooltip', (_event, text: string): boolean => {
     handleSetTrayTooltip(text)
     return true
   })
 
-  ipcMain.handle(
+  registerSecureIpc(
     'os-set-recent-course',
     (_event, payload: { title: string; id: number }): boolean => {
       handleSetRecentCourse(payload)
@@ -910,12 +950,12 @@ app.whenReady().then(() => {
     }
   )
 
-  ipcMain.handle('os-hide-to-tray', (): boolean => {
+  registerSecureIpc('os-hide-to-tray', (): boolean => {
     if (mainWindow) mainWindow.hide()
     return true
   })
 
-  ipcMain.handle(
+  registerSecureIpc(
     'os-update-queue-menu',
     (_event, status: 'idle' | 'running' | 'paused'): boolean => {
       handleUpdateQueueMenu(status)
@@ -923,25 +963,30 @@ app.whenReady().then(() => {
     }
   )
 
-  ipcMain.handle('os-show-item-in-folder', (_event, filePath: string): void => {
+  registerSecureIpc('os-show-item-in-folder', (_event, filePath: string): void => {
     shell.showItemInFolder(filePath)
   })
 
-  ipcMain.handle('search-index', (_event, query: string): SearchResult[] => {
+  registerSecureIpc('search-index', (_event, query: string): SearchResult[] => {
     return handleSearchQuery(query)
   })
 
-  ipcMain.handle('rebuild-search-index', async (): Promise<boolean> => {
+  registerSecureIpc('rebuild-search-index', async (): Promise<boolean> => {
     return await rebuildIndex(store)
   })
 
-  ipcMain.handle('start-integrity-scan', async (event): Promise<IntegrityIssue[]> => {
+  registerSecureIpc('start-integrity-scan', async (event): Promise<IntegrityIssue[]> => {
     const settings = store.get('app_settings') as AppSettings | undefined
     if (!settings?.downloadPath) return []
 
+    const vaultKey = getVaultKey()
+
     return new Promise((resolve, reject) => {
       const worker = new Worker(path.join(__dirname, 'integrity-worker.js'), {
-        workerData: { downloadPath: settings.downloadPath }
+        workerData: {
+          downloadPath: settings.downloadPath,
+          vaultKey: vaultKey
+        }
       })
 
       worker.on('message', (msg) => {

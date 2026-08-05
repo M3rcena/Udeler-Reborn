@@ -250,6 +250,14 @@ export interface GroupedVolume {
   isPinned: boolean
 }
 
+// ---- Audit Types
+export type RiskTier = 'read-only-metadata' | 'filesystem-write' | 'network' | 'credential-access'
+
+export interface IpcManifestEntry {
+  tier: RiskTier
+  maxCallsPerSecond: number
+}
+
 // ---- Ipc Types
 
 export interface IpcChannels {
@@ -310,5 +318,9 @@ export interface IpcChannels {
   'unpin-course': {
     args: [courseId: number, courseTitle: string, shouldMove: boolean]
     returns: boolean
+  }
+  'get-security-audit-stats': {
+    args: []
+    returns: { passedChecks: number; anomalies: number }
   }
 }

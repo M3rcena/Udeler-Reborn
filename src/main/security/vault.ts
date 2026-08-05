@@ -4,7 +4,7 @@ import * as fs from 'node:fs'
 import { Transform, TransformCallback } from 'node:stream'
 import { store } from '../database/store'
 
-export const VAULT_MAGIC_HEADER = Buffer.from('UDLRV4')
+export const VAULT_MAGIC_HEADER = Buffer.from('UDLRV3')
 
 /**
  * Retrieves or generates the AES-256 Master Key backed by the OS Keychain.
