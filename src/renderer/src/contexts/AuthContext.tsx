@@ -1,5 +1,5 @@
 import { createContext, ReactNode, useContext, useEffect, useState } from 'react'
-import { AuthContextType } from 'src/preload/ipc-types'
+import { AuthContextType } from 'src/preload/types/ipc-types'
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 

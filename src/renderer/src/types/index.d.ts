@@ -1,4 +1,4 @@
-import type { IpcChannels } from '../../../preload/ipc-types'
+import type { DownloadedFile, IntegrityProgress, IpcChannels } from '../../../preload/types/ipc-types';
 
 declare global {
   interface Window {
@@ -9,7 +9,16 @@ declare global {
       ) => Promise<IpcChannels[Channel]['returns']>
 
       onDownloadProgress: (
-        callback: (data: { lectureId: number; percentage: number }) => void
+        callback: (data: { lectureId: number; percentage: number; speed: number }) => void
+      ) => () => void
+      onSchedulePause: (callback: () => void) => () => void
+      onScheduleResume: (callback: () => void) => () => void
+      onTrayAction: (callback: (action: 'pause' | 'resume' | 'cancel') => void) => () => void
+      onNavigateCourse: (callback: (courseId: number) => void) => () => void
+      onPlayRecentMedia: (callback: (file: DownloadedFile) => void) => () => void
+      onIntegrityProgress: (callback: (data: IntegrityProgress) => void) => () => void
+      onVolumeMappingsUpdated: (
+        callback: (mappings: Record<number, CourseVolumeMapping>) => void
       ) => () => void
     }
   }

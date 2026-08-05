@@ -1,6 +1,15 @@
 import { useDownload } from '@renderer/contexts/DownloadContext'
-import { useEffect, useMemo, useState, useRef } from 'react'
-import { DownloadedFile, WatchProgress, WatchProgressControls } from 'src/preload/ipc-types'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+    Course,
+    CourseVolumeMapping,
+    DownloadedFile,
+    GroupedVolume,
+    RawVolume,
+    VolumeRow,
+    WatchProgress,
+    WatchProgressControls
+} from 'src/preload/types/ipc-types'
 
 function useWatchProgress(
   lectureId: number | null,
@@ -14,8 +23,7 @@ function useWatchProgress(
 
     const loadProgress = async (): Promise<void> => {
       const progress = (await window.api.invoke('store-get', `watch_progress.${lectureId}`)) as
-        | WatchProgress
-        | undefined
+        WatchProgress | undefined
 
       if (progress && !progress.isCompleted && videoRef.current) {
         videoRef.current.currentTime = progress.currentTime
@@ -63,7 +71,19 @@ function useWatchProgress(
   return { handleTimeUpdate, forceSave }
 }
 
-export const DownloadsTab: React.FC = () => {
+interface DownloadsTabProps {
+  playMediaItem?: DownloadedFile | null
+  onMediaHandled?: () => void
+  searchLectureId?: number | null
+  onSearchHandled?: () => void
+}
+
+export const DownloadsTab: React.FC<DownloadsTabProps> = ({
+  playMediaItem,
+  onMediaHandled,
+  searchLectureId,
+  onSearchHandled
+}) => {
   const {
     downloadProgress,
     setDownloadProgress,
@@ -92,6 +112,11 @@ export const DownloadsTab: React.FC = () => {
   const [activeCourse, setActiveCourse] = useState<string | null>(null)
   const [activeChapter, setActiveChapter] = useState<string | null>(null)
 
+  const [glowLectureId, setGlowLectureId] = useState<number | null>(null)
+
+  const [allVolumes, setAllVolumes] = useState<VolumeRow[]>([])
+  const [volumeMappings, setVolumeMappings] = useState<Record<number, CourseVolumeMapping>>({})
+
   const coursesList = useMemo(
     () => Array.from(new Set(downloadedFiles.map((f) => f.course))),
     [downloadedFiles]
@@ -113,6 +138,86 @@ export const DownloadsTab: React.FC = () => {
     [downloadedFiles, activeCourse, activeChapter]
   )
 
+  const volumeList = useMemo(() => {
+    const activePinnedVolumeIds = new Set<string>(
+      Object.values(volumeMappings).map((m: CourseVolumeMapping): string => String(m.volumeId))
+    )
+
+    const rawVols: RawVolume[] = []
+
+    allVolumes.forEach((v: VolumeRow): void => {
+      if (activePinnedVolumeIds.has(String(v.id))) {
+        rawVols.push({
+          id: String(v.id),
+          name: v.name,
+          isOffline: v.is_available === 0
+        })
+      }
+    })
+
+    downloadedFiles.forEach((f: DownloadedFile): void => {
+      if (!f.course) return
+      rawVols.push({
+        id: String(f.volumeId || 'default'),
+        name: f.volumeName || 'Local Drive',
+        isOffline: !!f.isOffline,
+        course: f.course
+      })
+    })
+
+    const normalize = (n: string): string =>
+      n
+        .replace(/\s*\([^)]+\)$/, '')
+        .trim()
+        .toLowerCase()
+
+    const grouped = new Map<string, GroupedVolume>()
+
+    rawVols.forEach((raw: RawVolume): void => {
+      const normName = normalize(raw.name)
+      const key = raw.id === 'default' || normName === 'local drive' ? 'default' : normName
+
+      if (!grouped.has(key)) {
+        grouped.set(key, {
+          id: key === 'default' ? 'default' : raw.id,
+          name: raw.name,
+          isOffline: raw.isOffline,
+          courses: new Set<string>(),
+          isPinned: activePinnedVolumeIds.has(raw.id)
+        })
+      }
+
+      const group = grouped.get(key)!
+
+      if (raw.name.length > group.name.length) {
+        group.name = raw.name
+      }
+
+      if (key !== 'default' && activePinnedVolumeIds.has(raw.id) && !group.isPinned) {
+        group.id = raw.id
+        group.isPinned = true
+      }
+
+      if (raw.course) {
+        group.courses.add(raw.course)
+      }
+    })
+
+    return Array.from(grouped.values())
+      .filter((g: GroupedVolume): boolean => g.courses.size > 0 || g.isPinned)
+      .map((g: GroupedVolume) => ({
+        id: g.id,
+        name: g.name,
+        isOffline: g.isOffline,
+        courses: Array.from(g.courses)
+      }))
+      .sort((a, b): number => {
+        if (a.id === 'default') return -1
+        if (b.id === 'default') return 1
+        return a.name.localeCompare(b.name)
+      })
+  }, [downloadedFiles, allVolumes, volumeMappings])
+
   useEffect(() => {
     if (activeCourse && !coursesList.includes(activeCourse)) {
       setTimeout(() => {
@@ -126,6 +231,30 @@ export const DownloadsTab: React.FC = () => {
     }
   }, [coursesList, chaptersList, activeCourse, activeChapter])
 
+  useEffect(() => {
+    if (searchLectureId && downloadedFiles.length > 0) {
+      const targetFile = downloadedFiles.find(
+        (f) =>
+          f.file.includes(`[ID_${searchLectureId}]`) && (f.type === 'Video' || f.type === 'Article')
+      )
+
+      if (targetFile) {
+        setTimeout(() => {
+          setActiveCourse(targetFile.course)
+          setActiveChapter(targetFile.chapter)
+
+          setSelectedMedia(targetFile)
+
+          setGlowLectureId(searchLectureId)
+        })
+
+        setTimeout(() => setGlowLectureId(null), 4000)
+      }
+
+      if (onSearchHandled) onSearchHandled()
+    }
+  }, [searchLectureId, downloadedFiles, onSearchHandled])
+
   const stats = useMemo(() => {
     const statuses = Object.values(downloadProgress)
     return {
@@ -137,35 +266,52 @@ export const DownloadsTab: React.FC = () => {
     }
   }, [downloadProgress])
 
-  const fetchDiskData = async (): Promise<void> => {
+  const fetchDiskData = useCallback(async (): Promise<void> => {
     setIsScanning(true)
     try {
-      const [files, progress] = await Promise.all([
+      const [files, progress, volumes, mappings] = await Promise.all([
         window.api.invoke('get-all-downloads'),
         window.api.invoke('store-get', 'watch_progress') as Promise<
           Record<number, WatchProgress> | undefined
-        >
+        >,
+        window.api.invoke('get-all-volumes') as Promise<VolumeRow[]>,
+        window.api.invoke('get-volume-mappings') as Promise<Record<number, CourseVolumeMapping>>
       ])
       setDownloadedFiles(files)
       if (progress) setWatchProgressMap(progress)
+      setAllVolumes(volumes)
+      if (mappings) setVolumeMappings(mappings)
     } catch (err) {
       console.error('Failed to scan downloads', err)
     } finally {
       setIsScanning(false)
     }
-  }
+  }, [])
 
-  useEffect(() => {
+  useEffect((): (() => void) => {
     setTimeout(() => {
       fetchDiskData()
-    }, 0)
-  }, [])
+    })
+    const unsub = window.api.onVolumeMappingsUpdated(() => {
+      fetchDiskData()
+    })
+    return (): void => unsub()
+  }, [fetchDiskData])
+
+  useEffect(() => {
+    if (playMediaItem) {
+      setTimeout(() => {
+        setSelectedMedia(playMediaItem)
+      })
+      if (onMediaHandled) onMediaHandled()
+    }
+  }, [playMediaItem, onMediaHandled])
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-6xl mx-auto pb-10 flex flex-col h-full relative z-10">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
         <div>
-          <h2 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400">
+          <h2 className="text-3xl font-extrabold text-transparent bg-clip-text bg-linear-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400">
             Queue & Library
           </h2>
           <p className="text-gray-500 dark:text-gray-400 mt-1 font-medium">
@@ -184,9 +330,9 @@ export const DownloadsTab: React.FC = () => {
       </div>
 
       <div className="flex flex-col gap-6 flex-1">
-        <div className="p-6 bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-[2rem] shadow-xl flex flex-wrap gap-4 items-center justify-between">
+        <div className="p-6 bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-4xl shadow-xl flex flex-wrap gap-4 items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-3 bg-gradient-to-tr from-blue-600 to-purple-600 rounded-2xl text-white shadow-lg">
+            <div className="p-3 bg-linear-to-tr from-blue-600 to-purple-600 rounded-2xl text-white shadow-lg">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
@@ -208,7 +354,7 @@ export const DownloadsTab: React.FC = () => {
             <button
               onClick={queueStatus === 'paused' ? resumeQueue : pauseQueue}
               disabled={queueStatus === 'idle'}
-              className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-3 font-bold rounded-xl transition-all shadow-md cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${queueStatus === 'paused' ? 'bg-green-600 hover:bg-green-500 text-white shadow-green-500/30' : 'bg-yellow-500 hover:bg-yellow-400 text-white shadow-yellow-500/30'}`}
+              className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-3 font-bold rounded-xl transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed ${queueStatus === 'paused' ? 'bg-green-600 hover:bg-green-500 text-white shadow-green-500/30 cursor-pointer' : 'bg-yellow-500 hover:bg-yellow-400 text-white shadow-yellow-500/30 cursor-pointer'}`}
             >
               {queueStatus === 'paused' ? (
                 <>
@@ -245,7 +391,7 @@ export const DownloadsTab: React.FC = () => {
             <button
               onClick={cancelQueue}
               disabled={queueStatus === 'idle'}
-              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-red-600/30 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-red-600/30 ${queueStatus === 'idle' ? 'cursor-not-allowed' : 'cursor-pointer'} disabled:opacity-50`}
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
@@ -267,31 +413,31 @@ export const DownloadsTab: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-6">
-          <div className="p-6 bg-white/60 dark:bg-white/5 border border-purple-200 dark:border-purple-500/20 rounded-[2rem] shadow-xl">
+          <div className="p-6 bg-white/60 dark:bg-white/5 border border-purple-200 dark:border-purple-500/20 rounded-4xl shadow-xl">
             <h3 className="font-bold text-gray-600 dark:text-gray-300 mb-2 flex items-center gap-2">
               Waiting
             </h3>
             <p className="text-4xl font-black text-gray-900 dark:text-white">{queueCount}</p>
           </div>
-          <div className="p-6 bg-white/60 dark:bg-white/5 border border-blue-200 dark:border-blue-500/20 rounded-[2rem] shadow-xl">
+          <div className="p-6 bg-white/60 dark:bg-white/5 border border-blue-200 dark:border-blue-500/20 rounded-4xl shadow-xl">
             <h3 className="font-bold text-gray-600 dark:text-gray-300 mb-2">In Progress</h3>
             <p className="text-4xl font-black text-gray-900 dark:text-white">{stats.downloading}</p>
           </div>
-          <div className="p-6 bg-white/60 dark:bg-white/5 border border-green-200 dark:border-green-500/20 rounded-[2rem] shadow-xl">
+          <div className="p-6 bg-white/60 dark:bg-white/5 border border-green-200 dark:border-green-500/20 rounded-4xl shadow-xl">
             <h3 className="font-bold text-gray-600 dark:text-gray-300 mb-2">Completed</h3>
             <p className="text-4xl font-black text-gray-900 dark:text-white">{stats.success}</p>
           </div>
-          <div className="p-6 bg-white/60 dark:bg-white/5 border border-red-200 dark:border-red-500/20 rounded-[2rem] shadow-xl">
+          <div className="p-6 bg-white/60 dark:bg-white/5 border border-red-200 dark:border-red-500/20 rounded-4xl shadow-xl">
             <h3 className="font-bold text-gray-600 dark:text-gray-300 mb-2">Failed</h3>
             <p className="text-4xl font-black text-gray-900 dark:text-white">{stats.error}</p>
           </div>
-          <div className="p-6 bg-white/60 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-[2rem] shadow-xl">
+          <div className="p-6 bg-white/60 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-4xl shadow-xl">
             <h3 className="font-bold text-gray-600 dark:text-gray-300 mb-2">DRM Locked</h3>
             <p className="text-4xl font-black text-gray-900 dark:text-white">{stats.drm}</p>
           </div>
         </div>
 
-        <div className="flex-1 bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-[2rem] shadow-xl p-8 flex flex-col overflow-hidden">
+        <div className="flex-1 bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-4xl shadow-xl p-8 flex flex-col overflow-hidden">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
             <div className="flex items-center gap-2 text-xl font-bold text-gray-900 dark:text-white">
               <button
@@ -314,7 +460,7 @@ export const DownloadsTab: React.FC = () => {
               {activeCourse && (
                 <>
                   <svg
-                    className="w-5 h-5 text-gray-300 dark:text-gray-600 flex-shrink-0"
+                    className="w-5 h-5 text-gray-300 dark:text-gray-600 shrink-0"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -328,7 +474,7 @@ export const DownloadsTab: React.FC = () => {
                   </svg>
                   <button
                     onClick={() => setActiveChapter(null)}
-                    className={`truncate max-w-[150px] sm:max-w-xs hover:text-blue-500 cursor-pointer transition-colors ${!activeChapter ? '' : 'text-gray-400 dark:text-gray-500 text-lg'}`}
+                    className={`truncate max-w-37.5 sm:max-w-xs hover:text-blue-500 cursor-pointer transition-colors ${!activeChapter ? '' : 'text-gray-400 dark:text-gray-500 text-lg'}`}
                     title={activeCourse}
                   >
                     {activeCourse}
@@ -338,7 +484,7 @@ export const DownloadsTab: React.FC = () => {
               {activeChapter && (
                 <>
                   <svg
-                    className="w-5 h-5 text-gray-300 dark:text-gray-600 flex-shrink-0"
+                    className="w-5 h-5 text-gray-300 dark:text-gray-600 shrink-0"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -350,7 +496,7 @@ export const DownloadsTab: React.FC = () => {
                       d="M9 5l7 7-7 7"
                     ></path>
                   </svg>
-                  <span className="truncate max-w-[150px] sm:max-w-xs" title={activeChapter}>
+                  <span className="truncate max-w-37.5 sm:max-w-xs" title={activeChapter}>
                     {activeChapter}
                   </span>
                 </>
@@ -427,55 +573,113 @@ export const DownloadsTab: React.FC = () => {
             ) : (
               <>
                 {!activeCourse &&
-                  coursesList.map((course) => {
-                    const count = downloadedFiles.filter((f) => f.course === course).length
-                    return (
-                      <div
-                        key={course}
-                        onClick={() => setActiveCourse(course)}
-                        className="flex items-center gap-4 p-4 bg-white dark:bg-black/20 border border-gray-100 dark:border-white/5 rounded-xl hover:border-blue-500/30 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-all cursor-pointer group"
-                      >
-                        <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400">
-                          <svg
-                            className="w-6 h-6"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="2"
-                              d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
-                            ></path>
-                          </svg>
-                        </div>
-                        <div className="flex-1 truncate">
-                          <p className="text-gray-900 dark:text-white font-bold text-sm truncate">
-                            {course}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {count} file{count !== 1 ? 's' : ''}
-                          </p>
-                        </div>
-                        <div className="opacity-0 group-hover:opacity-100 transition-opacity text-blue-500">
-                          <svg
-                            className="w-5 h-5"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="2"
-                              d="M9 5l7 7-7 7"
-                            ></path>
-                          </svg>
-                        </div>
+                  volumeList.map((vol) => (
+                    <div key={vol.id} className="mb-6 last:mb-0">
+                      <div className="flex items-center gap-2 mb-3 px-1">
+                        <svg
+                          className="w-5 h-5 text-gray-400"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
+                          />
+                        </svg>
+                        <h3 className="text-sm font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                          {vol.name}
+                        </h3>
+                        {vol.isOffline && (
+                          <span className="px-2 py-0.5 rounded-md bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400 text-xs font-bold uppercase tracking-wider ml-2 shadow-sm">
+                            Offline
+                          </span>
+                        )}
                       </div>
-                    )
-                  })}
+                      <div className="flex flex-col gap-3">
+                        {vol.courses.length === 0 ? (
+                          <div className="p-4 rounded-xl border border-dashed border-gray-200 dark:border-white/10 text-center text-sm text-gray-500 dark:text-gray-400">
+                            No downloaded courses found on this drive.
+                          </div>
+                        ) : (
+                          vol.courses.map((course: string) => {
+                            const count = downloadedFiles.filter(
+                              (f) => f.course === course && f.volumeId === vol.id
+                            ).length
+
+                            return (
+                              <div
+                                key={course}
+                                onClick={(): void => {
+                                  if (!vol.isOffline) setActiveCourse(course)
+                                }}
+                                className={`flex items-center gap-4 p-4 bg-white dark:bg-black/20 border border-gray-100 dark:border-white/5 rounded-xl transition-all group ${
+                                  vol.isOffline
+                                    ? 'opacity-50 grayscale cursor-not-allowed'
+                                    : 'hover:border-blue-500/30 hover:bg-blue-50 dark:hover:bg-blue-500/10 cursor-pointer'
+                                }`}
+                              >
+                                <div
+                                  className={`p-2 rounded-lg ${
+                                    vol.isOffline
+                                      ? 'bg-gray-100 dark:bg-white/5 text-gray-500'
+                                      : 'bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400'
+                                  }`}
+                                >
+                                  <svg
+                                    className="w-6 h-6"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth="2"
+                                      d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
+                                    ></path>
+                                  </svg>
+                                </div>
+                                <div className="flex-1 truncate">
+                                  <p
+                                    className={`font-bold text-sm truncate ${
+                                      vol.isOffline
+                                        ? 'text-gray-500 dark:text-gray-400'
+                                        : 'text-gray-900 dark:text-white'
+                                    }`}
+                                  >
+                                    {course}
+                                  </p>
+                                  <p className="text-xs text-gray-500">
+                                    {count} file{count !== 1 ? 's' : ''}
+                                  </p>
+                                </div>
+                                {!vol.isOffline && (
+                                  <div className="opacity-0 group-hover:opacity-100 transition-opacity text-blue-500">
+                                    <svg
+                                      className="w-5 h-5"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth="2"
+                                        d="M9 5l7 7-7 7"
+                                      ></path>
+                                    </svg>
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })
+                        )}
+                      </div>
+                    </div>
+                  ))}
 
                 {activeCourse &&
                   !activeChapter &&
@@ -537,14 +741,19 @@ export const DownloadsTab: React.FC = () => {
                     const match = item.file.match(/\[ID_(\d+)\]/)
                     const lectureId = match ? parseInt(match[1], 10) : null
                     const progressData = lectureId ? watchProgressMap[lectureId] : null
+                    const isGlowing = glowLectureId !== null && glowLectureId === lectureId
 
                     return (
                       <div
                         key={index}
-                        className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-white dark:bg-black/20 border border-gray-100 dark:border-white/5 rounded-xl hover:border-blue-500/30 transition-all group gap-4"
+                        className={`flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border rounded-xl hover:border-blue-500/30 transition-all group gap-4 ${
+                          isGlowing
+                            ? 'bg-blue-50/50 dark:bg-blue-900/20 border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.6)] animate-pulse duration-1000'
+                            : 'bg-white dark:bg-black/20 border-gray-100 dark:border-white/5'
+                        }`}
                       >
                         <div className="flex items-center gap-4 flex-1 min-w-0 w-full pr-4">
-                          <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 flex-shrink-0">
+                          <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 shrink-0">
                             {item.type === 'Video' ? (
                               <svg
                                 className="w-6 h-6"
@@ -597,9 +806,31 @@ export const DownloadsTab: React.FC = () => {
                           </div>
                         </div>
 
-                        <div className="flex-shrink-0 flex items-center gap-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity self-end sm:self-auto">
+                        <div className="shrink-0 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity self-end sm:self-auto">
                           <button
-                            onClick={async () => {
+                            onClick={async (): Promise<void> => {
+                              try {
+                                const savedCourses = (await window.api.invoke(
+                                  'store-get',
+                                  'cached_courses'
+                                )) as Course[] | undefined
+
+                                const matchedCourse = savedCourses?.find(
+                                  (c: Course) =>
+                                    c.title.replace(/[<>:"/\\|?*]+/g, '-').trim() === item.course
+                                )
+
+                                if (matchedCourse && matchedCourse.id) {
+                                  window.api.invoke('os-set-recent-course', {
+                                    title: item.file,
+                                    id: matchedCourse.id,
+                                    file: item
+                                  })
+                                }
+                              } catch (err) {
+                                console.error('Failed to set recent course for OS tray:', err)
+                              }
+
                               setSelectedMedia(item)
                               await fetchDiskData()
                             }}
@@ -654,7 +885,7 @@ export const DownloadsTab: React.FC = () => {
 
       {selectedMedia && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center p-8 bg-black/90 backdrop-blur-xl animate-in fade-in duration-200"
+          className="fixed inset-0 z-100 flex items-center justify-center p-8 bg-black/90 backdrop-blur-xl animate-in fade-in duration-200"
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               forceSave()
@@ -669,7 +900,7 @@ export const DownloadsTab: React.FC = () => {
               setSelectedMedia(null)
               fetchDiskData()
             }}
-            className="absolute top-6 right-6 z-[110] p-4 bg-red-600/90 hover:bg-red-500 rounded-full text-white shadow-[0_0_30px_rgba(220,38,38,0.5)] transition-all cursor-pointer backdrop-blur-md hover:scale-110"
+            className="absolute top-6 right-6 z-110 p-4 bg-red-600/90 hover:bg-red-500 rounded-full text-white shadow-[0_0_30px_rgba(220,38,38,0.5)] transition-all cursor-pointer backdrop-blur-md hover:scale-110"
             title="Close Player"
           >
             <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -682,8 +913,8 @@ export const DownloadsTab: React.FC = () => {
             </svg>
           </button>
 
-          <div className="relative w-full max-w-6xl aspect-video bg-black rounded-[2rem] border border-white/10 shadow-2xl overflow-hidden flex flex-col group/player">
-            <div className="absolute top-0 left-0 right-0 p-6 bg-gradient-to-b from-black/90 via-black/50 to-transparent z-10 pointer-events-none">
+          <div className="relative w-full max-w-6xl aspect-video bg-black rounded-4xl border border-white/10 shadow-2xl overflow-hidden flex flex-col group/player">
+            <div className="absolute top-0 left-0 right-0 p-6 bg-linear-to-b from-black/90 via-black/50 to-transparent z-10 pointer-events-none">
               <h3 className="text-white font-bold text-lg truncate pr-4 drop-shadow-md">
                 {selectedMedia.file}
               </h3>
@@ -726,12 +957,12 @@ export const DownloadsTab: React.FC = () => {
       {/* --- DELETE ALL MODAL --- */}
       {isDeleteAllModalOpen && (
         <div
-          className="absolute inset-0 z-[120] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200"
+          className="absolute inset-0 z-120 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200"
           onClick={(e) => {
             if (e.target === e.currentTarget && !isDeletingAll) setIsDeleteAllModalOpen(false)
           }}
         >
-          <div className="w-full max-w-md p-8 bg-white/95 dark:bg-[#0f0f18]/95 border border-gray-200 dark:border-white/10 rounded-[2rem] shadow-2xl flex flex-col items-center text-center animate-in zoom-in-95 duration-200">
+          <div className="w-full max-w-md p-8 bg-white/95 dark:bg-[#0f0f18]/95 border border-gray-200 dark:border-white/10 rounded-4xl shadow-2xl flex flex-col items-center text-center animate-in zoom-in-95 duration-200">
             <div className="p-4 bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400 rounded-2xl mb-5 shadow-inner">
               <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
@@ -756,7 +987,7 @@ export const DownloadsTab: React.FC = () => {
               <button
                 onClick={() => setIsDeleteAllModalOpen(false)}
                 disabled={isDeletingAll}
-                className="py-3 px-4 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 font-semibold rounded-xl transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                className="py-3 px-4 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 font-semibold rounded-xl transition-all cursor-pointer disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -773,7 +1004,7 @@ export const DownloadsTab: React.FC = () => {
                   setIsDeleteAllModalOpen(false)
                 }}
                 disabled={isDeletingAll}
-                className="flex items-center justify-center gap-2 py-3 px-4 bg-red-600 hover:bg-red-500 text-white font-semibold rounded-xl transition-all shadow-lg hover:shadow-red-600/30 cursor-pointer disabled:opacity-70 disabled:cursor-wait"
+                className="flex items-center justify-center gap-2 py-3 px-4 bg-red-600 hover:bg-red-500 text-white font-semibold rounded-xl transition-all shadow-lg hover:shadow-red-600/30 cursor-pointer disabled:opacity-70"
               >
                 {isDeletingAll ? (
                   <>

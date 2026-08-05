@@ -1,6 +1,5 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+@custom-variant dark (&:where(.dark, .dark *));
 
 body {
   background: radial-gradient(circle at top left, #1e1e2f, #0b0b14);

@@ -1,3 +1,4 @@
+import { LibraryHealthPanel } from '@renderer/components/LibraryHealthPanel'
 import { useEffect, useState } from 'react'
 
 export const SettingsTab: React.FC = () => {
@@ -7,15 +8,27 @@ export const SettingsTab: React.FC = () => {
     videoQuality: 'Auto',
     skipAttachments: false,
     skipSubtitles: false,
-    autoRetry: false
+    autoRetry: false,
+    maxKbps: 0,
+    scheduleEnabled: false,
+    scheduleStart: '01:00',
+    scheduleEnd: '06:00',
+    closeToTray: false,
+    vaultMode: false
   })
   const [isSavingSettings, setIsSavingSettings] = useState<boolean>(false)
   const [isQualityMenuOpen, setIsQualityMenuOpen] = useState<boolean>(false)
+
+  const [openTimeMenu, setOpenTimeMenu] = useState<'start' | 'end' | null>(null)
 
   const [isMoveModalOpen, setIsMoveModalOpen] = useState<boolean>(false)
   const [pendingPath, setPendingPath] = useState<string>('')
   const [isMovingFiles, setIsMovingFiles] = useState<boolean>(false)
   const [moveError, setMoveError] = useState<string | null>(null)
+
+  const [reclaimedBytes, setReclaimedBytes] = useState<number>(0)
+  const [isCleaning, setIsCleaning] = useState<boolean>(false)
+  const [gcResult, setGcResult] = useState<{ purgedCount: number; freedBytes: number } | null>(null)
 
   const qualityOptions = [
     { id: 'Auto', label: 'Auto (Best Available)' },
@@ -31,13 +44,13 @@ export const SettingsTab: React.FC = () => {
   useEffect(() => {
     const loadSettings = async (): Promise<void> => {
       const savedSettings = (await window.api.invoke('store-get', 'app_settings')) as
-        | typeof appSettings
-        | undefined
+        typeof appSettings | undefined
       if (savedSettings) {
         setAppSettings(savedSettings)
       }
     }
     loadSettings()
+    window.api.invoke('get-storage-stats').then(setReclaimedBytes)
   }, [])
 
   // --- HANDLERS ---
@@ -106,6 +119,29 @@ export const SettingsTab: React.FC = () => {
     }
   }
 
+  const formatBytes = (bytes: number): string => {
+    if (bytes === 0) return '0 B'
+    const k = 1024
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  }
+
+  const handleRunGC = async (): Promise<void> => {
+    setIsCleaning(true)
+    setGcResult(null)
+    try {
+      const result = await window.api.invoke('run-garbage-collector')
+      setGcResult(result)
+      setReclaimedBytes(result.newTotalReclaimed)
+    } catch (error) {
+      console.error('GC failed:', error)
+    } finally {
+      setIsCleaning(false)
+      setTimeout(() => setGcResult(null), 6000)
+    }
+  }
+
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-4xl mx-auto pb-10">
       <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">
@@ -114,7 +150,7 @@ export const SettingsTab: React.FC = () => {
 
       <div className="flex flex-col gap-6">
         {/* Download Location Card */}
-        <div className="p-8 bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-[2rem] shadow-xl">
+        <div className="p-8 bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-4xl shadow-xl">
           <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -135,7 +171,7 @@ export const SettingsTab: React.FC = () => {
               readOnly
               value={appSettings.downloadPath}
               placeholder="Select a folder to save your courses..."
-              className="flex-1 bg-white/50 dark:bg-black/40 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none transition-all cursor-not-allowed"
+              className="flex-1 bg-white/50 dark:bg-black/40 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-gray-900 dark:text-white focus:outline-none transition-all cursor-not-allowed"
             />
             <button
               onClick={handleSelectFolder}
@@ -147,7 +183,7 @@ export const SettingsTab: React.FC = () => {
         </div>
 
         {/* Download Preferences Card */}
-        <div className="p-8 bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-[2rem] shadow-xl relative z-20">
+        <div className="p-8 bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-4xl shadow-xl relative z-20">
           <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-purple-100 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -180,7 +216,7 @@ export const SettingsTab: React.FC = () => {
                 onBlur={(e) => {
                   if (!e.currentTarget.contains(e.relatedTarget)) setIsQualityMenuOpen(false)
                 }}
-                className="w-full flex items-center justify-between bg-white/50 dark:bg-black/40 border border-gray-200 dark:border-white/10 rounded-2xl px-5 py-4 text-gray-900 dark:text-white focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition-all shadow-inner cursor-pointer"
+                className="w-full flex items-center justify-between bg-white/50 dark:bg-black/40 border border-gray-200 dark:border-white/10 rounded-2xl px-5 py-4 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all shadow-inner cursor-pointer"
               >
                 <span className="font-medium">
                   {qualityOptions.find((opt) => opt.id === appSettings.videoQuality)?.label ||
@@ -247,7 +283,8 @@ export const SettingsTab: React.FC = () => {
               {[
                 { id: 'skipAttachments', label: 'Skip Course Attachments' },
                 { id: 'skipSubtitles', label: 'Skip Subtitles / Closed Captions' },
-                { id: 'autoRetry', label: 'Auto-Retry on Network Error' }
+                { id: 'autoRetry', label: 'Auto-Retry on Network Error' },
+                { id: 'closeToTray', label: 'Keep running in background when closed' }
               ].map((setting) => (
                 <label
                   key={setting.id}
@@ -281,6 +318,307 @@ export const SettingsTab: React.FC = () => {
           </div>
         </div>
 
+        {/* Network & Scheduling Card */}
+        <div className="p-8 bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-4xl shadow-xl relative z-10">
+          <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-green-100 dark:bg-green-500/20 text-green-600 dark:text-green-400">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                ></path>
+              </svg>
+            </div>
+            Network & Scheduling
+          </h3>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Max Bandwidth (Custom Number Input) */}
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                Max Download Speed (KB/s)
+              </label>
+              <div className="flex items-center justify-between bg-white/50 dark:bg-black/40 border border-gray-200 dark:border-white/10 rounded-2xl p-1.5 shadow-inner focus-within:ring-2 focus-within:ring-blue-500/20 transition-all">
+                <button
+                  onClick={() =>
+                    setAppSettings((prev) => ({
+                      ...prev,
+                      maxKbps: Math.max(0, (prev.maxKbps || 0) - 100)
+                    }))
+                  }
+                  className="w-10 h-10 flex items-center justify-center bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-600 dark:text-gray-400 rounded-xl transition-colors cursor-pointer"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="3"
+                      d="M20 12H4"
+                    ></path>
+                  </svg>
+                </button>
+
+                <div className="flex flex-col items-center justify-center flex-1">
+                  <input
+                    type="number"
+                    min="0"
+                    value={appSettings.maxKbps || 0}
+                    onChange={(e) =>
+                      setAppSettings((prev) => ({
+                        ...prev,
+                        maxKbps: parseInt(e.target.value) || 0
+                      }))
+                    }
+                    className="w-full bg-transparent border-none focus:outline-none text-center text-gray-900 dark:text-white font-mono text-lg font-bold [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none cursor-text"
+                  />
+                  <span className="text-gray-400 text-[10px] font-bold uppercase tracking-wider">
+                    {appSettings.maxKbps === 0 ? 'Unlimited' : 'Kilobytes / Sec'}
+                  </span>
+                </div>
+
+                <button
+                  onClick={() =>
+                    setAppSettings((prev) => ({ ...prev, maxKbps: (prev.maxKbps || 0) + 100 }))
+                  }
+                  className="w-10 h-10 flex items-center justify-center bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-600 dark:text-gray-400 rounded-xl transition-colors cursor-pointer"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="3"
+                      d="M12 4v16m8-8H4"
+                    ></path>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Scheduling */}
+            <div className="flex flex-col gap-4 pt-2">
+              <label className="flex items-center justify-between cursor-pointer group">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white transition-colors cursor-pointer">
+                  Enable Scheduled Downloads
+                </span>
+                <div className="relative cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="sr-only cursor-pointer"
+                    checked={appSettings.scheduleEnabled}
+                    onChange={(e) =>
+                      setAppSettings((prev) => ({ ...prev, scheduleEnabled: e.target.checked }))
+                    }
+                  />
+                  <div
+                    className={`block w-12 h-7 rounded-full transition-all duration-300 ${appSettings.scheduleEnabled ? 'bg-blue-600 shadow-[0_0_12px_rgba(37,99,235,0.5)]' : 'bg-gray-300 dark:bg-gray-600'}`}
+                  ></div>
+                  <div
+                    className={`absolute left-1 top-1 bg-white w-5 h-5 rounded-full transition-transform duration-300 ${appSettings.scheduleEnabled ? 'translate-x-5' : ''}`}
+                  ></div>
+                </div>
+              </label>
+
+              {appSettings.scheduleEnabled && (
+                <div className="flex items-center gap-4 animate-in fade-in slide-in-from-top-2">
+                  {/* Custom Start Time Picker */}
+                  <div className="flex flex-col flex-1 gap-1 relative">
+                    <label className="text-xs text-gray-500 font-medium">Start Time</label>
+                    <button
+                      type="button"
+                      onClick={() => setOpenTimeMenu(openTimeMenu === 'start' ? null : 'start')}
+                      className="flex items-center justify-between bg-white/50 dark:bg-black/40 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer shadow-inner"
+                    >
+                      <span className="font-mono font-bold tracking-wider">
+                        {appSettings.scheduleStart || '00:00'}
+                      </span>
+                      <svg
+                        className="w-4 h-4 text-gray-500"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                        ></path>
+                      </svg>
+                    </button>
+
+                    {openTimeMenu === 'start' && (
+                      <>
+                        <div
+                          className="fixed inset-0 z-40 cursor-pointer"
+                          onClick={() => setOpenTimeMenu(null)}
+                        />
+                        <div className="absolute top-[105%] left-0 w-full h-48 bg-white/95 dark:bg-[#12121a]/95 backdrop-blur-2xl border border-gray-200 dark:border-white/10 rounded-2xl shadow-2xl z-50 flex overflow-hidden animate-in fade-in slide-in-from-top-2">
+                          <div className="flex-1 overflow-y-auto custom-scrollbar border-r border-gray-100 dark:border-white/5 p-1">
+                            {Array.from({ length: 24 }, (_, i) =>
+                              i.toString().padStart(2, '0')
+                            ).map((hour) => {
+                              const currentStart = appSettings.scheduleStart || '00:00'
+                              return (
+                                <div
+                                  key={`start-h-${hour}`}
+                                  onClick={() => {
+                                    setAppSettings((prev) => ({
+                                      ...prev,
+                                      scheduleStart: `${hour}:${(prev.scheduleStart || '00:00').split(':')[1]}`
+                                    }))
+                                  }}
+                                  className={`px-2 py-2 text-center rounded-lg cursor-pointer text-sm font-mono ${currentStart.startsWith(hour) ? 'bg-blue-600 text-white font-bold' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10'}`}
+                                >
+                                  {hour}
+                                </div>
+                              )
+                            })}
+                          </div>
+                          <div className="flex-1 overflow-y-auto custom-scrollbar p-1">
+                            {Array.from({ length: 60 }, (_, i) =>
+                              i.toString().padStart(2, '0')
+                            ).map((minute) => {
+                              const currentStart = appSettings.scheduleStart || '00:00'
+                              return (
+                                <div
+                                  key={`start-m-${minute}`}
+                                  onClick={() => {
+                                    setAppSettings((prev) => ({
+                                      ...prev,
+                                      scheduleStart: `${(prev.scheduleStart || '00:00').split(':')[0]}:${minute}`
+                                    }))
+                                    setOpenTimeMenu(null)
+                                  }}
+                                  className={`px-2 py-2 text-center rounded-lg cursor-pointer text-sm font-mono ${currentStart.endsWith(minute) ? 'bg-blue-600 text-white font-bold' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10'}`}
+                                >
+                                  {minute}
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Custom End Time Picker */}
+                  <div className="flex flex-col flex-1 gap-1 relative">
+                    <label className="text-xs text-gray-500 font-medium">End Time</label>
+                    <button
+                      type="button"
+                      onClick={() => setOpenTimeMenu(openTimeMenu === 'end' ? null : 'end')}
+                      className="flex items-center justify-between bg-white/50 dark:bg-black/40 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer shadow-inner"
+                    >
+                      <span className="font-mono font-bold tracking-wider">
+                        {appSettings.scheduleEnd || '23:59'}
+                      </span>
+                      <svg
+                        className="w-4 h-4 text-gray-500"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                        ></path>
+                      </svg>
+                    </button>
+
+                    {openTimeMenu === 'end' && (
+                      <>
+                        <div
+                          className="fixed inset-0 z-40 cursor-pointer"
+                          onClick={() => setOpenTimeMenu(null)}
+                        />
+                        <div className="absolute top-[105%] left-0 w-full h-48 bg-white/95 dark:bg-[#12121a]/95 backdrop-blur-2xl border border-gray-200 dark:border-white/10 rounded-2xl shadow-2xl z-50 flex overflow-hidden animate-in fade-in slide-in-from-top-2">
+                          <div className="flex-1 overflow-y-auto custom-scrollbar border-r border-gray-100 dark:border-white/5 p-1">
+                            {Array.from({ length: 24 }, (_, i) =>
+                              i.toString().padStart(2, '0')
+                            ).map((hour) => {
+                              const currentEnd = appSettings.scheduleEnd || '23:59'
+                              return (
+                                <div
+                                  key={`end-h-${hour}`}
+                                  onClick={() => {
+                                    setAppSettings((prev) => ({
+                                      ...prev,
+                                      scheduleEnd: `${hour}:${(prev.scheduleEnd || '23:59').split(':')[1]}`
+                                    }))
+                                  }}
+                                  className={`px-2 py-2 text-center rounded-lg cursor-pointer text-sm font-mono ${currentEnd.startsWith(hour) ? 'bg-blue-600 text-white font-bold' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10'}`}
+                                >
+                                  {hour}
+                                </div>
+                              )
+                            })}
+                          </div>
+                          <div className="flex-1 overflow-y-auto custom-scrollbar p-1">
+                            {Array.from({ length: 60 }, (_, i) =>
+                              i.toString().padStart(2, '0')
+                            ).map((minute) => {
+                              const currentEnd = appSettings.scheduleEnd || '23:59'
+                              return (
+                                <div
+                                  key={`end-m-${minute}`}
+                                  onClick={() => {
+                                    setAppSettings((prev) => ({
+                                      ...prev,
+                                      scheduleEnd: `${(prev.scheduleEnd || '23:59').split(':')[0]}:${minute}`
+                                    }))
+                                    setOpenTimeMenu(null)
+                                  }}
+                                  className={`px-2 py-2 text-center rounded-lg cursor-pointer text-sm font-mono ${currentEnd.endsWith(minute) ? 'bg-blue-600 text-white font-bold' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10'}`}
+                                >
+                                  {minute}
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <label className="flex items-center justify-between cursor-pointer group mt-4 pt-4 border-t border-gray-200 dark:border-white/10">
+          <div>
+            <span className="text-sm font-bold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+              Vault Mode (Encrypted Storage)
+            </span>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 max-w-62.5">
+              Encrypts downloaded videos and auth tokens on disk using your OS Keychain.
+            </p>
+          </div>
+          <div className="relative">
+            <input
+              type="checkbox"
+              className="sr-only"
+              checked={appSettings.vaultMode as boolean}
+              onChange={(e) =>
+                setAppSettings((prev) => ({
+                  ...prev,
+                  vaultMode: e.target.checked
+                }))
+              }
+            />
+            <div
+              className={`block w-12 h-7 rounded-full transition-all duration-300 ${appSettings.vaultMode ? 'bg-purple-600 shadow-[0_0_12px_rgba(147,51,234,0.5)]' : 'bg-gray-300 dark:bg-gray-600'}`}
+            ></div>
+            <div
+              className={`absolute left-1 top-1 bg-white w-5 h-5 rounded-full transition-transform duration-300 ${appSettings.vaultMode ? 'translate-x-5' : ''}`}
+            ></div>
+          </div>
+        </label>
+
         {/* Save Button */}
         <button
           onClick={handleSaveSettings}
@@ -289,12 +627,95 @@ export const SettingsTab: React.FC = () => {
                 ${
                   isSavingSettings
                     ? 'bg-green-500 shadow-[0_0_20px_rgba(34,197,94,0.4)] scale-[0.99]'
-                    : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 hover:-translate-y-0.5 shadow-[0_0_20px_rgba(79,70,229,0.3)]'
+                    : 'bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 hover:-translate-y-0.5 shadow-[0_0_20px_rgba(79,70,229,0.3)]'
                 }
               `}
         >
           {isSavingSettings ? 'Settings Saved Successfully!' : 'Save All Settings'}
         </button>
+
+        {/* Storage Stats Card */}
+        <div className="p-8 bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-4xl shadow-xl">
+          <div className="flex justify-between items-start mb-6">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
+                  ></path>
+                </svg>
+              </div>
+              Storage Optimization
+            </h3>
+            <button
+              onClick={handleRunGC}
+              disabled={isCleaning}
+              className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl transition-all shadow-md hover:shadow-emerald-500/30 cursor-pointer disabled:opacity-50 flex items-center gap-2 text-sm"
+            >
+              {isCleaning ? (
+                <>
+                  <svg
+                    className="w-4 h-4 animate-spin"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                    ></path>
+                  </svg>
+                  Sweeping...
+                </>
+              ) : (
+                'Clean Orphaned Blobs'
+              )}
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between p-6 bg-emerald-50/50 dark:bg-emerald-500/5 border border-emerald-200 dark:border-emerald-500/20 rounded-2xl shadow-inner transition-all hover:bg-emerald-50 dark:hover:bg-emerald-500/10 mb-4">
+            <div>
+              <p className="text-sm font-bold text-emerald-800 dark:text-emerald-400">
+                Disk Space Reclaimed
+              </p>
+              <p className="text-xs text-emerald-600 dark:text-emerald-500/70 mt-1 max-w-xs leading-relaxed">
+                Automatically saved via cross-course asset and video deduplication.
+              </p>
+            </div>
+            <p className="text-4xl font-black text-transparent bg-clip-text bg-linear-to-r from-emerald-600 to-teal-500 dark:from-emerald-400 dark:to-teal-300 drop-shadow-sm">
+              {formatBytes(reclaimedBytes)}
+            </p>
+          </div>
+
+          {gcResult && (
+            <div className="animate-in fade-in slide-in-from-top-2 p-4 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 rounded-xl flex items-center gap-3 text-blue-700 dark:text-blue-400 text-sm font-medium">
+              <svg
+                className="w-5 h-5 shrink-0"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                ></path>
+              </svg>
+              {gcResult.purgedCount > 0
+                ? `Cleanup complete: Permanently removed ${gcResult.purgedCount} orphaned files, freeing up ${formatBytes(gcResult.freedBytes)} of disk space.`
+                : 'Cleanup complete: No orphaned files found. Your storage is perfectly optimized!'}
+            </div>
+          )}
+        </div>
+
+        {/* Library Health */}
+        <LibraryHealthPanel />
 
         {/* Troubleshooting Section */}
         <div className="mb-8 bg-white dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-2xl p-6 shadow-sm">
@@ -339,8 +760,8 @@ export const SettingsTab: React.FC = () => {
 
       {/* --- FOLDER MIGRATION MODAL --- */}
       {isMoveModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="w-full max-w-md p-8 bg-white/95 dark:bg-[#0f0f18]/95 border border-gray-200 dark:border-white/10 rounded-[2rem] shadow-2xl flex flex-col items-center text-center animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="w-full max-w-md p-8 bg-white/95 dark:bg-[#0f0f18]/95 border border-gray-200 dark:border-white/10 rounded-4xl shadow-2xl flex flex-col items-center text-center animate-in zoom-in-95 duration-200">
             <div className="p-4 bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 rounded-2xl mb-5 shadow-inner">
               <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
@@ -364,7 +785,7 @@ export const SettingsTab: React.FC = () => {
               <button
                 onClick={() => handleConfirmMove(true)}
                 disabled={isMovingFiles}
-                className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl transition-all shadow-lg hover:shadow-blue-500/30 cursor-pointer disabled:opacity-70 disabled:cursor-wait flex justify-center items-center gap-2"
+                className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl transition-all shadow-lg hover:shadow-blue-500/30 cursor-pointer disabled:opacity-70 flex justify-center items-center gap-2"
               >
                 {isMovingFiles ? (
                   <>
@@ -414,9 +835,9 @@ export const SettingsTab: React.FC = () => {
 
       {/* --- ERROR TOAST --- */}
       {moveError && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[110] animate-in slide-in-from-bottom-8 fade-in duration-300">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-110 animate-in slide-in-from-bottom-8 fade-in duration-300">
           <div className="flex items-center gap-3 px-6 py-4 bg-white/95 dark:bg-[#12121a]/95 backdrop-blur-xl border border-red-200 dark:border-red-500/30 rounded-2xl shadow-2xl shadow-red-500/10 max-w-md w-full">
-            <div className="flex-shrink-0 w-10 h-10 bg-red-100 dark:bg-red-500/20 rounded-full flex items-center justify-center text-red-600 dark:text-red-400 shadow-inner">
+            <div className="shrink-0 w-10 h-10 bg-red-100 dark:bg-red-500/20 rounded-full flex items-center justify-center text-red-600 dark:text-red-400 shadow-inner">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"

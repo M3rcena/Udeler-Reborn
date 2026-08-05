@@ -1,3 +1,5 @@
+@import 'tailwindcss';
+
 :root {
   --ev-c-white: #ffffff;
   --ev-c-white-soft: #f8f8f8;

@@ -5,15 +5,15 @@
     "src/renderer/src/**/*",
     "src/renderer/src/**/*.tsx",
     "src/preload/*.d.ts"
-  ],
+, "src/preload/types/index.d.ts", "src/preload/types/ipc-types.d.ts"  ],
   "compilerOptions": {
     "composite": true,
     "jsx": "react-jsx",
-    "baseUrl": ".",
     "paths": {
       "@renderer/*": [
-        "src/renderer/src/*"
-      ]
+        "./src/renderer/src/*"
+      ],
+      "*": ["./*"]
     }
   }
 }

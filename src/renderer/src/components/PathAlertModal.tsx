@@ -1,12 +1,11 @@
-import { PathAlertModalProps } from 'src/preload/ipc-types'
+import { PathAlertModalProps } from 'src/preload/types/ipc-types'
 
 export const PathAlertModal: React.FC<PathAlertModalProps> = ({ isOpen, onClose }) => {
-  // If the modal isn't open, don't render anything
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="w-full max-w-md p-8 bg-white/95 dark:bg-[#0f0f18]/95 border border-gray-200 dark:border-white/10 rounded-[2rem] shadow-2xl flex flex-col items-center text-center animate-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
+      <div className="w-full max-w-md p-8 bg-white/95 dark:bg-[#0f0f18]/95 border border-gray-200 dark:border-white/10 rounded-4xl shadow-2xl flex flex-col items-center text-center animate-in zoom-in-95 duration-200">
         {/* Warning Icon */}
         <div className="p-4 bg-yellow-100 dark:bg-yellow-500/20 text-yellow-600 dark:text-yellow-500 rounded-2xl mb-5 shadow-inner">
           <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">

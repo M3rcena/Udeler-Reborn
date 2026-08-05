@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
-import { useAuth } from '../contexts/AuthContext'
+import { LoginViewProps } from 'src/preload/types/ipc-types'
 import { HelpModal } from '../components/HelpModal'
-import { LoginViewProps } from 'src/preload/ipc-types'
+import { useAuth } from '../contexts/AuthContext'
 
 export const LoginView: React.FC<LoginViewProps> = ({ toggleTheme, isDarkMode }) => {
   const { token, setToken, authStatus, authErrorMsg, handleLogin } = useAuth()
@@ -38,8 +38,8 @@ export const LoginView: React.FC<LoginViewProps> = ({ toggleTheme, isDarkMode })
   return (
     <div className="relative flex flex-col items-center justify-center min-h-screen p-8 bg-slate-50 dark:bg-[#09090e] overflow-hidden transition-colors duration-500">
       {/* Background Ambient glows */}
-      <div className="absolute top-[-10%] left-[-5%] w-[40rem] h-[40rem] bg-blue-300/40 dark:bg-blue-600/20 rounded-full blur-[120px] pointer-events-none transition-colors duration-500"></div>
-      <div className="absolute bottom-[-10%] right-[-5%] w-[40rem] h-[40rem] bg-purple-300/40 dark:bg-purple-600/20 rounded-full blur-[120px] pointer-events-none transition-colors duration-500"></div>
+      <div className="absolute top-[-10%] left-[-5%] w-160 h-160 bg-blue-300/40 dark:bg-blue-600/20 rounded-full blur-[120px] pointer-events-none transition-colors duration-500"></div>
+      <div className="absolute bottom-[-10%] right-[-5%] w-160 h-160 bg-purple-300/40 dark:bg-purple-600/20 rounded-full blur-[120px] pointer-events-none transition-colors duration-500"></div>
 
       <button
         onClick={toggleTheme}
@@ -48,11 +48,11 @@ export const LoginView: React.FC<LoginViewProps> = ({ toggleTheme, isDarkMode })
         {isDarkMode ? '☀️ Light' : '🌙 Dark'}
       </button>
 
-      <div className="relative bg-white/60 dark:bg-white/5 backdrop-blur-2xl border border-white/40 dark:border-white/10 rounded-[2rem] p-10 shadow-2xl w-full max-w-md transition-all duration-500 z-10">
+      <div className="relative bg-white/60 dark:bg-white/5 backdrop-blur-2xl border border-white/40 dark:border-white/10 rounded-4xl p-10 shadow-2xl w-full max-w-md transition-all duration-500 z-10">
         <div className="mb-8 text-center">
           <h1 className="text-4xl font-extrabold mb-2 tracking-tight text-gray-900 dark:text-white transition-colors duration-300">
             Udeler{' '}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-purple-600 dark:from-blue-400 dark:to-purple-500">
+            <span className="text-transparent bg-clip-text bg-linear-to-r from-blue-500 to-purple-600 dark:from-blue-400 dark:to-purple-500">
               Reborn
             </span>
           </h1>
@@ -69,7 +69,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ toggleTheme, isDarkMode })
               className="flex items-center gap-3 cursor-pointer group select-none"
             >
               <div
-                className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors duration-300 ${isBusiness ? 'bg-purple-600' : 'bg-gray-200 dark:bg-white/10'}`}
+                className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-300 ${isBusiness ? 'bg-purple-600' : 'bg-gray-200 dark:bg-white/10'}`}
               >
                 <span
                   className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-md transition-transform duration-300 ${isBusiness ? 'translate-x-6' : 'translate-x-1'}`}
@@ -115,8 +115,8 @@ export const LoginView: React.FC<LoginViewProps> = ({ toggleTheme, isDarkMode })
                 authStatus === 'success' ||
                 (isBusiness && !subdomain.trim())
               }
-              className={`w-full flex items-center justify-center gap-3 text-white font-bold py-4 px-6 rounded-2xl transition-all shadow-lg hover:shadow-purple-500/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer 
-                ${authStatus === 'success' ? 'bg-green-500' : 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500'}`}
+              className={`w-full flex items-center justify-center gap-3 text-white font-bold py-4 px-6 rounded-2xl transition-all shadow-lg hover:shadow-purple-500/30 disabled:opacity-50 disabled:cursor-not-allowed 
+                ${authStatus === 'success' ? 'bg-green-500' : 'bg-linear-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500'}`}
             >
               {isAutoLoggingIn ? (
                 <div className="flex items-center gap-2">
@@ -182,8 +182,8 @@ export const LoginView: React.FC<LoginViewProps> = ({ toggleTheme, isDarkMode })
               type="password"
               placeholder="Paste your token here..."
               disabled={isAutoLoggingIn || authStatus === 'validating' || authStatus === 'success'}
-              className={`w-full bg-white/50 dark:bg-black/20 border rounded-2xl px-5 py-4 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none transition-all shadow-inner
-                ${authStatus === 'error' ? 'border-red-500/50 focus:border-red-500' : authStatus === 'success' ? 'border-green-500' : 'border-gray-200 dark:border-white/10 focus:border-blue-500/50'}`}
+              className={`w-full bg-white/50 dark:bg-black/20 border rounded-2xl px-5 py-4 dark:text-white placeholder-gray-400 focus:outline-none transition-all shadow-inner
+                ${authStatus === 'error' ? 'focus:border-red-500' : authStatus === 'success' ? 'border-green-500' : 'border-gray-200 dark:border-white/10'}`}
               value={token}
               onChange={(e) => setToken(e.target.value)}
             />
@@ -227,7 +227,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ toggleTheme, isDarkMode })
                 authStatus === 'success' ||
                 (isBusiness && !subdomain.trim())
               }
-              className={`w-full text-white font-bold py-4 px-6 rounded-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer 
+              className={`w-full text-white font-bold py-4 px-6 rounded-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed 
                 ${authStatus === 'success' ? 'bg-green-500' : 'bg-gray-800 hover:bg-gray-700 dark:bg-white/10 dark:hover:bg-white/20'}`}
             >
               {authStatus === 'validating'

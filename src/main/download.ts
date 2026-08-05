@@ -1,9 +1,15 @@
-import { net, BrowserWindow } from 'electron'
+import * as crypto from 'crypto'
+import { BrowserWindow, net } from 'electron'
 import * as fs from 'fs'
-import * as path from 'path'
+import type { ClientRequest, IncomingMessage } from 'http'
 import * as https from 'https'
-import type { ClientRequest } from 'http'
+import * as path from 'path'
 import { z } from 'zod'
+import { AppSettings, DownloadRequest } from '../preload/types/ipc-types'
+import { addReclaimedBytes, checkBlobExists, insertBlob, recordLectureLink } from './database/db'
+import { store } from './database/store'
+import { ThrottleStream } from './network/throttle'
+import { encryptAndWriteFileSync, getVaultKey, VaultEncryptStream } from './security/vault'
 
 const activeStreams = new Map<
   number,
@@ -74,52 +80,35 @@ const UdemyAssetResponseSchema = z
 
 type UdemyAssetResponse = z.infer<typeof UdemyAssetResponseSchema>
 
-export interface DownloadRequest {
-  token: string
-  downloadPath: string
-  videoQuality: string
-  skipAttachments: boolean
-  skipSubtitles: boolean
-  autoRetry: boolean
-  courseId: number
-  courseTitle: string
-  chapterTitle: string
-  lectureId: number
-  lectureTitle: string
-  lectureIndex: number
-  type: 'Video' | 'Article' | 'Quiz' | 'File' | 'E-Book'
-  timeEstimation?: number
-}
-
 function downloadExtraFile(url: string, destPath: string): Promise<void> {
-  return new Promise((resolve) => {
+  return new Promise((resolve): void => {
     const file = fs.createWriteStream(destPath)
     const requestOptions = { agent: false }
 
     https
-      .get(url, requestOptions, (res) => {
+      .get(url, requestOptions, (res): void => {
         if (res.statusCode === 301 || res.statusCode === 302) {
           https
             .get(res.headers.location!, requestOptions, (redirectRes) => {
               redirectRes.pipe(file)
-              redirectRes.on('end', () => {
+              redirectRes.on('end', (): void => {
                 file.close()
                 resolve()
               })
             })
-            .on('error', () => {
+            .on('error', (): void => {
               file.close()
               resolve()
             })
         } else {
           res.pipe(file)
-          res.on('end', () => {
+          res.on('end', (): void => {
             file.close()
             resolve()
           })
         }
       })
-      .on('error', () => {
+      .on('error', (): void => {
         file.close()
         resolve()
       })
@@ -135,6 +124,11 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
   const cleanLecture = `${String(req.lectureIndex).padStart(2, '0')} - ${sanitizeName(req.lectureTitle)}${minutes} [ID_${req.lectureId}]`
 
   const targetDir = path.join(req.downloadPath, cleanCourse, cleanChapter)
+
+  const settings = store.get('app_settings') as AppSettings | undefined
+  const isVaultMode = settings?.vaultMode ?? false
+  const vaultKey = isVaultMode ? getVaultKey() : null
+
   if (!fs.existsSync(targetDir)) {
     fs.mkdirSync(targetDir, { recursive: true })
   }
@@ -147,7 +141,12 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
         <body>Redirecting to Udemy Quiz...</body>
       </html>
     `
-    fs.writeFileSync(filePath, htmlShortcut)
+
+    if (isVaultMode && vaultKey) {
+      encryptAndWriteFileSync(filePath, htmlShortcut, vaultKey)
+    } else {
+      fs.writeFileSync(filePath, htmlShortcut)
+    }
     return filePath
   }
 
@@ -171,7 +170,9 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
       if (attempt >= maxAttempts)
         throw new Error(`API failed after ${maxAttempts} retries: ${response.status}`)
 
-      await new Promise((resolve) => setTimeout(resolve, attempt * 2000))
+      await new Promise<void>((resolve): void => {
+        setTimeout(resolve, attempt * 2000)
+      })
       continue
     }
 
@@ -210,7 +211,15 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
         const capRes = await net.fetch(subtitleUrl)
         if (capRes.ok) {
           const capText = await capRes.text()
-          fs.writeFileSync(path.join(targetDir, `${cleanLecture}_${localeName}.vtt`), capText)
+          if (isVaultMode && vaultKey) {
+            encryptAndWriteFileSync(
+              path.join(targetDir, `${cleanLecture}_${localeName}.vtt`),
+              capText,
+              vaultKey
+            )
+          } else {
+            fs.writeFileSync(path.join(targetDir, `${cleanLecture}_${localeName}.vtt`), capText)
+          }
         }
       } catch (err) {
         console.warn(`Failed to download subtitle: ${cap.locale || cap.title}`, err)
@@ -250,7 +259,11 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
         </body>
         </html>
       `
-    fs.writeFileSync(filePath, articleHtml)
+    if (isVaultMode && vaultKey) {
+      encryptAndWriteFileSync(filePath, articleHtml, vaultKey)
+    } else {
+      fs.writeFileSync(filePath, articleHtml)
+    }
     return filePath
   }
 
@@ -288,134 +301,206 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
     throw new Error('No download URL found for this asset. It might be DRM protected.')
 
   const filePath = path.join(targetDir, `${cleanLecture}${fileExtension}`)
+  const blobsDir = path.join(req.downloadPath, '.blobs')
 
-  return new Promise((resolve, reject) => {
-    if (canceledDownloads.has(req.lectureId)) return resolve('USER_CANCELED')
+  if (!fs.existsSync(blobsDir)) {
+    fs.mkdirSync(blobsDir, { recursive: true })
+  }
 
-    let downloadedBytes = 0
-    let fileOptions: { flags: 'w' | 'a' } = { flags: 'w' }
+  if (canceledDownloads.has(req.lectureId)) return 'USER_CANCELED'
 
-    if (fs.existsSync(filePath)) {
-      const stats = fs.statSync(filePath)
-      if (stats.size > 0) {
+  const tempFilePath = path.join(blobsDir, `temp_${req.lectureId}${fileExtension}`)
+  let downloadedBytes = 0
+  let fileOptions: { flags: 'w' | 'a' } = { flags: 'w' }
+
+  if (fs.existsSync(tempFilePath)) {
+    const stats = fs.statSync(tempFilePath)
+    if (stats.size > 0) {
+      if (isVaultMode && vaultKey && fileExtension === '.mp4') {
+        downloadedBytes = 0
+        fs.truncateSync(tempFilePath, 0)
+        fileOptions = { flags: 'w' }
+      } else {
         downloadedBytes = stats.size
         fileOptions = { flags: 'a' }
       }
     }
+  } else if (fs.existsSync(filePath)) {
+    return filePath
+  }
+
+  const hashStream = crypto.createHash('sha256')
+
+  if (downloadedBytes > 0) {
+    const existingStream = fs.createReadStream(tempFilePath, { start: 0, end: downloadedBytes - 1 })
+    await new Promise<void>((res) => {
+      existingStream.on('data', (chunk) => hashStream.update(chunk))
+      existingStream.on('end', () => res())
+    })
+  }
+
+  return new Promise((resolve, reject): void => {
+    if (canceledDownloads.has(req.lectureId)) return resolve('USER_CANCELED')
 
     const requestOptions = {
       agent: false,
       headers: downloadedBytes > 0 ? { Range: `bytes=${downloadedBytes}-` } : {}
     }
 
-    const file = fs.createWriteStream(filePath, fileOptions)
+    const file = fs.createWriteStream(tempFilePath, fileOptions)
 
-    const requestStream = https
-      .get(downloadUrl, requestOptions, (res) => {
-        if (res.statusCode === 200 && downloadedBytes > 0) {
-          downloadedBytes = 0
-          fs.truncateSync(filePath, 0)
+    const attachStreamHandlers = (res: IncomingMessage, totalBytes: number): void => {
+      const throttle = new ThrottleStream(req.maxKbps || 0)
+      let lastSpeedTime = Date.now()
+      let bytesInWindow = 0
+      let displaySpeed = 0
+      let lastIpcTime = 0
+      let hashFinalized = false
+
+      throttle.on('data', (chunk: Buffer): void => {
+        if (!hashFinalized) {
+          hashStream.update(chunk)
+        }
+        downloadedBytes += chunk.length
+        bytesInWindow += chunk.length
+
+        const now = Date.now()
+        if (now - lastSpeedTime >= 1000) {
+          displaySpeed = (bytesInWindow / (now - lastSpeedTime)) * 1000
+          bytesInWindow = 0
+          lastSpeedTime = now
         }
 
+        const isFinished = downloadedBytes === totalBytes
+        if (now - lastIpcTime >= 250 || isFinished) {
+          const percentage = totalBytes ? Math.round((downloadedBytes / totalBytes) * 100) : 0
+          const mainWindow = BrowserWindow.getAllWindows()[0]
+          if (mainWindow) {
+            mainWindow.webContents.send('download-progress', {
+              lectureId: req.lectureId,
+              percentage,
+              speed: displaySpeed
+            })
+          }
+          lastIpcTime = now
+        }
+      })
+
+      let encryptor: VaultEncryptStream | null = null
+
+      if (isVaultMode && vaultKey) {
+        encryptor = new VaultEncryptStream(vaultKey)
+        res.pipe(throttle).pipe(encryptor).pipe(file)
+      } else {
+        res.pipe(throttle).pipe(file)
+      }
+
+      res.on('error', (err: Error): void => {
+        hashFinalized = true
+        res.unpipe()
+        throttle.unpipe()
+        if (encryptor) encryptor.unpipe()
+        throttle.destroy()
+        if (encryptor) encryptor.destroy()
+        file.destroy()
+        activeStreams.delete(req.lectureId)
+        if (err.message === 'USER_PAUSED') resolve('USER_PAUSED')
+        else if (err.message === 'USER_CANCELED') resolve('USER_CANCELED')
+        else {
+          fs.unlink(tempFilePath, (): void => {})
+          reject(err)
+        }
+      })
+
+      file.on('finish', (): void => {
+        activeStreams.delete(req.lectureId)
+
+        if (!hashFinalized) {
+          hashFinalized = true
+          const finalHash = hashStream.digest('hex')
+          const blobPath = path.join(blobsDir, finalHash + fileExtension)
+
+          if (checkBlobExists(finalHash) && fs.existsSync(blobPath)) {
+            const tempStats = fs.statSync(tempFilePath)
+            const existingBlobStats = fs.statSync(blobPath)
+
+            if (existingBlobStats.nlink > 1) {
+              addReclaimedBytes(tempStats.size)
+            }
+            fs.unlinkSync(tempFilePath)
+          } else {
+            fs.renameSync(tempFilePath, blobPath)
+            const blobStats = fs.statSync(blobPath)
+            insertBlob(finalHash, blobStats.size, fileExtension)
+          }
+
+          if (fs.existsSync(filePath)) {
+            try {
+              fs.rmSync(filePath, { recursive: true, force: true })
+            } catch (rmErr: unknown) {
+              console.error('Failed to remove existing destination:', rmErr)
+            }
+          }
+
+          try {
+            fs.linkSync(blobPath, filePath)
+          } catch {
+            console.warn('Hard link not supported on this volume. Falling back to file copy.')
+            fs.copyFileSync(blobPath, filePath)
+          }
+
+          recordLectureLink(req.courseId, req.lectureId, finalHash)
+          resolve(filePath)
+        }
+      })
+    }
+
+    const requestStream = https
+      .get(downloadUrl, requestOptions, (res): void => {
+        if (res.statusCode === 200 && downloadedBytes > 0) {
+          downloadedBytes = 0
+          fs.truncateSync(tempFilePath, 0)
+        }
         const totalBytes = parseInt(res.headers['content-length'] || '0', 10) + downloadedBytes
 
         if (res.statusCode === 301 || res.statusCode === 302) {
           const redirectStream = https
-            .get(res.headers.location!, requestOptions, (redirectRes) => {
+            .get(res.headers.location!, requestOptions, (redirectRes): void => {
               if (redirectRes.statusCode === 200 && downloadedBytes > 0) {
                 downloadedBytes = 0
-                fs.truncateSync(filePath, 0)
+                fs.truncateSync(tempFilePath, 0)
               }
-
               const redirectTotalBytes =
                 parseInt(redirectRes.headers['content-length'] || '0', 10) + downloadedBytes
-
-              redirectRes.on('data', (chunk) => {
-                downloadedBytes += chunk.length
-                const percentage = redirectTotalBytes
-                  ? Math.round((downloadedBytes / redirectTotalBytes) * 100)
-                  : 0
-                const mainWindow = BrowserWindow.getAllWindows()[0]
-                if (mainWindow)
-                  mainWindow.webContents.send('download-progress', {
-                    lectureId: req.lectureId,
-                    percentage
-                  })
-              })
-
-              redirectRes.on('error', (err) => {
-                file.close()
-                activeStreams.delete(req.lectureId)
-                if (err.message === 'USER_PAUSED') resolve('USER_PAUSED')
-                else if (err.message === 'USER_CANCELED') resolve('USER_CANCELED')
-                else {
-                  fs.unlink(filePath, () => {})
-                  reject(err)
-                }
-              })
-
-              redirectRes.pipe(file)
-              redirectRes.on('end', () => {
-                file.close()
-                activeStreams.delete(req.lectureId)
-                resolve(filePath)
-              })
+              attachStreamHandlers(redirectRes, redirectTotalBytes)
             })
-            .on('error', (err) => {
+            .on('error', (err: Error): void => {
               file.close()
               activeStreams.delete(req.lectureId)
               if (err.message === 'USER_PAUSED') resolve('USER_PAUSED')
               else if (err.message === 'USER_CANCELED') resolve('USER_CANCELED')
               else {
-                fs.unlink(filePath, () => {})
+                fs.unlink(tempFilePath, (): void => {})
                 reject(err)
               }
             })
-
-          activeStreams.set(req.lectureId, { req: redirectStream, file, filePath })
+          activeStreams.set(req.lectureId, { req: redirectStream, file, filePath: tempFilePath })
         } else {
-          res.on('data', (chunk) => {
-            downloadedBytes += chunk.length
-            const percentage = totalBytes ? Math.round((downloadedBytes / totalBytes) * 100) : 0
-            const mainWindow = BrowserWindow.getAllWindows()[0]
-            if (mainWindow)
-              mainWindow.webContents.send('download-progress', {
-                lectureId: req.lectureId,
-                percentage
-              })
-          })
-
-          res.on('error', (err) => {
-            file.close()
-            activeStreams.delete(req.lectureId)
-            if (err.message === 'USER_PAUSED') resolve('USER_PAUSED')
-            else if (err.message === 'USER_CANCELED') resolve('USER_CANCELED')
-            else {
-              fs.unlink(filePath, () => {})
-              reject(err)
-            }
-          })
-
-          res.pipe(file)
-          res.on('end', () => {
-            file.close()
-            activeStreams.delete(req.lectureId)
-            resolve(filePath)
-          })
+          attachStreamHandlers(res, totalBytes)
         }
       })
-      .on('error', (err) => {
+      .on('error', (err: Error): void => {
         file.close()
         activeStreams.delete(req.lectureId)
         if (err.message === 'USER_PAUSED') resolve('USER_PAUSED')
         else if (err.message === 'USER_CANCELED') resolve('USER_CANCELED')
         else {
-          fs.unlink(filePath, () => {})
+          fs.unlink(tempFilePath, (): void => {})
           reject(err)
         }
       })
 
-    activeStreams.set(req.lectureId, { req: requestStream, file, filePath })
+    activeStreams.set(req.lectureId, { req: requestStream, file, filePath: tempFilePath })
   })
 }
 
@@ -459,7 +544,7 @@ export function cancelDownload(lectureId: number): boolean {
   const active = activeStreams.get(lectureId)
   if (active) {
     active.req.destroy(new Error('USER_CANCELED'))
-    active.file.close()
+    active.file.destroy()
 
     if (fs.existsSync(active.filePath)) {
       fs.unlinkSync(active.filePath)

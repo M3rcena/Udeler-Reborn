@@ -62,14 +62,14 @@ export const UpdateToast: React.FC = () => {
   if (!isVisible) return null
 
   return (
-    <div className="fixed bottom-6 right-6 z-[100] animate-in slide-in-from-bottom-8 fade-in duration-500">
+    <div className="fixed bottom-6 right-6 z-100 animate-in slide-in-from-bottom-8 fade-in duration-500">
       {toastType === 'update' ? (
         // --- NEW UPDATE AVAILABLE TOAST ---
         <div
           onClick={handleOpenRelease}
           className="group flex items-start gap-4 p-4 bg-white/90 dark:bg-[#12121a]/95 backdrop-blur-xl border border-blue-200 dark:border-blue-500/30 rounded-2xl shadow-2xl hover:shadow-blue-500/20 cursor-pointer transition-all hover:-translate-y-1 w-80"
         >
-          <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-tr from-blue-600 to-purple-600 rounded-full flex items-center justify-center text-white shadow-inner">
+          <div className="shrink-0 w-10 h-10 bg-linear-to-tr from-blue-600 to-purple-600 rounded-full flex items-center justify-center text-white shadow-inner">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
@@ -109,7 +109,7 @@ export const UpdateToast: React.FC = () => {
       ) : (
         // --- UNRELEASED BUILD TOAST ---
         <div className="flex items-start gap-4 p-4 bg-white/90 dark:bg-[#12121a]/95 backdrop-blur-xl border border-amber-200 dark:border-amber-500/30 rounded-2xl shadow-2xl w-80">
-          <div className="flex-shrink-0 w-10 h-10 bg-amber-100 dark:bg-amber-500/20 rounded-full flex items-center justify-center text-amber-600 dark:text-amber-500 shadow-inner">
+          <div className="shrink-0 w-10 h-10 bg-amber-100 dark:bg-amber-500/20 rounded-full flex items-center justify-center text-amber-600 dark:text-amber-500 shadow-inner">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"

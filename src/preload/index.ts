@@ -1,7 +1,12 @@
-import { contextBridge } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
+import { contextBridge } from 'electron'
 import { ipcRenderer } from 'electron/renderer'
-import { IpcChannels } from './ipc-types'
+import {
+  CourseVolumeMapping,
+  DownloadedFile,
+  IntegrityProgress,
+  IpcChannels
+} from './types/ipc-types'
 
 const api = {
   invoke: <Channel extends keyof IpcChannels>(
@@ -25,6 +30,73 @@ const api = {
 
     return (): void => {
       ipcRenderer.removeListener('download-progress', listener)
+    }
+  },
+  onSchedulePause: (callback: () => void): (() => void) => {
+    const listener = (): void => callback()
+    ipcRenderer.on('schedule-pause', listener)
+    return (): void => {
+      ipcRenderer.removeListener('schedule-pause', listener)
+    }
+  },
+  onScheduleResume: (callback: () => void): (() => void) => {
+    const listener = (): void => callback()
+    ipcRenderer.on('schedule-resume', listener)
+    return (): void => {
+      ipcRenderer.removeListener('schedule-resume', listener)
+    }
+  },
+  onTrayAction: (callback: (action: 'pause' | 'resume' | 'cancel') => void): (() => void) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      action: 'pause' | 'resume' | 'cancel'
+    ): void => {
+      callback(action)
+    }
+    ipcRenderer.on('tray-action', listener)
+    return (): void => {
+      ipcRenderer.removeListener('tray-action', listener)
+    }
+  },
+  onPlayRecentMedia: (callback: (file: DownloadedFile) => void): (() => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, file: DownloadedFile): void => {
+      callback(file)
+    }
+    ipcRenderer.on('play-recent-media', listener)
+    return (): void => {
+      ipcRenderer.removeListener('play-recent-media', listener)
+    }
+  },
+  onNavigateCourse: (callback: (courseId: number) => void): (() => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, courseId: number): void => {
+      callback(courseId)
+    }
+    ipcRenderer.on('navigate-course', listener)
+    return (): void => {
+      ipcRenderer.removeListener('navigate-course', listener)
+    }
+  },
+  onIntegrityProgress: (callback: (data: IntegrityProgress) => void): (() => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, data: IntegrityProgress): void => {
+      callback(data)
+    }
+    ipcRenderer.on('integrity-progress', listener)
+    return (): void => {
+      ipcRenderer.removeListener('integrity-progress', listener)
+    }
+  },
+  onVolumeMappingsUpdated: (
+    callback: (mappings: Record<number, CourseVolumeMapping>) => void
+  ): (() => void) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      mappings: Record<number, CourseVolumeMapping>
+    ): void => {
+      callback(mappings)
+    }
+    ipcRenderer.on('volume-mappings-updated', listener)
+    return (): void => {
+      ipcRenderer.removeListener('volume-mappings-updated', listener)
     }
   }
 }

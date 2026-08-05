@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react'
 import { useDownload } from '@renderer/contexts/DownloadContext'
+import React, { useRef, useState } from 'react'
 
 export const GlobalDownloadWidget: React.FC = () => {
   const {
@@ -9,7 +9,8 @@ export const GlobalDownloadWidget: React.FC = () => {
     queueStatus,
     pauseQueue,
     resumeQueue,
-    cancelQueue
+    cancelQueue,
+    downloadSpeeds
   } = useDownload()
 
   const [isHovered, setIsHovered] = useState(false)
@@ -26,6 +27,12 @@ export const GlobalDownloadWidget: React.FC = () => {
     }, 150)
   }
 
+  const formatSpeed = (bytesPerSec?: number): string => {
+    if (!bytesPerSec || bytesPerSec === 0) return '0 KB/s'
+    if (bytesPerSec > 1024 * 1024) return `${(bytesPerSec / (1024 * 1024)).toFixed(1)} MB/s`
+    return `${Math.round(bytesPerSec / 1024)} KB/s`
+  }
+
   const activeKeys = Object.keys(activeDownloads)
   const totalItems = activeKeys.length + queueCount
 
@@ -33,13 +40,13 @@ export const GlobalDownloadWidget: React.FC = () => {
 
   return (
     <div
-      className="fixed bottom-6 right-6 z-[100] flex flex-col items-end"
+      className="fixed bottom-6 right-6 z-100 flex flex-col items-end"
       onMouseLeave={handleMouseLeave}
     >
       {/* --- EXPANDED PANEL --- */}
       <div
         onMouseEnter={handleMouseEnter}
-        className={`absolute bottom-[72px] right-0 w-[340px] bg-white/80 dark:bg-[#0b0b14]/90 backdrop-blur-2xl border border-gray-200 dark:border-white/10 rounded-[1.5rem] shadow-2xl origin-bottom-right transition-all duration-300 ease-[cubic-bezier(0.175,0.885,0.32,1.15)] flex flex-col overflow-hidden
+        className={`absolute bottom-18 right-0 w-85 bg-white/80 dark:bg-[#0b0b14]/90 backdrop-blur-2xl border border-gray-200 dark:border-white/10 rounded-3xl shadow-2xl origin-bottom-right transition-all duration-300 ease-[cubic-bezier(0.175,0.885,0.32,1.15)] flex flex-col overflow-hidden
         ${
           isHovered
             ? 'scale-100 opacity-100 pointer-events-auto translate-y-0'
@@ -58,7 +65,7 @@ export const GlobalDownloadWidget: React.FC = () => {
         </div>
 
         {/* Active Downloads List */}
-        <div className="p-3 max-h-[320px] overflow-y-auto custom-scrollbar flex flex-col gap-2">
+        <div className="p-3 max-h-80 overflow-y-auto custom-scrollbar flex flex-col gap-2">
           {activeKeys.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 text-gray-400">
               <svg
@@ -81,6 +88,7 @@ export const GlobalDownloadWidget: React.FC = () => {
               const id = parseInt(idStr)
               const info = activeDownloads[id]
               const percent = downloadPercentages?.[id] || 0
+              const speed = downloadSpeeds?.[id] || 0
 
               return (
                 <div
@@ -95,14 +103,19 @@ export const GlobalDownloadWidget: React.FC = () => {
                       {percent}%
                     </span>
                   </div>
-                  <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate mb-3 font-medium">
-                    {info.courseTitle}
-                  </p>
+                  <div className="flex justify-between items-center mb-3">
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate font-medium max-w-[70%]">
+                      {info.courseTitle}
+                    </p>
+                    <span className="text-[10px] font-mono text-gray-400 dark:text-gray-500">
+                      {formatSpeed(speed)}
+                    </span>
+                  </div>
 
                   {/* Progress Bar */}
                   <div className="w-full bg-gray-100 dark:bg-black/50 rounded-full h-1.5 overflow-hidden shadow-inner">
                     <div
-                      className="bg-gradient-to-r from-blue-600 to-blue-400 h-full rounded-full transition-all duration-300 ease-out"
+                      className="bg-linear-to-r from-blue-600 to-blue-400 h-full rounded-full transition-all duration-300 ease-out"
                       style={{ width: `${percent}%` }}
                     ></div>
                   </div>
