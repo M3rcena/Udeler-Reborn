@@ -14,11 +14,16 @@ asarUnpack:
 win:
   executableName: udeler-reborn
   icon: resources/icon.ico
+  target:
+    - target: nsis
+    - target: portable
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
+portable:
+  artifactName: ${name}-${version}-portable.${ext}
 mac:
   icon: resources/icon.icns
   entitlementsInherit: build/entitlements.mac.plist
@@ -36,9 +41,14 @@ linux:
     - AppImage
     - snap
     - deb
+    - rpm
   maintainer: M3rcena
   category: Utility
 appImage:
+  artifactName: ${name}-${version}.${ext}
+rpm:
+  artifactName: ${name}-${version}.${ext}
+deb:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: false
 publish:
