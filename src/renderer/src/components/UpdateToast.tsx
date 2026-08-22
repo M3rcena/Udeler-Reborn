@@ -11,7 +11,7 @@ export const UpdateToast: React.FC = () => {
     const silentlyCheckUpdate = async (): Promise<void> => {
       try {
         const response = await fetch(
-          'https://api.github.com/repos/M3rcena/Udeler_GUI/releases/latest'
+          'https://api.github.com/repos/M3rcena/Udeler-Reborn/releases/latest'
         )
         if (!response.ok) return
 

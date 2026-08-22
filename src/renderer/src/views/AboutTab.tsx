@@ -16,7 +16,7 @@ export const AboutTab: React.FC = () => {
 
     try {
       const response = await fetch(
-        'https://api.github.com/repos/M3rcena/Udeler_GUI/releases/latest'
+        'https://api.github.com/repos/M3rcena/Udeler-Reborn/releases/latest'
       )
       if (!response.ok) throw new Error('Failed to fetch from GitHub')
 
@@ -253,7 +253,7 @@ export const AboutTab: React.FC = () => {
 
             <div className="flex flex-col gap-3">
               <button
-                onClick={() => openExternalLink('https://github.com/M3rcena/Udeler_GUI')}
+                onClick={() => openExternalLink('https://github.com/M3rcena/Udeler-Reborn')}
                 className="w-full flex items-center justify-between p-4 rounded-xl bg-gray-50 dark:bg-black/20 hover:bg-gray-100 dark:hover:bg-white/5 border border-gray-200 dark:border-white/5 transition-all group cursor-pointer"
               >
                 <div className="flex items-center gap-3">

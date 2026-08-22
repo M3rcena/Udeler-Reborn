@@ -199,3 +199,10 @@ export function getCourseVolumeMappings(): Record<number, CourseVolumeMapping> {
   }
   return map
 }
+
+export function closeDb(): void {
+  if (db) {
+    db.close()
+    db = null
+  }
+}

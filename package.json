@@ -1,6 +1,6 @@
 {
   "name": "Udeler",
-  "version": "3.2.0",
+  "version": "3.3.0-dev,0",
   "description": "A cross platform (Windows, Mac, Linux) desktop application for downloading Udemy Courses.",
   "main": "./out/main/index.js",
   "author": {
@@ -18,6 +18,8 @@
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "start": "electron-vite preview",
     "dev": "electron-vite dev",
     "prebuild": "tsx scripts/prebuild.ts",
@@ -25,8 +27,8 @@
     "postinstall": "electron-builder install-app-deps",
     "build:unpack": "npm run build && electron-builder --dir",
     "build:win": "npm run typecheck && electron-vite build && electron-builder --win --publish always",
-    "build:mac": "electron-vite build && electron-builder --mac --publish always",
-    "build:linux": "electron-vite build && electron-builder --linux --publish always"
+    "build:mac": "npm run typecheck && electron-vite build && electron-builder --mac --publish always",
+    "build:linux": "npm run typecheck && electron-vite build && electron-builder --linux --publish always"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
@@ -41,8 +43,10 @@
     "@electron-toolkit/eslint-config-ts": "^3.1.0",
     "@electron-toolkit/tsconfig": "^2.0.0",
     "@tailwindcss/postcss": "^4.3.3",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.2",
     "@types/better-sqlite3": "^9.6.0",
-    "@types/node": "^26.1.1",
+    "@types/node": "^26.2.0",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.2.0",
@@ -54,13 +58,15 @@
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.3",
-    "postcss": "^8.5.20",
+    "happy-dom": "^20.11.6",
+    "postcss": "^8.5.26",
     "prettier": "^3.9.5",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.23.4",
     "typescript": "~5.7.2",
-    "vite": "^7.3.6"
+    "vite": "^7.3.6",
+    "vitest": "^4.1.11"
   }
 }

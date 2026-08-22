@@ -1,4 +1,4 @@
-import { Transform, TransformCallback } from 'stream'
+import { Transform, type TransformCallback } from 'node:stream'
 
 export class ThrottleStream extends Transform {
   private tokens: number
@@ -14,7 +14,7 @@ export class ThrottleStream extends Transform {
     this.lastRefill = Date.now()
   }
 
-  _transform(chunk: Buffer, _encoding: string, callback: TransformCallback): void {
+  _transform(chunk: Buffer, _encoding: BufferEncoding, callback: TransformCallback): void {
     if (this.bytesPerSecond <= 0) {
       this.push(chunk)
       return callback()
