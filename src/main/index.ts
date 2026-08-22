@@ -282,17 +282,8 @@ function createUpdaterWindow(): void {
     updaterWindow.webContents.send('update-status', 'Looking for updates...')
   })
 
-  autoUpdater.on('update-available', (info) => {
-    updaterWindow.webContents.send('update-status', `Updating to ${info.version}...`)
-    const releaseNotes =
-      typeof info.releaseNotes === 'string'
-        ? info.releaseNotes
-        : Array.isArray(info.releaseNotes)
-          ? info.releaseNotes.map((n) => n.note).join('\n')
-          : ''
-    if (releaseNotes) {
-      updaterWindow.webContents.send('update-notes', releaseNotes)
-    }
+  autoUpdater.on('update-available', () => {
+    updaterWindow.webContents.send('update-status', 'Update found! Downloading...')
   })
 
   autoUpdater.on('update-not-available', () => {

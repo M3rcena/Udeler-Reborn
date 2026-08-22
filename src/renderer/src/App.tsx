@@ -5,6 +5,7 @@ import { PathAlertModal } from './components/PathAlertModal'
 import { SearchModal } from './components/SearchModal'
 import { Sidebar } from './components/Sidebar'
 import { UpdateToast } from './components/UpdateToast'
+import { WhatsNewModal } from './components/WhatsNewModal'
 import { useAuth } from './contexts/AuthContext'
 import { AboutTab } from './views/AboutTab'
 import { DownloadsTab } from './views/DownloadsTab'
@@ -144,6 +145,7 @@ function App(): React.JSX.Element {
 
       {/* --- GLOBAL NOTIFICATIONS --- */}
       <UpdateToast />
+      <WhatsNewModal />
 
       {/* --- GLOBAL DOWNLOADS MANAGER WIDGET */}
       <GlobalDownloadWidget />

@@ -1,5 +1,6 @@
 import { appVersion } from '@renderer/version'
 import { useEffect, useState } from 'react'
+import { SimpleMarkdown } from './SimpleMarkdown'
 
 export const UpdateToast: React.FC = () => {
   const [isVisible, setIsVisible] = useState<boolean>(false)
@@ -163,8 +164,8 @@ export const UpdateToast: React.FC = () => {
                 </svg>
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-3 bg-gray-50 dark:bg-black/30 border border-gray-100 dark:border-white/5 rounded-2xl text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">
-              {releaseNotes}
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-4 bg-gray-50 dark:bg-black/30 border border-gray-100 dark:border-white/5 rounded-2xl">
+              <SimpleMarkdown content={releaseNotes} />
             </div>
             <div className="mt-4 flex justify-end gap-2">
               <button
