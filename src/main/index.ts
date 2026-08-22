@@ -205,38 +205,66 @@ function createUpdaterWindow(): void {
             overflow: hidden;
             -webkit-app-region: drag;
             user-select: none;
+            padding: 20px;
+            box-sizing: border-box;
           }
           .logo {
-            width: 80px;
-            height: 80px;
+            width: 60px;
+            height: 60px;
             background: linear-gradient(to top right, #2563eb, #9333ea);
-            border-radius: 24px;
+            border-radius: 20px;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-bottom: 24px;
+            margin-bottom: 16px;
             box-shadow: 0 10px 25px rgba(37, 99, 235, 0.3);
           }
-          .title { font-size: 22px; font-weight: 900; margin-bottom: 8px; letter-spacing: -0.5px; }
-          .status { font-size: 13px; color: #9ca3af; font-weight: 500; margin-bottom: 24px; }
+          .title { font-size: 20px; font-weight: 900; margin-bottom: 6px; letter-spacing: -0.5px; }
+          .status { font-size: 13px; color: #9ca3af; font-weight: 500; margin-bottom: 12px; }
+          .release-notes {
+            width: 100%;
+            max-height: 90px;
+            overflow-y: auto;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 11px;
+            color: #d1d5db;
+            margin-bottom: 16px;
+            display: none;
+            text-align: left;
+            white-space: pre-wrap;
+            box-sizing: border-box;
+            user-select: text;
+            -webkit-app-region: no-drag;
+          }
           .progress-track { width: 220px; height: 6px; background: rgba(255,255,255,0.1); border-radius: 8px; overflow: hidden; }
           .progress-fill { height: 100%; background: linear-gradient(to right, #3b82f6, #a855f7); width: 0%; transition: width 0.2s ease-out; }
         </style>
       </head>
       <body>
         <div class="logo">
-          <svg style="width: 40px; height: 40px; color: white;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg style="width: 32px; height: 32px; color: white;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
           </svg>
         </div>
         <div class="title">Udeler Reborn</div>
         <div class="status" id="status">Checking for updates...</div>
+        <div class="release-notes" id="notes"></div>
         <div class="progress-track">
           <div class="progress-fill" id="fill"></div>
         </div>
         <script>
           const { ipcRenderer } = require('electron')
           ipcRenderer.on('update-status', (e, text) => { document.getElementById('status').innerText = text })
+          ipcRenderer.on('update-notes', (e, notes) => {
+            const el = document.getElementById('notes')
+            if (notes) {
+              el.innerText = notes
+              el.style.display = 'block'
+            }
+          })
           ipcRenderer.on('update-progress', (e, percent) => { document.getElementById('fill').style.width = percent + '%' })
         </script>
       </body>
@@ -254,8 +282,17 @@ function createUpdaterWindow(): void {
     updaterWindow.webContents.send('update-status', 'Looking for updates...')
   })
 
-  autoUpdater.on('update-available', () => {
-    updaterWindow.webContents.send('update-status', 'Update found! Downloading...')
+  autoUpdater.on('update-available', (info) => {
+    updaterWindow.webContents.send('update-status', `Updating to ${info.version}...`)
+    const releaseNotes =
+      typeof info.releaseNotes === 'string'
+        ? info.releaseNotes
+        : Array.isArray(info.releaseNotes)
+          ? info.releaseNotes.map((n) => n.note).join('\n')
+          : ''
+    if (releaseNotes) {
+      updaterWindow.webContents.send('update-notes', releaseNotes)
+    }
   })
 
   autoUpdater.on('update-not-available', () => {
