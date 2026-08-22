@@ -15,6 +15,7 @@ const IPC_MANIFEST: Record<keyof IpcChannels, IpcManifestEntry> = {
   'get-all-downloads': { tier: 'read-only-metadata', maxCallsPerSecond: 20 },
   'check-local-downloads': { tier: 'read-only-metadata', maxCallsPerSecond: 50 },
   'delete-course-folder': { tier: 'filesystem-write', maxCallsPerSecond: 10 },
+  'delete-all-downloads': { tier: 'filesystem-write', maxCallsPerSecond: 5 },
   'cancel-download': { tier: 'filesystem-write', maxCallsPerSecond: 50 },
   'pause-download': { tier: 'filesystem-write', maxCallsPerSecond: 50 },
   moveDownloadsFolder: { tier: 'filesystem-write', maxCallsPerSecond: 2 },

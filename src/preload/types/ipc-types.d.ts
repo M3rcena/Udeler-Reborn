@@ -29,6 +29,13 @@ export interface DownloadedFile {
   subtitles?: SubtitleTrack[]
 }
 
+export interface QueuedDownloadTask {
+  course: Course
+  item: CurriculumItem
+  chapterTitle: string
+  index: number
+}
+
 export interface DownloadContextType {
   downloadProgress: Record<number, string>
   setDownloadProgress: React.Dispatch<React.SetStateAction<Record<number, string>>>
@@ -37,6 +44,7 @@ export interface DownloadContextType {
   activeDownloads: Record<number, { title: string; courseTitle: string }>
   queueStatus: 'idle' | 'running' | 'paused'
   queueCount: number
+  queuedTasks: QueuedDownloadTask[]
   isPathAlertOpen: boolean
   setIsPathAlertOpen: React.Dispatch<React.SetStateAction<boolean>>
   validateDownloadPath: () => Promise<boolean>
@@ -57,6 +65,9 @@ export interface DownloadContextType {
   pauseQueue: () => void
   resumeQueue: () => void
   cancelQueue: () => void
+  moveQueueItem: (fromIndex: number, toIndex: number) => void
+  removeQueueItem: (lectureId: number) => void
+  prioritizeQueueItem: (lectureId: number) => void
 }
 
 export interface DownloadedFile {
@@ -293,6 +304,7 @@ export interface IpcChannels {
   'get-all-downloads': { args: []; returns: DownloadedFile[] }
   'check-local-downloads': { args: [courseTitle: string]; returns: Record<number, string> }
   'delete-course-folder': { args: [courseTitle: string]; returns: boolean }
+  'delete-all-downloads': { args: []; returns: boolean }
   'cancel-download': { args: [lectureId: number]; returns: boolean }
   'pause-download': { args: [lectureId: number]; returns: boolean }
   moveDownloadsFolder: { args: [oldPath: string, newPath: string]; returns: boolean }

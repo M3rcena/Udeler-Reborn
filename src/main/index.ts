@@ -767,6 +767,39 @@ app.whenReady().then(() => {
     }
   )
 
+  registerSecureIpc('delete-all-downloads', async (): Promise<boolean> => {
+    const settings = store.get('app_settings') as AppSettings | undefined
+    if (!settings || !settings.downloadPath) return false
+
+    const basePaths = new Set<string>()
+    basePaths.add(settings.downloadPath)
+
+    const volumeMappings = getCourseVolumeMappings()
+    for (const mapping of Object.values(volumeMappings)) {
+      if (mapping.isAvailable && mapping.rootPath) {
+        basePaths.add(mapping.rootPath)
+      }
+    }
+
+    for (const basePath of basePaths) {
+      if (!fs.existsSync(basePath)) continue
+      const entries = fs.readdirSync(basePath)
+      for (const entry of entries) {
+        if (entry.startsWith('.')) continue
+        const fullPath = path.join(basePath, entry)
+        if (fs.statSync(fullPath).isDirectory()) {
+          try {
+            await fs.remove(fullPath)
+          } catch (e) {
+            console.error(`Failed to remove ${entry}:`, e)
+          }
+        }
+      }
+      runGarbageCollector(basePath)
+    }
+    return true
+  })
+
   registerSecureIpc('cancel-download', async (_event, lectureId: number): Promise<boolean> => {
     return cancelDownload(lectureId)
   })

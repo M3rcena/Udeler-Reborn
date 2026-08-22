@@ -1,14 +1,14 @@
 import { useDownload } from '@renderer/contexts/DownloadContext'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-    Course,
-    CourseVolumeMapping,
-    DownloadedFile,
-    GroupedVolume,
-    RawVolume,
-    VolumeRow,
-    WatchProgress,
-    WatchProgressControls
+  Course,
+  CourseVolumeMapping,
+  DownloadedFile,
+  GroupedVolume,
+  RawVolume,
+  VolumeRow,
+  WatchProgress,
+  WatchProgressControls
 } from 'src/preload/types/ipc-types'
 
 function useWatchProgress(
@@ -24,29 +24,24 @@ function useWatchProgress(
     const loadProgress = async (): Promise<void> => {
       const progress = (await window.api.invoke('store-get', `watch_progress.${lectureId}`)) as
         WatchProgress | undefined
-
       if (progress && !progress.isCompleted && videoRef.current) {
         videoRef.current.currentTime = progress.currentTime
         lastSavedTime.current = progress.currentTime
       }
     }
-
     loadProgress()
   }, [lectureId, videoRef])
 
   const handleTimeUpdate = async (): Promise<void> => {
     const videoElement = videoRef.current
     if (!videoElement || !lectureId) return
-
     const currentTime = videoElement.currentTime
     const duration = videoElement.duration
-
     if (!duration || isNaN(duration)) return
 
     if (Math.abs(currentTime - lastSavedTime.current) > 5) {
       lastSavedTime.current = currentTime
       const isCompleted = currentTime / duration > 0.95
-
       await window.api.invoke('store-set', `watch_progress.${lectureId}`, {
         currentTime,
         duration,
@@ -58,9 +53,7 @@ function useWatchProgress(
   const forceSave = async (): Promise<void> => {
     const videoElement = videoRef.current
     if (!videoElement || !lectureId || isNaN(videoElement.duration)) return
-
     const isCompleted = videoElement.currentTime / videoElement.duration > 0.95
-
     await window.api.invoke('store-set', `watch_progress.${lectureId}`, {
       currentTime: videoElement.currentTime,
       duration: videoElement.duration,
@@ -89,6 +82,10 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({
     setDownloadProgress,
     queueStatus,
     queueCount,
+    queuedTasks = [],
+    moveQueueItem,
+    removeQueueItem,
+    prioritizeQueueItem,
     pauseQueue,
     resumeQueue,
     cancelQueue
@@ -97,21 +94,18 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({
   const [downloadedFiles, setDownloadedFiles] = useState<DownloadedFile[]>([])
   const [watchProgressMap, setWatchProgressMap] = useState<Record<number, WatchProgress>>({})
   const [isScanning, setIsScanning] = useState(true)
-
   const [selectedMedia, setSelectedMedia] = useState<DownloadedFile | null>(null)
+  const [isQueueExpanded, setIsQueueExpanded] = useState<boolean>(true)
   const videoRef = useRef<HTMLVideoElement>(null)
 
   const lectureIdMatch = selectedMedia?.file.match(/\[ID_(\d+)\]/)
   const selectedLectureId = lectureIdMatch ? parseInt(lectureIdMatch[1], 10) : null
-
   const { handleTimeUpdate, forceSave } = useWatchProgress(selectedLectureId, videoRef)
 
   const [isDeleteAllModalOpen, setIsDeleteAllModalOpen] = useState<boolean>(false)
   const [isDeletingAll, setIsDeletingAll] = useState<boolean>(false)
-
   const [activeCourse, setActiveCourse] = useState<string | null>(null)
   const [activeChapter, setActiveChapter] = useState<string | null>(null)
-
   const [glowLectureId, setGlowLectureId] = useState<number | null>(null)
 
   const [allVolumes, setAllVolumes] = useState<VolumeRow[]>([])
@@ -121,6 +115,7 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({
     () => Array.from(new Set(downloadedFiles.map((f) => f.course))),
     [downloadedFiles]
   )
+
   const chaptersList = useMemo(
     () =>
       activeCourse
@@ -130,6 +125,7 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({
         : [],
     [downloadedFiles, activeCourse]
   )
+
   const filesList = useMemo(
     () =>
       activeChapter
@@ -188,16 +184,13 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({
       }
 
       const group = grouped.get(key)!
-
       if (raw.name.length > group.name.length) {
         group.name = raw.name
       }
-
       if (key !== 'default' && activePinnedVolumeIds.has(raw.id) && !group.isPinned) {
         group.id = raw.id
         group.isPinned = true
       }
-
       if (raw.course) {
         group.courses.add(raw.course)
       }
@@ -237,20 +230,15 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({
         (f) =>
           f.file.includes(`[ID_${searchLectureId}]`) && (f.type === 'Video' || f.type === 'Article')
       )
-
       if (targetFile) {
         setTimeout(() => {
           setActiveCourse(targetFile.course)
           setActiveChapter(targetFile.chapter)
-
           setSelectedMedia(targetFile)
-
           setGlowLectureId(searchLectureId)
         })
-
         setTimeout(() => setGlowLectureId(null), 4000)
       }
-
       if (onSearchHandled) onSearchHandled()
     }
   }, [searchLectureId, downloadedFiles, onSearchHandled])
@@ -309,6 +297,7 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-6xl mx-auto pb-10 flex flex-col h-full relative z-10">
+      {/* Header Area */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
         <div>
           <h2 className="text-3xl font-extrabold text-transparent bg-clip-text bg-linear-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400">
@@ -318,7 +307,6 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({
             Monitor active downloads and play saved media.
           </p>
         </div>
-
         <div
           className={`flex items-center gap-2 px-4 py-2 rounded-full border shadow-sm font-semibold text-sm ${queueStatus === 'running' ? 'bg-blue-50 dark:bg-blue-500/10 border-blue-200 dark:border-blue-500/30 text-blue-600 dark:text-blue-400' : queueStatus === 'paused' ? 'bg-yellow-50 dark:bg-yellow-500/10 border-yellow-200 dark:border-yellow-500/30 text-yellow-600 dark:text-yellow-400' : 'bg-gray-50 dark:bg-white/5 border-gray-200 dark:border-white/10 text-gray-500 dark:text-gray-400'}`}
         >
@@ -330,6 +318,7 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({
       </div>
 
       <div className="flex flex-col gap-6 flex-1">
+        {/* Master Controls Card */}
         <div className="p-6 bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-4xl shadow-xl flex flex-wrap gap-4 items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="p-3 bg-linear-to-tr from-blue-600 to-purple-600 rounded-2xl text-white shadow-lg">
@@ -349,7 +338,6 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({
               </p>
             </div>
           </div>
-
           <div className="flex items-center gap-3 w-full sm:w-auto">
             <button
               onClick={queueStatus === 'paused' ? resumeQueue : pauseQueue}
@@ -412,6 +400,7 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({
           </div>
         </div>
 
+        {/* Stats Grid */}
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-6">
           <div className="p-6 bg-white/60 dark:bg-white/5 border border-purple-200 dark:border-purple-500/20 rounded-4xl shadow-xl">
             <h3 className="font-bold text-gray-600 dark:text-gray-300 mb-2 flex items-center gap-2">
@@ -437,6 +426,172 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({
           </div>
         </div>
 
+        {/* --- QUEUE MANAGER / REORDERING SECTION --- */}
+        {queuedTasks.length > 0 && (
+          <div className="bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-4xl shadow-xl p-6 transition-all animate-in fade-in duration-300">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M4 6h16M4 12h16M4 18h7"
+                    />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    Pending Tasks Queue
+                    <span className="px-2.5 py-0.5 text-xs font-bold rounded-full bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400">
+                      {queuedTasks.length}
+                    </span>
+                  </h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Reorder download priority or cancel upcoming lectures.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsQueueExpanded(!isQueueExpanded)}
+                className="p-2 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white rounded-xl hover:bg-gray-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
+              >
+                <svg
+                  className={`w-5 h-5 transition-transform duration-300 ${isQueueExpanded ? 'rotate-180' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M19 9l-7 7-7-7"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            {isQueueExpanded && (
+              <div className="max-h-64 overflow-y-auto custom-scrollbar flex flex-col gap-2 pr-1">
+                {queuedTasks.map((task, index) => (
+                  <div
+                    key={`${task.item.id}-${index}`}
+                    className="flex items-center justify-between p-3.5 bg-white dark:bg-black/20 border border-gray-100 dark:border-white/5 rounded-2xl hover:border-blue-500/30 transition-all group"
+                  >
+                    <div className="flex items-center gap-3 min-w-0 flex-1 pr-4">
+                      <span className="w-6 text-center font-mono text-xs font-bold text-gray-400">
+                        #{index + 1}
+                      </span>
+                      <div className="truncate flex-1">
+                        <p className="text-sm font-bold text-gray-900 dark:text-white truncate">
+                          {task.item.title}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                          {task.course.title} <span className="opacity-40">•</span>{' '}
+                          {task.chapterTitle}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1 shrink-0">
+                      {/* Move to Top / Prioritize */}
+                      {index > 0 && (
+                        <button
+                          onClick={() => prioritizeQueueItem(task.item.id)}
+                          className="p-1.5 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors cursor-pointer"
+                          title="Download Next (Move to Top)"
+                        >
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="2"
+                              d="M5 11l7-7 7 7M5 19l7-7 7 7"
+                            />
+                          </svg>
+                        </button>
+                      )}
+
+                      {/* Move Up */}
+                      <button
+                        onClick={() => moveQueueItem(index, index - 1)}
+                        disabled={index === 0}
+                        className="p-1.5 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white disabled:opacity-20 disabled:cursor-not-allowed rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
+                        title="Move Up"
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M5 15l7-7 7 7"
+                          />
+                        </svg>
+                      </button>
+
+                      {/* Move Down */}
+                      <button
+                        onClick={() => moveQueueItem(index, index + 1)}
+                        disabled={index === queuedTasks.length - 1}
+                        className="p-1.5 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white disabled:opacity-20 disabled:cursor-not-allowed rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
+                        title="Move Down"
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M19 9l-7 7-7-7"
+                          />
+                        </svg>
+                      </button>
+
+                      {/* Remove from Queue */}
+                      <button
+                        onClick={() => removeQueueItem(task.item.id)}
+                        className="p-1.5 text-red-500 hover:text-white hover:bg-red-500 rounded-lg transition-colors cursor-pointer ml-1"
+                        title="Cancel this download"
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M6 18L18 6M6 6l12 12"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Library Card */}
         <div className="flex-1 bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-4xl shadow-xl p-8 flex flex-col overflow-hidden">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
             <div className="flex items-center gap-2 text-xl font-bold text-gray-900 dark:text-white">
@@ -561,7 +716,6 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({
                 Go Back
               </div>
             )}
-
             {isScanning ? (
               <div className="flex items-center justify-center h-40 text-gray-500">
                 Scanning local disk...
@@ -608,7 +762,6 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({
                             const count = downloadedFiles.filter(
                               (f) => f.course === course && f.volumeId === vol.id
                             ).length
-
                             return (
                               <div
                                 key={course}
@@ -680,7 +833,6 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({
                       </div>
                     </div>
                   ))}
-
                 {activeCourse &&
                   !activeChapter &&
                   chaptersList.map((chapter) => {
@@ -734,7 +886,6 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({
                       </div>
                     )
                   })}
-
                 {activeCourse &&
                   activeChapter &&
                   filesList.map((item, index) => {
@@ -742,7 +893,6 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({
                     const lectureId = match ? parseInt(match[1], 10) : null
                     const progressData = lectureId ? watchProgressMap[lectureId] : null
                     const isGlowing = glowLectureId !== null && glowLectureId === lectureId
-
                     return (
                       <div
                         key={index}
@@ -790,7 +940,7 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({
                             </p>
                             <div className="flex items-center gap-3 mt-1">
                               <p className="text-xs text-gray-500 truncate">
-                                {item.type} • {item.size} MB
+                                {item.type} {item.size} MB
                               </p>
                               {progressData && (
                                 <div className="w-24 h-1.5 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
@@ -805,7 +955,6 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({
                             </div>
                           </div>
                         </div>
-
                         <div className="shrink-0 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity self-end sm:self-auto">
                           <button
                             onClick={async (): Promise<void> => {
@@ -814,12 +963,10 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({
                                   'store-get',
                                   'cached_courses'
                                 )) as Course[] | undefined
-
                                 const matchedCourse = savedCourses?.find(
                                   (c: Course) =>
                                     c.title.replace(/[<>:"/\\|?*]+/g, '-').trim() === item.course
                                 )
-
                                 if (matchedCourse && matchedCourse.id) {
                                   window.api.invoke('os-set-recent-course', {
                                     title: item.file,
@@ -830,7 +977,6 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({
                               } catch (err) {
                                 console.error('Failed to set recent course for OS tray:', err)
                               }
-
                               setSelectedMedia(item)
                               await fetchDiskData()
                             }}
@@ -883,6 +1029,7 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({
         </div>
       </div>
 
+      {/* Video Player Modal */}
       {selectedMedia && (
         <div
           className="fixed inset-0 z-100 flex items-center justify-center p-8 bg-black/90 backdrop-blur-xl animate-in fade-in duration-200"
@@ -912,14 +1059,12 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({
               ></path>
             </svg>
           </button>
-
           <div className="relative w-full max-w-6xl aspect-video bg-black rounded-4xl border border-white/10 shadow-2xl overflow-hidden flex flex-col group/player">
             <div className="absolute top-0 left-0 right-0 p-6 bg-linear-to-b from-black/90 via-black/50 to-transparent z-10 pointer-events-none">
               <h3 className="text-white font-bold text-lg truncate pr-4 drop-shadow-md">
                 {selectedMedia.file}
               </h3>
             </div>
-
             <div className="flex-1 bg-black flex items-center justify-center">
               {selectedMedia.type === 'Video' ? (
                 <video
@@ -954,7 +1099,7 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({
         </div>
       )}
 
-      {/* --- DELETE ALL MODAL --- */}
+      {/* Delete All Modal */}
       {isDeleteAllModalOpen && (
         <div
           className="absolute inset-0 z-120 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200"
@@ -994,10 +1139,7 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({
               <button
                 onClick={async () => {
                   setIsDeletingAll(true)
-                  const uniqueCourses = Array.from(new Set(downloadedFiles.map((f) => f.course)))
-                  for (const course of uniqueCourses) {
-                    await window.api.invoke('delete-course-folder', course)
-                  }
+                  await window.api.invoke('delete-all-downloads')
                   setDownloadedFiles([])
                   setDownloadProgress({})
                   setIsDeletingAll(false)

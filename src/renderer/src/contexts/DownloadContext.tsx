@@ -7,11 +7,12 @@ import {
   useRef,
   useState
 } from 'react'
-import {
+import type {
   AppSettings,
   Course,
   CurriculumItem,
-  DownloadContextType
+  DownloadContextType,
+  QueuedDownloadTask
 } from 'src/preload/types/ipc-types'
 
 const DownloadContext = createContext<DownloadContextType | undefined>(undefined)
@@ -21,6 +22,7 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [downloadProgress, setDownloadProgress] = useState<Record<number, string>>({})
   const [queueStatus, setQueueStatus] = useState<'idle' | 'running' | 'paused'>('idle')
   const [queueCount, setQueueCount] = useState<number>(0)
+  const [queuedTasks, setQueuedTasks] = useState<QueuedDownloadTask[]>([])
   const [isPathAlertOpen, setIsPathAlertOpen] = useState<boolean>(false)
 
   // --- QUEUE WORKERS ---
@@ -101,9 +103,56 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
     loadSavedQueue()
   }, [])
 
-  const syncQueueToDisk = (): void => {
+  const syncQueueToDisk = useCallback((): void => {
+    setQueuedTasks([...downloadQueue.current])
+    setQueueCount(downloadQueue.current.length)
     window.api.invoke('store-set', 'saved_queue', downloadQueue.current)
-  }
+  }, [])
+
+  const moveQueueItem = useCallback(
+    (fromIndex: number, toIndex: number): void => {
+      if (
+        fromIndex < 0 ||
+        fromIndex >= downloadQueue.current.length ||
+        toIndex < 0 ||
+        toIndex >= downloadQueue.current.length
+      ) {
+        return
+      }
+      const [item] = downloadQueue.current.splice(fromIndex, 1)
+      downloadQueue.current.splice(toIndex, 0, item)
+      setQueuedTasks([...downloadQueue.current])
+      syncQueueToDisk()
+    },
+    [syncQueueToDisk]
+  )
+
+  const prioritizeQueueItem = useCallback(
+    (lectureId: number): void => {
+      const idx = downloadQueue.current.findIndex((q) => q.item.id === lectureId)
+      if (idx > 0) {
+        const [item] = downloadQueue.current.splice(idx, 1)
+        downloadQueue.current.unshift(item)
+        setQueuedTasks([...downloadQueue.current])
+        syncQueueToDisk()
+      }
+    },
+    [syncQueueToDisk]
+  )
+
+  const removeQueueItem = useCallback(
+    (lectureId: number): void => {
+      downloadQueue.current = downloadQueue.current.filter((q) => q.item.id !== lectureId)
+      setQueuedTasks([...downloadQueue.current])
+      setDownloadProgress((prev) => {
+        const next = { ...prev }
+        delete next[lectureId]
+        return next
+      })
+      syncQueueToDisk()
+    },
+    [syncQueueToDisk]
+  )
 
   const validateDownloadPath = async (): Promise<boolean> => {
     const settings = (await window.api.invoke('store-get', 'app_settings')) as
@@ -192,9 +241,10 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   const processQueue = async (): Promise<void> => {
     if (isQueuePaused.current) return
-    if (activeWorkers.current >= 3) return // Max 3 concurrent
+    if (activeWorkers.current >= 3) return
 
     const nextTask = downloadQueue.current.shift()
+    setQueuedTasks([...downloadQueue.current])
     setQueueCount(downloadQueue.current.length)
 
     if (!nextTask) {
@@ -377,7 +427,7 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
       }
     })
     syncQueueToDisk()
-  }, [downloadProgress])
+  }, [downloadProgress, syncQueueToDisk])
 
   const resumeQueue = useCallback((): void => {
     manualOverride.current = true
@@ -403,7 +453,7 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
       }
     })
     syncQueueToDisk()
-  }, [downloadProgress])
+  }, [downloadProgress, syncQueueToDisk])
 
   const scheduleResume = useCallback((): void => {
     manualOverride.current = false
@@ -485,6 +535,7 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
         activeDownloads,
         queueStatus,
         queueCount,
+        queuedTasks,
         isPathAlertOpen,
         setIsPathAlertOpen,
         validateDownloadPath,
@@ -493,7 +544,10 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
         startBatchDownloadQueue,
         pauseQueue,
         resumeQueue,
-        cancelQueue
+        cancelQueue,
+        moveQueueItem,
+        removeQueueItem,
+        prioritizeQueueItem
       }}
     >
       {children}
