@@ -149,6 +149,12 @@ export function registerVolume(id: string, name: string, rootPath: string): void
   ).run(id, name, rootPath)
 }
 
+export function unregisterVolume(volumeId: string): void {
+  if (!db) return
+  const stmt = db.prepare('DELETE FROM volumes WHERE id = ?')
+  stmt.run(volumeId)
+}
+
 export function updateVolumeStatus(id: string, isAvailable: number): void {
   if (!db) return
   db.prepare('UPDATE volumes SET is_available = ? WHERE id = ?').run(isAvailable, id)

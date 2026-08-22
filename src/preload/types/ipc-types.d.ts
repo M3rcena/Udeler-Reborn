@@ -51,6 +51,9 @@ export interface DownloadContextType {
     curriculum: CurriculumItem[],
     currentChapterTitle: string
   ) => Promise<number>
+  startBatchDownloadQueue: (
+    courseList: { course: Course; curriculum: CurriculumItem[] }[]
+  ) => Promise<number>
   pauseQueue: () => void
   resumeQueue: () => void
   cancelQueue: () => void

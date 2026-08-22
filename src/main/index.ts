@@ -27,7 +27,8 @@ import {
   pinCourseToVolume,
   registerVolume,
   runGarbageCollector,
-  unpinCourseFromVolume
+  unpinCourseFromVolume,
+  unregisterVolume
 } from './database/db'
 import { store } from './database/store'
 import {
@@ -505,6 +506,8 @@ app.whenReady().then(() => {
       const mapping = volumeMappings[courseId]
       if (!mapping) return false
 
+      const volumeId = mapping.volumeId
+
       if (shouldMove && mapping.isAvailable) {
         const settings = store.get('app_settings') as AppSettings | undefined
         if (settings?.downloadPath && mapping.rootPath) {
@@ -513,6 +516,14 @@ app.whenReady().then(() => {
       }
 
       unpinCourseFromVolume(courseId)
+
+      const updatedMappings = getCourseVolumeMappings()
+      const isVolumeStillUsed = Object.values(updatedMappings).some((m) => m.volumeId === volumeId)
+
+      if (!isVolumeStillUsed) {
+        unregisterVolume(volumeId)
+      }
+
       return true
     }
   )
@@ -569,10 +580,14 @@ app.whenReady().then(() => {
     const newDownloads: DownloadedFile[] = []
 
     const allVolumes = getAllVolumes()
+    const volumeMappings = getCourseVolumeMappings()
+
+    const activePinnedVolumeIds = new Set(Object.values(volumeMappings).map((m) => m.volumeId))
+
     const offlineVolumeIds = new Set<string>()
 
     for (const vol of allVolumes) {
-      if (vol.is_available === 0) {
+      if (vol.is_available === 0 && activePinnedVolumeIds.has(vol.id)) {
         offlineVolumeIds.add(vol.id)
       }
     }
@@ -679,7 +694,7 @@ app.whenReady().then(() => {
     scanDrive(settings.downloadPath, 'default', `Local Drive (${settings.downloadPath})`)
 
     for (const vol of allVolumes) {
-      if (vol.is_available === 1 && vol.root_path) {
+      if (vol.is_available === 1 && vol.root_path && activePinnedVolumeIds.has(vol.id)) {
         scanDrive(vol.root_path, vol.id, `${vol.name} (${vol.root_path})`)
       }
     }

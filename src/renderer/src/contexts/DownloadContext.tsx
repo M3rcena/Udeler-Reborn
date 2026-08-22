@@ -1,13 +1,18 @@
 import {
-    createContext,
-    ReactNode,
-    useCallback,
-    useContext,
-    useEffect,
-    useRef,
-    useState
+  createContext,
+  ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState
 } from 'react'
-import { AppSettings, Course, CurriculumItem, DownloadContextType } from 'src/preload/types/ipc-types'
+import {
+  AppSettings,
+  Course,
+  CurriculumItem,
+  DownloadContextType
+} from 'src/preload/types/ipc-types'
 
 const DownloadContext = createContext<DownloadContextType | undefined>(undefined)
 
@@ -293,6 +298,73 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
     return newTasks.length
   }
 
+  const startBatchDownloadQueue = async (
+    courseList: { course: Course; curriculum: CurriculumItem[] }[]
+  ): Promise<number> => {
+    if (courseList.length === 0) return 0
+    const isValid = await validateDownloadPath()
+    if (!isValid) return 0
+
+    const settings = (await window.api.invoke('store-get', 'app_settings')) as
+      AppSettings | undefined
+
+    let isWithinScheduleWindow = true
+    if (settings?.scheduleEnabled && settings?.scheduleStart && settings?.scheduleEnd) {
+      const now = new Date()
+      const currentMinutes = now.getHours() * 60 + now.getMinutes()
+      const [startH, startM] = settings.scheduleStart.split(':').map(Number)
+      const [endH, endM] = settings.scheduleEnd.split(':').map(Number)
+      const startMinutes = startH * 60 + startM
+      const endMinutes = endH * 60 + endM
+      if (startMinutes < endMinutes) {
+        isWithinScheduleWindow = currentMinutes >= startMinutes && currentMinutes < endMinutes
+      } else {
+        isWithinScheduleWindow = currentMinutes >= startMinutes || currentMinutes < endMinutes
+      }
+    }
+
+    const newTasks: typeof downloadQueue.current = []
+
+    for (const entry of courseList) {
+      const { course, curriculum } = entry
+      let trackingTitle = 'Uncategorized'
+      let lectureCounter = 1
+
+      for (const item of curriculum) {
+        if (item._class === 'chapter') {
+          trackingTitle = item.title
+          continue
+        }
+        const currentIndex = lectureCounter++
+        if (item._class === 'quiz') continue
+        const status = downloadProgress[item.id]
+        const isAlreadyQueued = downloadQueue.current.some((q) => q.item.id === item.id)
+        if (status === 'downloading' || status === 'success' || isAlreadyQueued) continue
+        newTasks.push({ course, item, chapterTitle: trackingTitle, index: currentIndex })
+      }
+    }
+
+    if (newTasks.length === 0) return 0
+    totalSessionItems.current += newTasks.length
+    downloadQueue.current = [...downloadQueue.current, ...newTasks]
+    setQueueCount(downloadQueue.current.length)
+
+    const shouldRun = isWithinScheduleWindow || manualOverride.current
+    if (shouldRun) {
+      isQueuePaused.current = false
+      setQueueStatus('running')
+      const availableWorkers = Math.max(0, 3 - activeWorkers.current)
+      for (let i = 0; i < availableWorkers; i++) {
+        setTimeout(processQueue, i * 500)
+      }
+    } else {
+      isQueuePaused.current = true
+      setQueueStatus('paused')
+    }
+    syncQueueToDisk()
+    return newTasks.length
+  }
+
   const pauseQueue = useCallback((): void => {
     manualOverride.current = false
     isQueuePaused.current = true
@@ -418,6 +490,7 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
         validateDownloadPath,
         handleDownloadItem,
         startDownloadQueue,
+        startBatchDownloadQueue,
         pauseQueue,
         resumeQueue,
         cancelQueue
