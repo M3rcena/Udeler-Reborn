@@ -71,7 +71,7 @@ export const WhatsNewModal: React.FC = () => {
               onClick={() => setIsOpen(false)}
               className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-lg hover:shadow-blue-500/30 transition-all cursor-pointer"
             >
-              {t.pathAlert.gotIt}
+              {t.components.pathAlert.gotIt}
             </button>
           </div>
         </div>

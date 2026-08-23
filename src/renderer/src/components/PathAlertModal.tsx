@@ -22,14 +22,14 @@ export const PathAlertModal: React.FC<PathAlertModalProps> = ({ isOpen, onClose 
         </div>
 
         <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
-          {t.pathAlert.setupRequired}
+          {t.components.pathAlert.setupRequired}
         </h3>
 
         <p className="text-gray-500 dark:text-gray-400 text-sm leading-relaxed mb-6">
-          {t('pathAlert.selectFolder', {
+          {t('components.pathAlert.selectFolder', {
             downloadFolder: (
               <span className="font-semibold text-gray-800 dark:text-gray-200">
-                {t.pathAlert.downloadFolder}
+                {t.components.pathAlert.downloadFolder}
               </span>
             )
           })}
@@ -40,7 +40,7 @@ export const PathAlertModal: React.FC<PathAlertModalProps> = ({ isOpen, onClose 
           onClick={onClose}
           className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl transition-all shadow-lg hover:shadow-blue-500/30 cursor-pointer"
         >
-          {t.pathAlert.gotIt}
+          {t.components.pathAlert.gotIt}
         </button>
       </div>
     </div>

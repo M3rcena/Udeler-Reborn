@@ -64,10 +64,10 @@ export const UpdateToast: React.FC = () => {
               </div>
               <div className="flex-1 pt-0.5">
                 <h4 className="text-gray-900 dark:text-white font-bold text-sm">
-                  {t.update.updateAvailable}
+                  {t.components.update.updateAvailable}
                 </h4>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 leading-relaxed">
-                  {t('update.newVersion', {
+                  {t('components.update.newVersion', {
                     version: (
                       <span className="font-semibold text-blue-600 dark:text-blue-400">
                         {latestVersion}
@@ -96,14 +96,14 @@ export const UpdateToast: React.FC = () => {
                 onClick={() => window.open(releaseUrl, '_blank')}
                 className="flex-1 py-2 px-3 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl transition-all shadow-md cursor-pointer text-center"
               >
-                {t.update.download}
+                {t.components.update.download}
               </button>
               {releaseNotes && (
                 <button
                   onClick={() => setShowNotesModal(true)}
                   className="py-2 px-3 bg-gray-100 hover:bg-gray-200 dark:bg-white/10 dark:hover:bg-white/20 text-gray-800 dark:text-white font-bold text-xs rounded-xl transition-all cursor-pointer"
                 >
-                  {t.update.whatsNew}
+                  {t.components.update.whatsNew}
                 </button>
               )}
             </div>
@@ -122,10 +122,10 @@ export const UpdateToast: React.FC = () => {
             </div>
             <div className="flex-1 pt-0.5">
               <h4 className="text-gray-900 dark:text-white font-bold text-sm">
-                {t.update.devBuild}
+                {t.components.update.devBuild}
               </h4>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">
-                {t.update.unreleasedVer}
+                {t.components.update.unreleasedVer}
               </p>
             </div>
             <button
@@ -181,7 +181,7 @@ export const UpdateToast: React.FC = () => {
                   }}
                   className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-lg hover:shadow-blue-500/30 transition-all cursor-pointer"
                 >
-                  {t.update.goToRelease}
+                  {t.components.update.goToRelease}
                 </button>
               </div>
             </div>

@@ -36,10 +36,10 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
                 ></path>
               </svg>
             </div>
-            {t.helpModal.locateToken}
+            {t.components.helpModal.locateToken}
           </h2>
           <p className="text-gray-500 dark:text-gray-400 mt-3 font-medium">
-            {t.helpModal.followSteps}
+            {t.components.helpModal.followSteps}
           </p>
         </div>
 
@@ -50,7 +50,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
               1
             </div>
             <p className="text-gray-700 dark:text-gray-300 leading-relaxed mt-1.5">
-              {t('helpModal.loginUdemy', {
+              {t('components.helpModal.loginUdemy', {
                 udemyBold: (
                   <strong className="text-gray-900 dark:text-white font-bold">Udemy</strong>
                 )
@@ -63,7 +63,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
               2
             </div>
             <p className="text-gray-700 dark:text-gray-300 leading-relaxed mt-1.5">
-              {t('helpModal.pressKey', {
+              {t('components.helpModal.pressKey', {
                 f12Key: (
                   <kbd className="bg-white dark:bg-black/30 px-2 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-white/10 font-mono text-gray-900 dark:text-white shadow-sm mx-1">
                     F12
@@ -78,15 +78,15 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
               3
             </div>
             <p className="text-gray-700 dark:text-gray-300 leading-relaxed mt-1.5">
-              {t('helpModal.navigateToApplication', {
+              {t('components.helpModal.navigateToApplication', {
                 applicationStrong: (
                   <strong className="text-gray-900 dark:text-white">
-                    {t.helpModal.navigateKeys.application}
+                    {t.components.helpModal.navigateKeys.application}
                   </strong>
                 ),
                 storageBold: (
                   <strong className="text-gray-900 dark:text-white">
-                    {t.helpModal.navigateKeys.storage}
+                    {t.components.helpModal.navigateKeys.storage}
                   </strong>
                 )
               })}
@@ -98,10 +98,10 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
               4
             </div>
             <p className="text-gray-700 dark:text-gray-300 leading-relaxed mt-1.5">
-              {t('helpModal.cookies.main', {
+              {t('components.helpModal.cookies.main', {
                 cookiesStrong: (
                   <strong className="text-gray-900 dark:text-white">
-                    {t.helpModal.cookies.cookies}
+                    {t.components.helpModal.cookies.cookies}
                   </strong>
                 ),
                 udemyURL: (
@@ -124,7 +124,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
           onClick={onClose}
           className="mt-8 w-full py-4 bg-gray-900 dark:bg-white/10 hover:bg-gray-800 dark:hover:bg-white/20 text-white font-bold rounded-2xl transition-all duration-300 cursor-pointer shadow-lg hover:shadow-xl"
         >
-          {t.helpModal.gotToken}
+          {t.components.helpModal.gotToken}
         </button>
       </div>
     </div>

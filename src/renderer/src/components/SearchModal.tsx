@@ -137,13 +137,15 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, onSel
         {/* Results Area */}
         <div className="max-h-[60vh] overflow-y-auto custom-scrollbar flex flex-col bg-gray-50/50 dark:bg-transparent relative">
           {query.trim() && results.length === 0 && !isSearching && (
-            <div className="p-8 text-center text-gray-500">{t('search.noResults', { query })}</div>
+            <div className="p-8 text-center text-gray-500">
+              {t('components.search.noResults', { query })}
+            </div>
           )}
 
           {titleMatches.length > 0 && (
             <>
               <div className="sticky top-0 z-10 px-6 py-2 bg-gray-100/95 dark:bg-gray-800/95 backdrop-blur-md border-b border-gray-200 dark:border-white/10 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider shadow-sm">
-                {t.search.titleMatches}
+                {t.components.search.titleMatches}
               </div>
               {titleMatches.map((res) => renderResult(res))}
             </>
@@ -152,7 +154,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, onSel
           {transcriptMatches.length > 0 && (
             <>
               <div className="sticky top-0 z-10 px-6 py-2 bg-gray-100/95 dark:bg-gray-800/95 backdrop-blur-md border-y border-gray-200 dark:border-white/10 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider shadow-sm">
-                {t.search.transcriptMatches}
+                {t.components.search.transcriptMatches}
               </div>
               {transcriptMatches.map((res) => renderResult(res))}
             </>
@@ -160,8 +162,8 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, onSel
         </div>
 
         <div className="px-4 py-2 border-t border-gray-200 dark:border-white/10 text-[10px] text-gray-500 font-medium flex justify-between bg-gray-50 dark:bg-white/5">
-          <span>{t.search.customEngine}</span>
-          <span>{t('search.closeKey', { esc: 'esc' })}</span>
+          <span>{t.components.search.customEngine}</span>
+          <span>{t('components.search.closeKey', { esc: 'esc' })}</span>
         </div>
       </div>
     </div>

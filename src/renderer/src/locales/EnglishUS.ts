@@ -4,65 +4,76 @@ export const EnglishUS = {
     countryCode: 'us',
     dir: 'ltr'
   },
-  sidebar: {
-    courses: 'My Courses',
-    downloads: 'Downloads',
-    settings: 'Settings',
-    about: 'About',
-    lightMode: '☀️ Light Mode',
-    darkMode: '🌙 Dark Mode',
-    logout: 'Logout'
-  },
-  helpModal: {
-    locateToken: 'Locate your Token',
-    followSteps: 'Follow these steps in your browser to securely link your account.',
-    loginUdemy: 'Open your web browser and log in to your {{udemyBold}} account.',
-    pressKey: 'Press {{f12Key}} (or right-click and select "Inspect") to open the Developer Tools.',
-    navigateToApplication:
-      'Navigate to the {{applicationStrong}} tab (Chrome/Edge) or {{storageBold}} tab (Firefox).',
-    navigateKeys: {
-      application: 'Application',
-      storage: 'Storage'
+  components: {
+    sidebar: {
+      courses: 'My Courses',
+      downloads: 'Downloads',
+      settings: 'Settings',
+      about: 'About',
+      lightMode: '☀️ Light Mode',
+      darkMode: '🌙 Dark Mode',
+      logout: 'Logout'
     },
-    cookies: {
-      main: 'Expand {{cookiesStrong}} and click {{udemyURL}}. Find the row named {{tokenCode}}, copy its Value, and paste it below!',
-      cookies: 'Cookies'
+    helpModal: {
+      locateToken: 'Locate your Token',
+      followSteps: 'Follow these steps in your browser to securely link your account.',
+      loginUdemy: 'Open your web browser and log in to your {{udemyBold}} account.',
+      pressKey:
+        'Press {{f12Key}} (or right-click and select "Inspect") to open the Developer Tools.',
+      navigateToApplication:
+        'Navigate to the {{applicationStrong}} tab (Chrome/Edge) or {{storageBold}} tab (Firefox).',
+      navigateKeys: {
+        application: 'Application',
+        storage: 'Storage'
+      },
+      cookies: {
+        main: 'Expand {{cookiesStrong}} and click {{udemyURL}}. Find the row named {{tokenCode}}, copy its Value, and paste it below!',
+        cookies: 'Cookies'
+      },
+      gotToken: "I've got my token"
     },
-    gotToken: "I've got my token"
-  },
-  libraryHealth: {
-    title: 'Library Health & Integrity',
-    scanning: 'Scanning Library...',
-    runCheck: 'Run Integrity Check',
-    verifyChecksums: 'Verifying Hash Checksums',
-    healthy: 'Library is perfectly healthy! All checksums match.',
-    corruptedFiles: '{{issuesLength}} Corrupted File(s) Detected',
-    reason: 'Reason: {{reason}}',
-    delete: 'Delete (Archived)',
-    autoRepair: 'Auto-Repair'
-  },
-  pathAlert: {
-    setupRequired: 'Setup Required',
-    selectFolder:
-      'You need to select a {{downloadFolder}} in the Settings menu before you can save course content to your computer.',
-    downloadFolder: 'Download Folder',
-    gotIt: 'Got it'
-  },
-  search: {
-    noResults: 'No results found for "{{query}}"',
-    titleMatches: 'Title Matches',
-    transcriptMatches: 'Transcript Matches',
-    customEngine: 'Custom Local Engine',
-    closeKey: '{{esc}} to close'
-  },
-  update: {
-    updateAvailable: 'Update Available',
-    newVersion: 'Udeler Reborn {{version}} is ready!',
-    download: 'Download',
-    whatsNew: "What's New",
-    devBuild: 'Developer Build',
-    unreleasedVer: 'You are running an unreleased version.',
-    goToRelease: 'Go to Release'
+    libraryHealth: {
+      title: 'Library Health & Integrity',
+      scanning: 'Scanning Library...',
+      runCheck: 'Run Integrity Check',
+      verifyChecksums: 'Verifying Hash Checksums',
+      healthy: 'Library is perfectly healthy! All checksums match.',
+      corruptedFiles: '{{issuesLength}} Corrupted File(s) Detected',
+      reason: 'Reason: {{reason}}',
+      delete: 'Delete (Archived)',
+      autoRepair: 'Auto-Repair'
+    },
+    pathAlert: {
+      setupRequired: 'Setup Required',
+      selectFolder:
+        'You need to select a {{downloadFolder}} in the Settings menu before you can save course content to your computer.',
+      downloadFolder: 'Download Folder',
+      gotIt: 'Got it'
+    },
+    search: {
+      noResults: 'No results found for "{{query}}"',
+      titleMatches: 'Title Matches',
+      transcriptMatches: 'Transcript Matches',
+      customEngine: 'Custom Local Engine',
+      closeKey: '{{esc}} to close'
+    },
+    globalDownloads: {
+      active: 'Active Downloads',
+      queued: '{{queueCount}} Queued',
+      processing: 'Processing queue...',
+      pause: 'Pause Queue',
+      resume: 'Resume Queue',
+      stopAll: 'Stop All'
+    },
+    update: {
+      updateAvailable: 'Update Available',
+      newVersion: 'Udeler Reborn {{version}} is ready!',
+      download: 'Download',
+      whatsNew: "What's New",
+      devBuild: 'Developer Build',
+      unreleasedVer: 'You are running an unreleased version.',
+      goToRelease: 'Go to Release'
+    }
   },
   courses: {
     title: 'My Courses',
@@ -103,14 +114,6 @@ export const EnglishUS = {
     playVideo: 'Play Video',
     readContent: 'Read Content',
     deleteAllWarning: 'You are about to permanently erase {{count}} files from your disk.'
-  },
-  globalDownloads: {
-    active: 'Active Downloads',
-    queued: '{{queueCount}} Queued',
-    processing: 'Processing queue...',
-    pause: 'Pause Queue',
-    resume: 'Resume Queue',
-    stopAll: 'Stop All'
   },
   settings: {
     title: 'Application Settings',
