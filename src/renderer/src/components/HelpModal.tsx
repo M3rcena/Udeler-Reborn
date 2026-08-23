@@ -1,7 +1,10 @@
+import { useI18n } from '@renderer/contexts/I18nContext'
 import React from 'react'
 import { HelpModalProps } from 'src/preload/types/ipc-types'
 
 export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
+  const { t } = useI18n()
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 dark:bg-black/70 backdrop-blur-md transition-opacity">
       <div className="relative bg-white dark:bg-[#111118] border border-gray-200 dark:border-white/10 rounded-4xl p-8 sm:p-10 max-w-xl w-full shadow-2xl animate-in fade-in zoom-in-95 duration-300">
@@ -33,10 +36,10 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
                 ></path>
               </svg>
             </div>
-            Locate your Token
+            {t.helpModal.locateToken}
           </h2>
           <p className="text-gray-500 dark:text-gray-400 mt-3 font-medium">
-            Follow these steps in your browser to securely link your account.
+            {t.helpModal.followSteps}
           </p>
         </div>
 
@@ -47,8 +50,11 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
               1
             </div>
             <p className="text-gray-700 dark:text-gray-300 leading-relaxed mt-1.5">
-              Open your web browser and log in to your{' '}
-              <strong className="text-gray-900 dark:text-white">Udemy</strong> account.
+              {t('helpModal.loginUdemy', {
+                udemyBold: (
+                  <strong className="text-gray-900 dark:text-white font-bold">Udemy</strong>
+                )
+              })}
             </p>
           </div>
 
@@ -57,11 +63,13 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
               2
             </div>
             <p className="text-gray-700 dark:text-gray-300 leading-relaxed mt-1.5">
-              Press{' '}
-              <kbd className="bg-white dark:bg-black/30 px-2 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-white/10 font-mono text-gray-900 dark:text-white shadow-sm mx-1">
-                F12
-              </kbd>{' '}
-              (or right-click and select &quot;Inspect&quot;) to open the Developer Tools.
+              {t('helpModal.pressKey', {
+                f12Key: (
+                  <kbd className="bg-white dark:bg-black/30 px-2 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-white/10 font-mono text-gray-900 dark:text-white shadow-sm mx-1">
+                    F12
+                  </kbd>
+                )
+              })}
             </p>
           </div>
 
@@ -70,9 +78,18 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
               3
             </div>
             <p className="text-gray-700 dark:text-gray-300 leading-relaxed mt-1.5">
-              Navigate to the <strong className="text-gray-900 dark:text-white">Application</strong>{' '}
-              tab (Chrome/Edge) or{' '}
-              <strong className="text-gray-900 dark:text-white">Storage</strong> tab (Firefox).
+              {t('helpModal.navigateToApplication', {
+                applicationStrong: (
+                  <strong className="text-gray-900 dark:text-white">
+                    {t.helpModal.navigateKeys.application}
+                  </strong>
+                ),
+                storageBold: (
+                  <strong className="text-gray-900 dark:text-white">
+                    {t.helpModal.navigateKeys.storage}
+                  </strong>
+                )
+              })}
             </p>
           </div>
 
@@ -81,15 +98,23 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
               4
             </div>
             <p className="text-gray-700 dark:text-gray-300 leading-relaxed mt-1.5">
-              Expand <strong className="text-gray-900 dark:text-white">Cookies</strong> and click{' '}
-              <code className="text-blue-600 dark:text-blue-400 break-all">
-                https://www.udemy.com
-              </code>
-              . Find the row named{' '}
-              <code className="bg-white dark:bg-black/30 px-2 py-1 rounded-md text-blue-600 dark:text-blue-400 font-mono text-sm border border-gray-200 dark:border-white/10 shadow-sm mx-1">
-                access_token
-              </code>
-              , copy its Value, and paste it below!
+              {t('helpModal.cookies.main', {
+                cookiesStrong: (
+                  <strong className="text-gray-900 dark:text-white">
+                    {t.helpModal.cookies.cookies}
+                  </strong>
+                ),
+                udemyURL: (
+                  <code className="text-blue-600 dark:text-blue-400 break-all">
+                    https://www.udemy.com
+                  </code>
+                ),
+                tokenCode: (
+                  <code className="bg-white dark:bg-black/30 px-2 py-1 rounded-md text-blue-600 dark:text-blue-400 font-mono text-sm border border-gray-200 dark:border-white/10 shadow-sm mx-1">
+                    access_token
+                  </code>
+                )
+              })}
             </p>
           </div>
         </div>
@@ -99,7 +124,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
           onClick={onClose}
           className="mt-8 w-full py-4 bg-gray-900 dark:bg-white/10 hover:bg-gray-800 dark:hover:bg-white/20 text-white font-bold rounded-2xl transition-all duration-300 cursor-pointer shadow-lg hover:shadow-xl"
         >
-          I&apos;ve got my token
+          {t.helpModal.gotToken}
         </button>
       </div>
     </div>

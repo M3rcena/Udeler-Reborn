@@ -1,3 +1,4 @@
+import { useI18n } from '@renderer/contexts/I18nContext'
 import { SidebarProps } from 'src/preload/types/ipc-types'
 import brandLogo from '../assets/brand.png?url'
 
@@ -8,6 +9,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   toggleTheme,
   handleLogout
 }) => {
+  const { t } = useI18n()
+
   return (
     <aside className="relative w-64 flex flex-col bg-white/40 dark:bg-white/5 backdrop-blur-xl border-r border-gray-200 dark:border-white/10 z-10 transition-all duration-300">
       {/* Logo Area */}
@@ -38,7 +41,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
             ></path>
           </svg>
-          My Courses
+          {t.sidebar.courses}
         </button>
 
         {/* Downloads Tab */}
@@ -58,7 +61,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
             ></path>
           </svg>
-          Downloads
+          {t.sidebar.downloads}
         </button>
 
         {/* Settings Tab */}
@@ -84,7 +87,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
             ></path>
           </svg>
-          Settings
+          {t.sidebar.settings}
         </button>
 
         {/* About Tab */}
@@ -104,7 +107,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
             ></path>
           </svg>
-          About
+          {t.sidebar.about}
         </button>
       </nav>
 
@@ -114,7 +117,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           onClick={toggleTheme}
           className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gray-200 dark:bg-white/5 text-gray-800 dark:text-white transition-all hover:bg-gray-300 dark:hover:bg-white/10 cursor-pointer font-medium"
         >
-          {isDarkMode ? '☀️ Light Mode' : '🌙 Dark Mode'}
+          {isDarkMode ? t.sidebar.lightMode : t.sidebar.darkMode}
         </button>
         <button
           onClick={handleLogout}
@@ -128,7 +131,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
             ></path>
           </svg>
-          Logout
+          {t.sidebar.logout}
         </button>
       </div>
     </aside>

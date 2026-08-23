@@ -1,8 +1,11 @@
+import { useI18n } from '@renderer/contexts/I18nContext'
 import { appVersion } from '@renderer/version'
 import { useEffect, useState } from 'react'
 import { SimpleMarkdown } from './SimpleMarkdown'
 
 export const UpdateToast: React.FC = () => {
+  const { t } = useI18n()
+
   const [isVisible, setIsVisible] = useState<boolean>(false)
   const [toastType, setToastType] = useState<'update' | 'unreleased'>('update')
   const [latestVersion, setLatestVersion] = useState<string>('')
@@ -61,14 +64,16 @@ export const UpdateToast: React.FC = () => {
               </div>
               <div className="flex-1 pt-0.5">
                 <h4 className="text-gray-900 dark:text-white font-bold text-sm">
-                  Update Available
+                  {t.update.updateAvailable}
                 </h4>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 leading-relaxed">
-                  Udeler Reborn{' '}
-                  <span className="font-semibold text-blue-600 dark:text-blue-400">
-                    {latestVersion}
-                  </span>{' '}
-                  is ready!
+                  {t('update.newVersion', {
+                    version: (
+                      <span className="font-semibold text-blue-600 dark:text-blue-400">
+                        {latestVersion}
+                      </span>
+                    )
+                  })}
                 </p>
               </div>
               <button
@@ -91,14 +96,14 @@ export const UpdateToast: React.FC = () => {
                 onClick={() => window.open(releaseUrl, '_blank')}
                 className="flex-1 py-2 px-3 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl transition-all shadow-md cursor-pointer text-center"
               >
-                Download
+                {t.update.download}
               </button>
               {releaseNotes && (
                 <button
                   onClick={() => setShowNotesModal(true)}
                   className="py-2 px-3 bg-gray-100 hover:bg-gray-200 dark:bg-white/10 dark:hover:bg-white/20 text-gray-800 dark:text-white font-bold text-xs rounded-xl transition-all cursor-pointer"
                 >
-                  What&apos;s New
+                  {t.update.whatsNew}
                 </button>
               )}
             </div>
@@ -116,9 +121,11 @@ export const UpdateToast: React.FC = () => {
               </svg>
             </div>
             <div className="flex-1 pt-0.5">
-              <h4 className="text-gray-900 dark:text-white font-bold text-sm">Developer Build</h4>
+              <h4 className="text-gray-900 dark:text-white font-bold text-sm">
+                {t.update.devBuild}
+              </h4>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">
-                You are running an unreleased version.
+                {t.update.unreleasedVer}
               </p>
             </div>
             <button
@@ -140,43 +147,43 @@ export const UpdateToast: React.FC = () => {
 
       {showNotesModal && (
         <div
-          className="fixed inset-0 z-110 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200"
+          className="fixed inset-0 z-110 flex items-center justify-center p-4 sm:p-6 bg-black/70 backdrop-blur-md animate-in fade-in duration-200"
           onClick={(e) => {
             if (e.target === e.currentTarget) setShowNotesModal(false)
           }}
         >
-          <div className="w-full max-w-lg p-6 bg-white dark:bg-[#111118] border border-gray-200 dark:border-white/10 rounded-3xl shadow-2xl flex flex-col max-h-[80vh]">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                What&apos;s New in {latestVersion}
-              </h3>
-              <button
-                onClick={() => setShowNotesModal(false)}
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-white cursor-pointer"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-4 bg-gray-50 dark:bg-black/30 border border-gray-100 dark:border-white/5 rounded-2xl">
-              <SimpleMarkdown content={releaseNotes} />
-            </div>
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                onClick={() => {
-                  window.open(releaseUrl, '_blank')
-                  setShowNotesModal(false)
-                }}
-                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl transition-all cursor-pointer"
-              >
-                Go to Release
-              </button>
+          <div className="relative w-full max-w-2xl bg-white/95 dark:bg-[#0f0f18]/95 rounded-4xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden animate-in zoom-in-95 duration-200">
+            <button
+              onClick={() => setShowNotesModal(false)}
+              className="absolute top-5 right-5 z-20 p-2 text-gray-400 hover:text-gray-700 dark:hover:text-white rounded-full bg-gray-100/60 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 backdrop-blur-md transition-all cursor-pointer shadow-sm"
+              title="Close"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-8 sm:p-10 flex flex-col justify-between gap-8">
+              <div>
+                <SimpleMarkdown content={releaseNotes} />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  onClick={() => {
+                    window.open(releaseUrl, '_blank')
+                    setShowNotesModal(false)
+                  }}
+                  className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-lg hover:shadow-blue-500/30 transition-all cursor-pointer"
+                >
+                  {t.update.goToRelease}
+                </button>
+              </div>
             </div>
           </div>
         </div>

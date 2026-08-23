@@ -1,4 +1,5 @@
 import { LibraryHealthPanel } from '@renderer/components/LibraryHealthPanel'
+import { useI18n } from '@renderer/contexts/I18nContext'
 import { useEffect, useState } from 'react'
 
 export const SettingsTab: React.FC = () => {
@@ -16,6 +17,7 @@ export const SettingsTab: React.FC = () => {
     closeToTray: false,
     vaultMode: false
   })
+  const { currentLocale, setLocale, availableLocales, t } = useI18n()
   const [isSavingSettings, setIsSavingSettings] = useState<boolean>(false)
   const [isQualityMenuOpen, setIsQualityMenuOpen] = useState<boolean>(false)
 
@@ -29,6 +31,10 @@ export const SettingsTab: React.FC = () => {
   const [reclaimedBytes, setReclaimedBytes] = useState<number>(0)
   const [isCleaning, setIsCleaning] = useState<boolean>(false)
   const [gcResult, setGcResult] = useState<{ purgedCount: number; freedBytes: number } | null>(null)
+
+  const [isLangMenuOpen, setIsLangMenuOpen] = useState<boolean>(false)
+  const activeLocaleMeta =
+    availableLocales.find((l) => l.code === currentLocale) || availableLocales[0]
 
   const qualityOptions = [
     { id: 'Auto', label: 'Auto (Best Available)' },
@@ -179,6 +185,137 @@ export const SettingsTab: React.FC = () => {
             >
               Browse...
             </button>
+          </div>
+        </div>
+
+        {/* Language Selection Card */}
+        <div className="p-8 bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-4xl shadow-xl relative z-30">
+          <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"
+                />
+              </svg>
+            </div>
+            {t.settings.language}
+          </h3>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+            <div className="relative">
+              <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 block">
+                Select Interface Language
+              </label>
+              <button
+                type="button"
+                onClick={() => setIsLangMenuOpen(!isLangMenuOpen)}
+                onBlur={(e) => {
+                  if (!e.currentTarget.contains(e.relatedTarget)) setIsLangMenuOpen(false)
+                }}
+                className="w-full flex items-center justify-between bg-white/50 dark:bg-black/40 border border-gray-200 dark:border-white/10 rounded-2xl px-5 py-4 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all shadow-inner cursor-pointer"
+              >
+                <span className="font-medium flex items-center gap-3">
+                  <img
+                    src={`https://flagcdn.com/24x18/${activeLocaleMeta.countryCode}.png`}
+                    alt={activeLocaleMeta.name}
+                    className="w-6 h-4.5 rounded-xs object-cover shadow-xs"
+                    onError={(e) => {
+                      ;(e.target as HTMLElement).style.display = 'none'
+                    }}
+                  />
+                  <span>{activeLocaleMeta?.name}</span>
+                </span>
+                <svg
+                  className={`w-5 h-5 text-gray-500 transition-transform duration-300 ${isLangMenuOpen ? 'rotate-180' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M19 9l-7 7-7-7"
+                  />
+                </svg>
+
+                {isLangMenuOpen && (
+                  <div className="absolute top-[105%] left-0 w-full mt-2 bg-white/95 dark:bg-[#12121a]/95 backdrop-blur-2xl border border-gray-200 dark:border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="p-2 flex flex-col gap-1">
+                      {availableLocales.map((opt) => (
+                        <div
+                          key={opt.code}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setLocale(opt.code)
+                            setIsLangMenuOpen(false)
+                          }}
+                          className={`w-full text-left px-4 py-3 rounded-xl transition-all cursor-pointer flex items-center justify-between group ${
+                            currentLocale === opt.code
+                              ? 'bg-blue-600/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 font-bold'
+                              : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5'
+                          }`}
+                        >
+                          <span className="flex items-center gap-3">
+                            <img
+                              src={`https://flagcdn.com/24x18/${opt.countryCode}.png`}
+                              alt={opt.name}
+                              className="w-6 h-4.5 rounded-xs object-cover shadow-xs"
+                              onError={(e) => {
+                                ;(e.target as HTMLElement).style.display = 'none'
+                              }}
+                            />
+                            <span>{opt.name}</span>
+                          </span>
+                          {currentLocale === opt.code && (
+                            <svg
+                              className="w-5 h-5"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="3"
+                                d="M5 13l4 4L19 7"
+                              />
+                            </svg>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </button>
+            </div>
+
+            <div className="p-5 rounded-2xl bg-gray-50/70 dark:bg-white/5 border border-gray-100 dark:border-white/5 flex items-start gap-4">
+              <div className="p-2.5 rounded-xl bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 shrink-0">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+              </div>
+              <div className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                <p className="font-bold text-gray-800 dark:text-gray-200 mb-1 text-sm">
+                  Community-Driven Localization
+                </p>
+                New translations are detected automatically from JSON dictionaries. To contribute a
+                language, add a new{' '}
+                <code className="font-mono text-[11px] text-blue-500 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-1 py-0.5 rounded">
+                  Locale.json
+                </code>{' '}
+                file to the repository.
+              </div>
+            </div>
           </div>
         </div>
 

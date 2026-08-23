@@ -1,0 +1,69 @@
+{
+  "_meta": {
+    "name": "Ελληνικά (Greek)",
+    "countryCode": "gr",
+    "dir": "ltr"
+  },
+  "sidebar": {
+    "courses": "Μαθήματα",
+    "downloads": "Λήψεις",
+    "settings": "Ρυθμίσεις",
+    "about": "Σχετικά",
+    "lightMode": "Φωτεινό Θέμα",
+    "darkMode": "Σκοτεινό Θέμα",
+    "logout": "Αποσύνδεση"
+  },
+  "courses": {
+    "title": "Τα Μαθήματά μου",
+    "selected": "επιλεγμένα",
+    "queueSelected": "Λήψη Επιλεγμένων",
+    "selectAll": "Επιλογή Όλων",
+    "deselectAll": "Αποεπιλογή Όλων",
+    "searchPlaceholder": "Αναζήτηση μαθημάτων...",
+    "refresh": "Ανανέωση Μαθημάτων",
+    "driveOffline": "Δίσκος Εκτός Σύνδεσης",
+    "viewContent": "Προβολή Περιεχομένου",
+    "viewOffline": "Προβολή (Εκτός Σύνδεσης)",
+    "noCourses": "Δεν βρέθηκαν μαθήματα",
+    "adjustSearch": "Δοκιμάστε διαφορετική αναζήτηση."
+  },
+  "downloads": {
+    "title": "Ουρά & Βιβλιοθήκη",
+    "subtitle": "Παρακολουθήστε τις λήψεις και δείτε τα αποθηκευμένα βίντεο.",
+    "masterControls": "Κεντρικός Έλεγχος",
+    "masterSubtitle": "Διαχείριση της μηχανής λήψεων.",
+    "resume": "Συνέχιση",
+    "pause": "Παύση",
+    "stopAll": "Διακοπή Όλων",
+    "waiting": "Σε Αναμονή",
+    "inProgress": "Σε Εξέλιξη",
+    "completed": "Ολοκληρωμένα",
+    "failed": "Αποτυχίες",
+    "drmLocked": "Κλειδωμένα DRM",
+    "pendingQueue": "Ουρά Επερχόμενων Λήψεων",
+    "reorderSubtitle": "Αλλάξτε προτεραιότητα ή αφαιρέστε διαλέξεις.",
+    "library": "Βιβλιοθήκη",
+    "removeAll": "Διαγραφή Όλων",
+    "refreshDisk": "Ανανέωση Δίσκου",
+    "scanning": "Σάρωση τοπικού δίσκου...",
+    "noFiles": "Δεν βρέθηκαν αρχεία στον καθορισμένο φάκελο.",
+    "playVideo": "Αναπαραγωγή Βίντεο",
+    "readContent": "Ανάγνωση Περιεχομένου"
+  },
+  "settings": {
+    "title": "Ρυθμίσεις Εφαρμογής",
+    "downloadLocation": "Τοποθεσία Λήψεων",
+    "browse": "Αναζήτηση...",
+    "downloadPreferences": "Προτιμήσεις Λήψης",
+    "videoQuality": "Ποιότητα Βίντεο",
+    "skipAttachments": "Παράλειψη Συνημμένων",
+    "skipSubtitles": "Παράλειψη Υποτίτλων",
+    "autoRetry": "Αυτόματη Επανάληψη σε Σφάλμα",
+    "closeToTray": "Ελαχιστοποίηση στο System Tray",
+    "language": "Γλώσσα Εφαρμογής",
+    "vaultMode": "Λειτουργία Vault (Κρυπτογραφημένη Αποθήκευση)",
+    "vaultModeDesc": "Κρυπτογραφεί τα βίντεο και τα tokens μέσω του OS Keychain.",
+    "saveAll": "Αποθήκευση Ρυθμίσεων",
+    "savedSuccess": "Οι ρυθμίσεις αποθηκεύτηκαν!"
+  }
+}
