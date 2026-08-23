@@ -37,13 +37,13 @@ export const SettingsTab: React.FC = () => {
     availableLocales.find((l) => l.code === currentLocale) || availableLocales[0]
 
   const qualityOptions = [
-    { id: 'Auto', label: 'Auto (Best Available)' },
-    { id: 'Highest', label: 'Highest Resolution' },
+    { id: 'Auto', label: t.views.settings.quality.auto },
+    { id: 'Highest', label: t.views.settings.quality.highest },
     { id: '1080p', label: '1080p' },
     { id: '720p', label: '720p' },
     { id: '480p', label: '480p' },
     { id: '360p', label: '360p' },
-    { id: 'Lowest', label: 'Lowest (Save Space)' }
+    { id: 'Lowest', label: t.views.settings.quality.lowest }
   ]
 
   // --- INITIALIZATION ---
@@ -64,11 +64,11 @@ export const SettingsTab: React.FC = () => {
     try {
       const success = await window.api.invoke('export-debug-logs')
       if (success) {
-        alert('Debug logs saved successfully! Please send this file to the developer.')
+        alert(t.views.settings.debug.saved)
       }
     } catch (error) {
       console.error('Failed to export logs:', error)
-      alert('Failed to save logs.')
+      alert(t.views.settings.debug.failed)
     }
   }
 
@@ -151,7 +151,7 @@ export const SettingsTab: React.FC = () => {
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-4xl mx-auto pb-10">
       <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">
-        Application Settings
+        {t.views.settings.title}
       </h2>
 
       <div className="flex flex-col gap-6">
@@ -168,7 +168,7 @@ export const SettingsTab: React.FC = () => {
                 ></path>
               </svg>
             </div>
-            Download Location
+            {t.views.settings.location.downloadLocation}
           </h3>
 
           <div className="flex gap-4">
@@ -183,7 +183,7 @@ export const SettingsTab: React.FC = () => {
               onClick={handleSelectFolder}
               className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl transition-all shadow-lg hover:shadow-blue-500/30 cursor-pointer whitespace-nowrap"
             >
-              Browse...
+              {t.views.settings.location.browse}
             </button>
           </div>
         </div>
@@ -201,13 +201,13 @@ export const SettingsTab: React.FC = () => {
                 />
               </svg>
             </div>
-            {t.settings.language}
+            {t.views.settings.language.title}
           </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
             <div className="relative">
               <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 block">
-                Select Interface Language
+                {t.views.settings.language.select}
               </label>
               <button
                 type="button"
@@ -306,14 +306,15 @@ export const SettingsTab: React.FC = () => {
               </div>
               <div className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
                 <p className="font-bold text-gray-800 dark:text-gray-200 mb-1 text-sm">
-                  Community-Driven Localization
+                  {t.views.settings.language.communityDriven}
                 </p>
-                New translations are detected automatically from JSON dictionaries. To contribute a
-                language, add a new{' '}
-                <code className="font-mono text-[11px] text-blue-500 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-1 py-0.5 rounded">
-                  Locale.json
-                </code>{' '}
-                file to the repository.
+                {t('views.settings.language.content', {
+                  codeLocale: (
+                    <code className="font-mono text-[11px] text-blue-500 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-1 py-0.5 rounded">
+                      Locale.json
+                    </code>
+                  )
+                })}
               </div>
             </div>
           </div>
@@ -338,13 +339,13 @@ export const SettingsTab: React.FC = () => {
                 ></path>
               </svg>
             </div>
-            Download Preferences
+            {t.views.settings.preferences.downloadPref}
           </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="flex flex-col gap-2 relative">
               <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
-                Video Quality
+                {t.views.settings.preferences.videoQual}
               </label>
 
               {/* Custom Select Button */}
@@ -357,7 +358,7 @@ export const SettingsTab: React.FC = () => {
               >
                 <span className="font-medium">
                   {qualityOptions.find((opt) => opt.id === appSettings.videoQuality)?.label ||
-                    'Auto (Best Available)'}
+                    t.views.settings.quality.auto}
                 </span>
                 <svg
                   className={`w-5 h-5 text-gray-500 transition-transform duration-300 ${isQualityMenuOpen ? 'rotate-180' : ''}`}
@@ -418,10 +419,10 @@ export const SettingsTab: React.FC = () => {
 
             <div className="flex flex-col gap-5 pt-2">
               {[
-                { id: 'skipAttachments', label: 'Skip Course Attachments' },
-                { id: 'skipSubtitles', label: 'Skip Subtitles / Closed Captions' },
-                { id: 'autoRetry', label: 'Auto-Retry on Network Error' },
-                { id: 'closeToTray', label: 'Keep running in background when closed' }
+                { id: 'skipAttachments', label: t.views.settings.preferences.skipAttachments },
+                { id: 'skipSubtitles', label: t.views.settings.preferences.skipSub },
+                { id: 'autoRetry', label: t.views.settings.preferences.autoRetry },
+                { id: 'closeToTray', label: t.views.settings.preferences.runBackground }
               ].map((setting) => (
                 <label
                   key={setting.id}
@@ -468,14 +469,14 @@ export const SettingsTab: React.FC = () => {
                 ></path>
               </svg>
             </div>
-            Network & Scheduling
+            {t.views.settings.network.title}
           </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {/* Max Bandwidth (Custom Number Input) */}
             <div className="flex flex-col gap-2">
               <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
-                Max Download Speed (KB/s)
+                {t.views.settings.network.maxDownload}
               </label>
               <div className="flex items-center justify-between bg-white/50 dark:bg-black/40 border border-gray-200 dark:border-white/10 rounded-2xl p-1.5 shadow-inner focus-within:ring-2 focus-within:ring-blue-500/20 transition-all">
                 <button
@@ -511,7 +512,7 @@ export const SettingsTab: React.FC = () => {
                     className="w-full bg-transparent border-none focus:outline-none text-center text-gray-900 dark:text-white font-mono text-lg font-bold [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none cursor-text"
                   />
                   <span className="text-gray-400 text-[10px] font-bold uppercase tracking-wider">
-                    {appSettings.maxKbps === 0 ? 'Unlimited' : 'Kilobytes / Sec'}
+                    {appSettings.maxKbps === 0 ? t.words.unlimited : t.views.settings.network.kbps}
                   </span>
                 </div>
 
@@ -537,7 +538,7 @@ export const SettingsTab: React.FC = () => {
             <div className="flex flex-col gap-4 pt-2">
               <label className="flex items-center justify-between cursor-pointer group">
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white transition-colors cursor-pointer">
-                  Enable Scheduled Downloads
+                  {t.views.settings.schedule.enable}
                 </span>
                 <div className="relative cursor-pointer">
                   <input
@@ -561,7 +562,9 @@ export const SettingsTab: React.FC = () => {
                 <div className="flex items-center gap-4 animate-in fade-in slide-in-from-top-2">
                   {/* Custom Start Time Picker */}
                   <div className="flex flex-col flex-1 gap-1 relative">
-                    <label className="text-xs text-gray-500 font-medium">Start Time</label>
+                    <label className="text-xs text-gray-500 font-medium">
+                      {t.views.settings.schedule.startTime}
+                    </label>
                     <button
                       type="button"
                       onClick={() => setOpenTimeMenu(openTimeMenu === 'start' ? null : 'start')}
@@ -642,7 +645,9 @@ export const SettingsTab: React.FC = () => {
 
                   {/* Custom End Time Picker */}
                   <div className="flex flex-col flex-1 gap-1 relative">
-                    <label className="text-xs text-gray-500 font-medium">End Time</label>
+                    <label className="text-xs text-gray-500 font-medium">
+                      {t.views.settings.schedule.endTime}
+                    </label>
                     <button
                       type="button"
                       onClick={() => setOpenTimeMenu(openTimeMenu === 'end' ? null : 'end')}
@@ -729,10 +734,10 @@ export const SettingsTab: React.FC = () => {
         <label className="flex items-center justify-between cursor-pointer group mt-4 pt-4 border-t border-gray-200 dark:border-white/10">
           <div>
             <span className="text-sm font-bold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-              Vault Mode (Encrypted Storage)
+              {t.views.settings.vault.title}
             </span>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 max-w-62.5">
-              Encrypts downloaded videos and auth tokens on disk using your OS Keychain.
+              {t.views.settings.vault.subtitle}
             </p>
           </div>
           <div className="relative">
@@ -768,7 +773,9 @@ export const SettingsTab: React.FC = () => {
                 }
               `}
         >
-          {isSavingSettings ? 'Settings Saved Successfully!' : 'Save All Settings'}
+          {isSavingSettings
+            ? t.views.settings.buttons.savedSuccess
+            : t.views.settings.buttons.saveAll}
         </button>
 
         {/* Storage Stats Card */}
@@ -785,7 +792,7 @@ export const SettingsTab: React.FC = () => {
                   ></path>
                 </svg>
               </div>
-              Storage Optimization
+              {t.views.settings.storage.title}
             </h3>
             <button
               onClick={handleRunGC}
@@ -807,10 +814,10 @@ export const SettingsTab: React.FC = () => {
                       d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
                     ></path>
                   </svg>
-                  Sweeping...
+                  {t.views.settings.storage.sweeping}
                 </>
               ) : (
-                'Clean Orphaned Blobs'
+                t.views.settings.buttons.cleanOrphaned
               )}
             </button>
           </div>
@@ -818,10 +825,10 @@ export const SettingsTab: React.FC = () => {
           <div className="flex items-center justify-between p-6 bg-emerald-50/50 dark:bg-emerald-500/5 border border-emerald-200 dark:border-emerald-500/20 rounded-2xl shadow-inner transition-all hover:bg-emerald-50 dark:hover:bg-emerald-500/10 mb-4">
             <div>
               <p className="text-sm font-bold text-emerald-800 dark:text-emerald-400">
-                Disk Space Reclaimed
+                {t.views.settings.storage.reclaimedSpace}
               </p>
               <p className="text-xs text-emerald-600 dark:text-emerald-500/70 mt-1 max-w-xs leading-relaxed">
-                Automatically saved via cross-course asset and video deduplication.
+                {t.views.settings.storage.automaticallySaved}
               </p>
             </div>
             <p className="text-4xl font-black text-transparent bg-clip-text bg-linear-to-r from-emerald-600 to-teal-500 dark:from-emerald-400 dark:to-teal-300 drop-shadow-sm">
@@ -845,8 +852,11 @@ export const SettingsTab: React.FC = () => {
                 ></path>
               </svg>
               {gcResult.purgedCount > 0
-                ? `Cleanup complete: Permanently removed ${gcResult.purgedCount} orphaned files, freeing up ${formatBytes(gcResult.freedBytes)} of disk space.`
-                : 'Cleanup complete: No orphaned files found. Your storage is perfectly optimized!'}
+                ? t('views.settings.storage.completeRemoved', {
+                    purgedCount: gcResult.purgedCount,
+                    freedBytes: formatBytes(gcResult.freedBytes)
+                  })
+                : t.views.settings.storage.completeNoFiles}
             </div>
           )}
         </div>
@@ -869,11 +879,10 @@ export const SettingsTab: React.FC = () => {
             </div>
             <div className="flex-1">
               <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                Troubleshooting & Diagnostics
+                {t.views.settings.debug.title}
               </h3>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 mb-4">
-                If you are experiencing issues with missing courses, failed downloads, or unexpected
-                crashes, generate a diagnostic log file to help identify the problem.
+                {t.views.settings.debug.subtitle}
               </p>
 
               <button
@@ -888,7 +897,7 @@ export const SettingsTab: React.FC = () => {
                     d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
                   ></path>
                 </svg>
-                Export Debug Logs
+                {t.views.settings.buttons.exportDebug}
               </button>
             </div>
           </div>
@@ -911,11 +920,10 @@ export const SettingsTab: React.FC = () => {
             </div>
 
             <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
-              Move Downloaded Files?
+              {t.views.settings.moveFolder.title}
             </h3>
             <p className="text-gray-500 dark:text-gray-400 text-sm leading-relaxed mb-6">
-              You changed your download location. Would you like to migrate all previously
-              downloaded courses to the new folder?
+              {t.views.settings.moveFolder.subtitle}
             </p>
 
             <div className="flex flex-col gap-3 w-full">
@@ -939,10 +947,10 @@ export const SettingsTab: React.FC = () => {
                         d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
                       ></path>
                     </svg>{' '}
-                    Moving Files...
+                    {t.views.settings.moveFolder.moving}
                   </>
                 ) : (
-                  'Yes, Move Files'
+                  t.views.settings.moveFolder.yesMove
                 )}
               </button>
 
@@ -952,7 +960,7 @@ export const SettingsTab: React.FC = () => {
                     onClick={() => handleConfirmMove(false)}
                     className="w-full py-3 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-800 dark:text-white font-semibold rounded-xl transition-all cursor-pointer"
                   >
-                    No, Leave Them There
+                    {t.views.settings.moveFolder.noMove}
                   </button>
                   <button
                     onClick={() => {
@@ -961,7 +969,7 @@ export const SettingsTab: React.FC = () => {
                     }}
                     className="w-full py-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 font-medium transition-colors cursor-pointer text-sm"
                   >
-                    Cancel Change
+                    {t.views.settings.moveFolder.cancel}
                   </button>
                 </>
               )}
@@ -985,7 +993,9 @@ export const SettingsTab: React.FC = () => {
               </svg>
             </div>
             <div className="flex-1">
-              <h4 className="text-gray-900 dark:text-white font-bold text-sm">Migration Failed</h4>
+              <h4 className="text-gray-900 dark:text-white font-bold text-sm">
+                {t.views.settings.error.migrationFailed}
+              </h4>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 leading-relaxed line-clamp-2">
                 {moveError}
               </p>

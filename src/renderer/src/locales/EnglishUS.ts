@@ -4,6 +4,29 @@ export const EnglishUS = {
     countryCode: 'us',
     dir: 'ltr'
   },
+  words: {
+    localDrive: 'Local Drive',
+    resume: 'Resume',
+    pause: 'Pause',
+    stopAll: 'Stop All',
+    waiting: 'Waiting',
+    inProgress: 'In Progress',
+    completed: 'Completed',
+    failed: 'Failed',
+    drmLocked: 'DRM Locked',
+    drmProtected: 'DRM Protected',
+    library: 'Library',
+    removeAll: 'Remove All',
+    goBack: 'Go Back',
+    offline: 'Offline',
+    files: 'files',
+    cancel: 'Cancel',
+    new: 'New',
+    quiz: 'Quiz',
+    understood: 'Understood',
+    unlimited: 'Unlimited',
+    loading: 'Loading...'
+  },
   components: {
     sidebar: {
       courses: 'My Courses',
@@ -75,61 +98,220 @@ export const EnglishUS = {
       goToRelease: 'Go to Release'
     }
   },
-  courses: {
-    title: 'My Courses',
-    selected: 'selected',
-    selectedCount: '{{count}} selected',
-    queueSelected: 'Queue Selected',
-    selectAll: 'Select All',
-    deselectAll: 'Deselect All',
-    searchPlaceholder: 'Search courses...',
-    refresh: 'Refresh Courses',
-    driveOffline: 'Drive Offline',
-    viewContent: 'View Content',
-    viewOffline: 'View (Offline)',
-    noCourses: 'No courses found',
-    adjustSearch: 'Try adjusting your search query.',
-    savedToVolume: 'Saved to {{volumeName}}'
-  },
-  downloads: {
-    title: 'Queue & Library',
-    subtitle: 'Monitor active downloads and play saved media.',
-    masterControls: 'Master Controls',
-    masterSubtitle: 'Manage the background worker engine.',
-    resume: 'Resume',
-    pause: 'Pause',
-    stopAll: 'Stop All',
-    waiting: 'Waiting',
-    inProgress: 'In Progress',
-    completed: 'Completed',
-    failed: 'Failed',
-    drmLocked: 'DRM Locked',
-    pendingQueue: 'Pending Tasks Queue',
-    reorderSubtitle: 'Reorder download priority or cancel upcoming lectures.',
-    library: 'Library',
-    removeAll: 'Remove All',
-    refreshDisk: 'Refresh Disk',
-    scanning: 'Scanning local disk...',
-    noFiles: 'No downloaded files found in your settings path.',
-    playVideo: 'Play Video',
-    readContent: 'Read Content',
-    deleteAllWarning: 'You are about to permanently erase {{count}} files from your disk.'
-  },
-  settings: {
-    title: 'Application Settings',
-    downloadLocation: 'Download Location',
-    browse: 'Browse...',
-    downloadPreferences: 'Download Preferences',
-    videoQuality: 'Video Quality',
-    skipAttachments: 'Skip Course Attachments',
-    skipSubtitles: 'Skip Subtitles / Closed Captions',
-    autoRetry: 'Auto-Retry on Network Error',
-    closeToTray: 'Keep running in background when closed',
-    language: 'Application Language',
-    vaultMode: 'Vault Mode (Encrypted Storage)',
-    vaultModeDesc: 'Encrypts downloaded videos and auth tokens on disk using your OS Keychain.',
-    saveAll: 'Save All Settings',
-    savedSuccess: 'Settings Saved Successfully!'
+  views: {
+    about: {
+      app: {
+        name: 'Udeler {{rebornName}}',
+        description:
+          'The modern, blazing-fast, and secure way to download and archive your educational content for offline viewing.'
+      },
+      updateTab: {
+        version: 'Version {{appVersion}}',
+        checkingUpdates: 'Checking for updates...',
+        updateAvailable: 'Update {{version}} is available!',
+        downloadInstall: 'Download and Install',
+        unreleasedBuild: 'Unreleased Build',
+        unreleasedDesc:
+          'You are running a higher version than the official release. This build may contain bugs.',
+        upToDate: "You're up to date!",
+        latestVersion: 'Udeler Reborn {{appVersion}} is the latest version available.',
+        checkUpdates: 'Check for Updates'
+      },
+      credits: {
+        title: 'Resources & Credits',
+        githubRepo: 'GitHub Repository',
+        joinDiscord: 'Join the Discord',
+        remadeBy: 'Remade with ❤️ by {{userName}}'
+      },
+      zeroTrustBadge:
+        'Zero-Trust Audit: {{passedChecks}} IPC checks passed ({{anomalies}} anomalies)'
+    },
+    downloads: {
+      title: 'Queue & Library',
+      subtitle: 'Monitor active downloads and play saved media.',
+      queueStatus: 'Queue: {{status}}',
+      controls: {
+        title: 'Master Controls',
+        subtitle: 'Manage the background worker engine.'
+      },
+      queueManager: {
+        title: 'Pending Tasks Queue',
+        subtitle: 'Reorder download priority or cancel upcoming lectures.'
+      },
+      refreshDisk: 'Refresh Disk',
+      playVideo: 'Play Video',
+      readContent: 'Read Content',
+      library: {
+        scanning: 'Scanning local disk...',
+        noFiles: 'No downloaded files found in your settings path.',
+        noFilesDrive: 'No downloaded courses found on this drive.',
+        countFiles: '{{count}} file(s)'
+      },
+      deleteMenu: {
+        deleteAllFiles: 'Delete All Library Files?',
+        description:
+          'You are about to permanently erase {{files}} from your local disk. This will clear your entire downloaded library.',
+        deleting: 'Deleting...',
+        deleteAll: 'Yes, Delete All'
+      }
+    },
+    login: {
+      errors: {
+        tooEarly: 'Login window was closed before authentication completed.',
+        tryManual: 'An unexpected error occurred. Please try the manual token method.'
+      },
+      appDesc: 'Modern Course Downloader',
+      businessAccount: 'Udemy Business Account',
+      orgSubdomain: 'Organization Subdomain',
+      waitingLogin: 'Waiting for login...',
+      authenticated: 'Authenticated!',
+      signInBusiness: 'Sign in via Udemy Business',
+      signInNormal: 'Sign in securely via Udemy',
+      manualToken: 'Or manual token',
+      udemyAccessToken: 'Udemy Access Token',
+      howTo: 'How to find your token',
+      connecting: 'Connecting to Udemy...',
+      manualLogin: 'Manual Login',
+      endToEnd: 'End-to-End Encrypted Storage'
+    },
+    courses: {
+      orphanedLectures: {
+        archivedVideo: 'Archived Video',
+        removedBy: '📦 Archived (Removed by Instructor)'
+      },
+      title: 'My Courses',
+      toolbar: {
+        enqueuing: 'Enqueuing...',
+        selectedQueue: 'Queue Selected',
+        selectAll: 'Select All',
+        deselectAll: 'Deselect All',
+        search: 'Search courses...',
+        refreshCourses: 'Refresh Courses'
+      },
+      offlineDrive: 'Drive Offline',
+      archivedOn: 'Archived on:',
+      view: {
+        offline: 'View (Offline)',
+        content: 'View Content'
+      },
+      noCourses: 'No courses found',
+      fixSearch: 'Try adjusting your search query.',
+      curriculum: {
+        courseCurriculum: 'Course Curriculum {{currentMapping}}',
+        savedTo: '- Saved to {{currentMappingName}}',
+        pauseDownloads: 'Pause Downloads',
+        resumeDownloads: 'Resume Downloads',
+        stopQueue: 'Stop Queue',
+        removeFiles: 'Remove Files',
+        externalDrive: 'External Drive',
+        pin: 'Pin to Drive',
+        unpin: 'Unpin: {{currentMappingName}}',
+        decrypt: 'Decrypting Course Curriculum...',
+        deleteFile: 'Delete File'
+      },
+      delete: {
+        title: 'Delete Course Content?',
+        subtitle:
+          'You are about to permanently erase all downloaded files for {{title}} from your computer disk.',
+        noDownloads: 'No Downloads Found',
+        noLocalDownloads: 'There are currently no downloaded local files detected on disk for'
+      },
+      pin: {
+        title: 'Pin Course?',
+        subtitle:
+          'You are about to pin this course to {{volumeName}}. Move existing downloaded files?',
+        moving: 'Moving...',
+        yesMove: 'Yes, Move Files & Pin',
+        noMove: 'No, Pin Only (New Downloads)'
+      },
+      unpin: {
+        title: 'Unpin Course?',
+        subtitle:
+          'Would you like to automatically transfer downloaded files back to your local folder?',
+        yesMove: 'Yes, Move Files & Unpin',
+        noMove: 'No, Unpin Only (Leave Files)'
+      },
+      queue: {
+        success: 'Successfully Queued',
+        addedQueue: 'Added {{queuedCount}} new item(s) to the background queue.'
+      }
+    },
+    settings: {
+      title: 'Application Settings',
+      quality: {
+        auto: 'Auto (Best Available)',
+        highest: 'Highest Resolution',
+        lowest: 'Lowest (Save Space)'
+      },
+      debug: {
+        title: 'Troubleshooting & Diagnostics',
+        subtitle:
+          'If you are experiencing issues with missing courses, failed downloads, or unexpected crashes, generate a diagnostic log file to help identify the problem.',
+        saved: 'Debug logs saved successfully! Please send this file to the developer.',
+        failed: 'Failed to save logs.'
+      },
+      location: {
+        downloadLocation: 'Download Location',
+        browse: 'Browse...'
+      },
+      language: {
+        title: 'Application Language',
+        select: 'Select Interface Language',
+        communityDriven: 'Community-Driven Localization',
+        content:
+          'New translations are detected automatically from JSON dictionaries. To contribute a language, add a new {{codeLocale}} file to the repository.'
+      },
+      preferences: {
+        downloadPref: 'Download Preferences',
+        videoQual: 'Video Quality',
+        skipAttachments: 'Skip Course Attachments',
+        skipSub: 'Skip Subtitles / Closed Captions',
+        autoRetry: 'Auto-Retry on Network Error',
+        runBackground: 'Keep running in background when closed'
+      },
+      network: {
+        title: 'Network & Scheduling',
+        maxDownload: 'Max Download Speed (KB/s)',
+        kbps: 'Kilobytes / Sec'
+      },
+      schedule: {
+        enable: 'Enable Scheduled Downloads',
+        startTime: 'Start Time',
+        endTime: 'End Time'
+      },
+      vault: {
+        title: 'Vault Mode (Encrypted Storage)',
+        subtitle: 'Encrypts downloaded videos and auth tokens on disk using your OS Keychain.'
+      },
+      storage: {
+        title: 'Storage Optimization',
+        sweeping: 'Sweeping...',
+        reclaimedSpace: 'Disk Space Reclaimed',
+        automaticallySaved: 'Automatically saved via cross-course asset and video deduplication.',
+        completeRemoved:
+          'Cleanup complete: Permanently removed {{purgedCount}} orphaned files, freeing up {{freedBytes}} of disk space.',
+        completeNoFiles:
+          'Cleanup complete: No orphaned files found. Your storage is perfectly optimized!'
+      },
+      moveFolder: {
+        title: 'Move Downloaded Files?',
+        subtitle:
+          'You changed your download location. Would you like to migrate all previously downloaded courses to the new folder?',
+        moving: 'Moving Files...',
+        yesMove: 'Yes, Move Files',
+        noMove: 'No, Leave Them There',
+        cancel: 'Cancel Change'
+      },
+      error: {
+        migrationFailed: 'Migration Failed'
+      },
+      buttons: {
+        savedSuccess: 'Settings Saved Successfully!',
+        saveAll: 'Save All Settings',
+        cleanOrphaned: 'Clean Orphaned Blobs',
+        exportDebug: 'Export Debug Logs'
+      }
+    }
   }
 } as const
 

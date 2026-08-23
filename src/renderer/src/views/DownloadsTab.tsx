@@ -1,4 +1,5 @@
 import { useDownload } from '@renderer/contexts/DownloadContext'
+import { useI18n } from '@renderer/contexts/I18nContext'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Course,
@@ -90,6 +91,7 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({
     resumeQueue,
     cancelQueue
   } = useDownload()
+  const { t } = useI18n()
 
   const [downloadedFiles, setDownloadedFiles] = useState<DownloadedFile[]>([])
   const [watchProgressMap, setWatchProgressMap] = useState<Record<number, WatchProgress>>({})
@@ -155,7 +157,7 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({
       if (!f.course) return
       rawVols.push({
         id: String(f.volumeId || 'default'),
-        name: f.volumeName || 'Local Drive',
+        name: f.volumeName || t.words.localDrive,
         isOffline: !!f.isOffline,
         course: f.course
       })
@@ -209,7 +211,7 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({
         if (b.id === 'default') return 1
         return a.name.localeCompare(b.name)
       })
-  }, [downloadedFiles, allVolumes, volumeMappings])
+  }, [volumeMappings, allVolumes, downloadedFiles, t.words.localDrive])
 
   useEffect(() => {
     if (activeCourse && !coursesList.includes(activeCourse)) {
@@ -301,10 +303,10 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
         <div>
           <h2 className="text-3xl font-extrabold text-transparent bg-clip-text bg-linear-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400">
-            Queue & Library
+            {t.views.downloads.title}
           </h2>
           <p className="text-gray-500 dark:text-gray-400 mt-1 font-medium">
-            Monitor active downloads and play saved media.
+            {t.views.downloads.subtitle}
           </p>
         </div>
         <div
@@ -313,7 +315,9 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({
           <div
             className={`w-2 h-2 rounded-full ${queueStatus === 'running' ? 'bg-blue-500 animate-pulse' : queueStatus === 'paused' ? 'bg-yellow-500' : 'bg-gray-400'}`}
           ></div>
-          Queue: {queueStatus.charAt(0).toUpperCase() + queueStatus.slice(1)}
+          {t('views.downloads.queueStatus', {
+            status: queueStatus.charAt(0).toUpperCase() + queueStatus.slice(1)
+          })}
         </div>
       </div>
 
@@ -332,9 +336,11 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({
               </svg>
             </div>
             <div>
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white">Master Controls</h3>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                {t.views.downloads.controls.title}
+              </h3>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Manage the background worker engine.
+                {t.views.downloads.controls.subtitle}
               </p>
             </div>
           </div>
@@ -360,7 +366,7 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({
                       d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                     ></path>
                   </svg>{' '}
-                  Resume
+                  {t.words.resume}
                 </>
               ) : (
                 <>
@@ -372,7 +378,7 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({
                       d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"
                     ></path>
                   </svg>{' '}
-                  Pause
+                  {t.words.pause}
                 </>
               )}
             </button>
@@ -395,7 +401,7 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({
                   d="M9 10l6 6m0-6l-6 6"
                 ></path>
               </svg>{' '}
-              Stop All
+              {t.words.stopAll}
             </button>
           </div>
         </div>
@@ -404,24 +410,26 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-6">
           <div className="p-6 bg-white/60 dark:bg-white/5 border border-purple-200 dark:border-purple-500/20 rounded-4xl shadow-xl">
             <h3 className="font-bold text-gray-600 dark:text-gray-300 mb-2 flex items-center gap-2">
-              Waiting
+              {t.words.waiting}
             </h3>
             <p className="text-4xl font-black text-gray-900 dark:text-white">{queueCount}</p>
           </div>
           <div className="p-6 bg-white/60 dark:bg-white/5 border border-blue-200 dark:border-blue-500/20 rounded-4xl shadow-xl">
-            <h3 className="font-bold text-gray-600 dark:text-gray-300 mb-2">In Progress</h3>
+            <h3 className="font-bold text-gray-600 dark:text-gray-300 mb-2">
+              {t.words.inProgress}
+            </h3>
             <p className="text-4xl font-black text-gray-900 dark:text-white">{stats.downloading}</p>
           </div>
           <div className="p-6 bg-white/60 dark:bg-white/5 border border-green-200 dark:border-green-500/20 rounded-4xl shadow-xl">
-            <h3 className="font-bold text-gray-600 dark:text-gray-300 mb-2">Completed</h3>
+            <h3 className="font-bold text-gray-600 dark:text-gray-300 mb-2">{t.words.completed}</h3>
             <p className="text-4xl font-black text-gray-900 dark:text-white">{stats.success}</p>
           </div>
           <div className="p-6 bg-white/60 dark:bg-white/5 border border-red-200 dark:border-red-500/20 rounded-4xl shadow-xl">
-            <h3 className="font-bold text-gray-600 dark:text-gray-300 mb-2">Failed</h3>
+            <h3 className="font-bold text-gray-600 dark:text-gray-300 mb-2">{t.words.failed}</h3>
             <p className="text-4xl font-black text-gray-900 dark:text-white">{stats.error}</p>
           </div>
           <div className="p-6 bg-white/60 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-4xl shadow-xl">
-            <h3 className="font-bold text-gray-600 dark:text-gray-300 mb-2">DRM Locked</h3>
+            <h3 className="font-bold text-gray-600 dark:text-gray-300 mb-2">{t.words.drmLocked}</h3>
             <p className="text-4xl font-black text-gray-900 dark:text-white">{stats.drm}</p>
           </div>
         </div>
@@ -443,13 +451,13 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                    Pending Tasks Queue
+                    {t.views.downloads.queueManager.title}
                     <span className="px-2.5 py-0.5 text-xs font-bold rounded-full bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400">
                       {queuedTasks.length}
                     </span>
                   </h3>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Reorder download priority or cancel upcoming lectures.
+                    {t.views.downloads.queueManager.subtitle}
                   </p>
                 </div>
               </div>
@@ -610,7 +618,7 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({
                     d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
                   ></path>
                 </svg>{' '}
-                Library
+                {t.words.library}
               </button>
               {activeCourse && (
                 <>
@@ -671,7 +679,7 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({
                       d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
                     ></path>
                   </svg>{' '}
-                  Remove All
+                  {t.words.removeAll}
                 </button>
               )}
               {downloadedFiles.length > 0 && (
@@ -694,7 +702,7 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({
                     d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
                   ></path>
                 </svg>{' '}
-                Refresh Disk
+                {t.views.downloads.refreshDisk}
               </button>
             </div>
           </div>
@@ -713,16 +721,16 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({
                     d="M10 19l-7-7m0 0l7-7m-7 7h18"
                   ></path>
                 </svg>{' '}
-                Go Back
+                {t.words.goBack}
               </div>
             )}
             {isScanning ? (
               <div className="flex items-center justify-center h-40 text-gray-500">
-                Scanning local disk...
+                {t.views.downloads.library.scanning}
               </div>
             ) : downloadedFiles.length === 0 ? (
               <div className="flex items-center justify-center h-40 text-gray-500">
-                No downloaded files found in your settings path.
+                {t.views.downloads.library.noFiles}
               </div>
             ) : (
               <>
@@ -748,14 +756,14 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({
                         </h3>
                         {vol.isOffline && (
                           <span className="px-2 py-0.5 rounded-md bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400 text-xs font-bold uppercase tracking-wider ml-2 shadow-sm">
-                            Offline
+                            {t.words.offline}
                           </span>
                         )}
                       </div>
                       <div className="flex flex-col gap-3">
                         {vol.courses.length === 0 ? (
                           <div className="p-4 rounded-xl border border-dashed border-gray-200 dark:border-white/10 text-center text-sm text-gray-500 dark:text-gray-400">
-                            No downloaded courses found on this drive.
+                            {t.views.downloads.library.noFilesDrive}
                           </div>
                         ) : (
                           vol.courses.map((course: string) => {
@@ -806,7 +814,9 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({
                                     {course}
                                   </p>
                                   <p className="text-xs text-gray-500">
-                                    {count} file{count !== 1 ? 's' : ''}
+                                    {t('views.downloads.library.countFiles', {
+                                      count
+                                    })}
                                   </p>
                                 </div>
                                 {!vol.isOffline && (
@@ -865,7 +875,9 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({
                             {chapter}
                           </p>
                           <p className="text-xs text-gray-500">
-                            {count} file{count !== 1 ? 's' : ''}
+                            {t('views.downloads.library.countFiles', {
+                              count
+                            })}
                           </p>
                         </div>
                         <div className="opacity-0 group-hover:opacity-100 transition-opacity text-blue-500">
@@ -982,7 +994,9 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({
                             }}
                             className="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg text-sm transition-all shadow-md cursor-pointer"
                           >
-                            {item.type === 'Video' ? 'Play Video' : 'Read Content'}
+                            {item.type === 'Video'
+                              ? t.views.downloads.playVideo
+                              : t.views.downloads.readContent}
                           </button>
                           <button
                             onClick={async () => {
@@ -1119,14 +1133,16 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({
               </svg>
             </div>
             <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
-              Delete All Library Files?
+              {t.views.downloads.deleteMenu.deleteAllFiles}
             </h3>
             <p className="text-gray-500 dark:text-gray-400 text-sm leading-relaxed mb-6">
-              You are about to permanently erase{' '}
-              <span className="font-bold text-gray-800 dark:text-gray-200">
-                {downloadedFiles.length} files
-              </span>{' '}
-              from your local disk. This will clear your entire downloaded library.
+              {t('views.downloads.deleteMenu.description', {
+                files: (
+                  <span className="font-bold text-gray-800 dark:text-gray-200">
+                    {downloadedFiles.length} {t.words.files}
+                  </span>
+                )
+              })}
             </p>
             <div className="grid grid-cols-2 gap-3 w-full">
               <button
@@ -1134,7 +1150,7 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({
                 disabled={isDeletingAll}
                 className="py-3 px-4 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 font-semibold rounded-xl transition-all cursor-pointer disabled:opacity-50"
               >
-                Cancel
+                {t.words.cancel}
               </button>
               <button
                 onClick={async () => {
@@ -1163,10 +1179,10 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({
                         d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
                       ></path>
                     </svg>{' '}
-                    Deleting...
+                    {t.views.downloads.deleteMenu.deleting}
                   </>
                 ) : (
-                  'Yes, Delete All'
+                  t.views.downloads.deleteMenu.deleteAll
                 )}
               </button>
             </div>

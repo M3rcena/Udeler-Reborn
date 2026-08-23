@@ -1,4 +1,5 @@
 import { useDownload } from '@renderer/contexts/DownloadContext'
+import { useI18n } from '@renderer/contexts/I18nContext'
 import { useCallback, useEffect, useState } from 'react'
 import {
   Course,
@@ -27,6 +28,7 @@ export const MyCoursesTab: React.FC<MyCoursesTabProps> = ({ navCourseId, onNavHa
     resumeQueue,
     cancelQueue
   } = useDownload()
+  const { t } = useI18n()
 
   const [courses, setCourses] = useState<Course[]>([])
   const [searchQuery, setSearchQuery] = useState<string>('')
@@ -177,7 +179,7 @@ export const MyCoursesTab: React.FC<MyCoursesTabProps> = ({ navCourseId, onNavHa
             orphanedLectures.push({
               _class: 'lecture',
               id: id,
-              title: `Archived Video [ID: ${id}]`,
+              title: `${t.views.courses.orphanedLectures.archivedVideo} [ID: ${id}]`,
               asset: { asset_type: 'Video' }
             })
           }
@@ -187,7 +189,7 @@ export const MyCoursesTab: React.FC<MyCoursesTabProps> = ({ navCourseId, onNavHa
           serverCurriculum.push({
             _class: 'chapter',
             id: -999,
-            title: '📦 Archived (Removed by Instructor)'
+            title: t.views.courses.orphanedLectures.removedBy
           })
           serverCurriculum.push(...orphanedLectures)
         }
@@ -217,6 +219,7 @@ export const MyCoursesTab: React.FC<MyCoursesTabProps> = ({ navCourseId, onNavHa
         setIsFetchingCurriculum(false)
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [setDownloadProgress]
   )
 
@@ -241,7 +244,7 @@ export const MyCoursesTab: React.FC<MyCoursesTabProps> = ({ navCourseId, onNavHa
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
         <div className="flex items-center gap-3">
           <h2 className="text-3xl font-bold text-gray-900 dark:text-white">
-            My Courses{' '}
+            {t.views.courses.title}{' '}
             <span className="text-lg text-gray-400 font-medium ml-1">
               ({filteredCourses.length})
             </span>
@@ -274,7 +277,7 @@ export const MyCoursesTab: React.FC<MyCoursesTabProps> = ({ navCourseId, onNavHa
                       d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                     />
                   </svg>
-                  <span>Enqueuing...</span>
+                  <span>{t.views.courses.toolbar.enqueuing}</span>
                 </>
               ) : (
                 <>
@@ -286,7 +289,7 @@ export const MyCoursesTab: React.FC<MyCoursesTabProps> = ({ navCourseId, onNavHa
                       d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
                     />
                   </svg>
-                  <span>Queue Selected</span>
+                  <span>{t.views.courses.toolbar.selectedQueue}</span>
                 </>
               )}
             </button>
@@ -298,10 +301,14 @@ export const MyCoursesTab: React.FC<MyCoursesTabProps> = ({ navCourseId, onNavHa
               onClick={toggleSelectAll}
               className="h-11 px-4 bg-white/60 dark:bg-white/5 hover:bg-white dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-white/10 font-semibold rounded-xl text-sm transition-all cursor-pointer shadow-sm flex items-center justify-center shrink-0"
               title={
-                selectedCourseIds.size === filteredCourses.length ? 'Deselect All' : 'Select All'
+                selectedCourseIds.size === filteredCourses.length
+                  ? t.views.courses.toolbar.deselectAll
+                  : t.views.courses.toolbar.selectAll
               }
             >
-              {selectedCourseIds.size === filteredCourses.length ? 'Deselect All' : 'Select All'}
+              {selectedCourseIds.size === filteredCourses.length
+                ? t.views.courses.toolbar.deselectAll
+                : t.views.courses.toolbar.selectAll}
             </button>
           )}
 
@@ -324,7 +331,7 @@ export const MyCoursesTab: React.FC<MyCoursesTabProps> = ({ navCourseId, onNavHa
             </div>
             <input
               type="text"
-              placeholder="Search courses..."
+              placeholder={t.views.courses.toolbar.search}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full h-11 pl-10 pr-4 bg-white/60 dark:bg-black/20 border border-gray-200 dark:border-white/10 rounded-xl text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all shadow-sm cursor-text"
@@ -336,7 +343,7 @@ export const MyCoursesTab: React.FC<MyCoursesTabProps> = ({ navCourseId, onNavHa
             onClick={loadCourses}
             disabled={isFetchingCourses}
             className="w-11 h-11 flex items-center justify-center bg-white/60 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl text-gray-700 dark:text-white hover:bg-white dark:hover:bg-white/10 transition-all shadow-sm disabled:opacity-50 cursor-pointer shrink-0"
-            title="Refresh Courses"
+            title={t.views.courses.toolbar.refreshCourses}
           >
             <svg
               className={`w-5 h-5 ${isFetchingCourses ? 'animate-spin text-blue-500' : ''}`}
@@ -417,7 +424,7 @@ export const MyCoursesTab: React.FC<MyCoursesTabProps> = ({ navCourseId, onNavHa
                   {isOffline && (
                     <div className="absolute top-3 right-3 z-20 pointer-events-none">
                       <span className="px-2.5 py-1.5 bg-red-500/90 backdrop-blur-md text-white text-[10px] font-black uppercase tracking-widest rounded-lg shadow-lg border border-red-400/50 flex items-center gap-1.5">
-                        Drive Offline
+                        {t.views.courses.offlineDrive}
                       </span>
                     </div>
                   )}
@@ -450,7 +457,7 @@ export const MyCoursesTab: React.FC<MyCoursesTabProps> = ({ navCourseId, onNavHa
                     </h3>
                     {isOffline && (
                       <p className="text-xs text-red-500/80 font-bold line-clamp-1 mb-3">
-                        Archived on: {mapping.name}
+                        {t.views.courses.archivedOn} {mapping.name}
                       </p>
                     )}
                     <div className="mt-auto z-20">
@@ -464,7 +471,7 @@ export const MyCoursesTab: React.FC<MyCoursesTabProps> = ({ navCourseId, onNavHa
                             : 'bg-gray-100 dark:bg-black/30 hover:bg-blue-600 hover:text-white text-gray-800 dark:text-gray-300 group-hover:shadow-[0_0_15px_rgba(37,99,235,0.4)]'
                         }`}
                       >
-                        {isOffline ? 'View (Offline)' : 'View Content'}
+                        {isOffline ? t.views.courses.view.offline : t.views.courses.view.content}
                       </button>
                     </div>
                   </div>
@@ -485,9 +492,9 @@ export const MyCoursesTab: React.FC<MyCoursesTabProps> = ({ navCourseId, onNavHa
               </svg>
             </div>
             <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
-              No courses found
+              {t.views.courses.noCourses}
             </h3>
-            <p className="text-gray-500 dark:text-gray-400">Try adjusting your search query.</p>
+            <p className="text-gray-500 dark:text-gray-400">{t.views.courses.fixSearch}</p>
           </div>
         )}
       </div>
@@ -514,7 +521,13 @@ export const MyCoursesTab: React.FC<MyCoursesTabProps> = ({ navCourseId, onNavHa
                     {selectedCourse.title}
                   </h2>
                   <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">
-                    Course Curriculum {currentMapping && `- Saved to ${currentMapping.name}`}
+                    {t('views.courses.curriculum.courseCurriculum', {
+                      currentMapping:
+                        currentMapping &&
+                        t('views.courses.curriculum.savedTo', {
+                          currentMappingName: currentMapping.name
+                        })
+                    })}
                   </p>
                 </div>
               </div>
@@ -571,7 +584,7 @@ export const MyCoursesTab: React.FC<MyCoursesTabProps> = ({ navCourseId, onNavHa
                       />
                     </svg>
                     <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 delay-75">
-                      Pause Downloads
+                      {t.views.courses.curriculum.pauseDownloads}
                     </span>
                   </button>
                 )}
@@ -600,7 +613,7 @@ export const MyCoursesTab: React.FC<MyCoursesTabProps> = ({ navCourseId, onNavHa
                       />
                     </svg>
                     <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 delay-75">
-                      Resume Downloads
+                      {t.views.courses.curriculum.resumeDownloads}
                     </span>
                   </button>
                 )}
@@ -629,7 +642,7 @@ export const MyCoursesTab: React.FC<MyCoursesTabProps> = ({ navCourseId, onNavHa
                       />
                     </svg>
                     <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 delay-75">
-                      Stop Queue
+                      {t.views.courses.curriculum.stopQueue}
                     </span>
                   </button>
                 )}
@@ -658,7 +671,7 @@ export const MyCoursesTab: React.FC<MyCoursesTabProps> = ({ navCourseId, onNavHa
                     />
                   </svg>
                   <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 delay-75">
-                    Remove Files
+                    {t.views.courses.curriculum.removeFiles}
                   </span>
                 </button>
                 <div className="w-px h-6 bg-gray-200 dark:bg-white/10 mx-1" />
@@ -677,7 +690,7 @@ export const MyCoursesTab: React.FC<MyCoursesTabProps> = ({ navCourseId, onNavHa
                         setPinModalConfig({
                           isOpen: true,
                           volumeId: volId,
-                          volumeName: vol?.name || 'External Drive'
+                          volumeName: vol?.name || t.views.courses.curriculum.externalDrive
                         })
                       }
                     }
@@ -713,7 +726,13 @@ export const MyCoursesTab: React.FC<MyCoursesTabProps> = ({ navCourseId, onNavHa
                       />
                     </svg>
                   )}
-                  <span>{currentMapping ? `Unpin: ${currentMapping.name}` : 'Pin to Drive'}</span>
+                  <span>
+                    {currentMapping
+                      ? t('views.courses.curriculum.unpin', {
+                          currentMappingName: currentMapping.name
+                        })
+                      : t.views.courses.curriculum.pin}
+                  </span>
                 </button>
                 <button
                   onClick={() => setSelectedCourse(null)}
@@ -748,7 +767,7 @@ export const MyCoursesTab: React.FC<MyCoursesTabProps> = ({ navCourseId, onNavHa
                       d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
                     />
                   </svg>
-                  <p className="font-medium animate-pulse">Decrypting Course Curriculum...</p>
+                  <p className="font-medium animate-pulse">{t.views.courses.curriculum.decrypt}</p>
                 </div>
               ) : (
                 <div className="flex flex-col gap-2">
@@ -835,7 +854,7 @@ export const MyCoursesTab: React.FC<MyCoursesTabProps> = ({ navCourseId, onNavHa
                                   {item.title}
                                   {newLectures.has(item.id) && (
                                     <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white bg-linear-to-r from-pink-500 to-purple-500 rounded-full shadow-[0_0_10px_rgba(236,72,153,0.4)] animate-pulse shrink-0">
-                                      New
+                                      {t.words.new}
                                     </span>
                                   )}
                                 </p>
@@ -887,7 +906,7 @@ export const MyCoursesTab: React.FC<MyCoursesTabProps> = ({ navCourseId, onNavHa
                                     d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
                                   />
                                 </svg>
-                                Quiz
+                                {t.words.quiz}
                               </button>
                             ) : (
                               <div className="flex items-center gap-2">
@@ -957,7 +976,7 @@ export const MyCoursesTab: React.FC<MyCoursesTabProps> = ({ navCourseId, onNavHa
                                           d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
                                         />
                                       </svg>{' '}
-                                      DRM Protected
+                                      {t.words.drmProtected}
                                     </>
                                   )}
                                   {status === 'error' && 'Retry'}
@@ -985,7 +1004,7 @@ export const MyCoursesTab: React.FC<MyCoursesTabProps> = ({ navCourseId, onNavHa
                                       })
                                     }}
                                     className="p-2 text-red-500 hover:text-white hover:bg-red-500 bg-red-500/10 rounded-lg transition-colors cursor-pointer"
-                                    title="Delete File"
+                                    title={t.views.courses.curriculum.deleteFile}
                                   >
                                     <svg
                                       className="w-5 h-5"
@@ -1040,21 +1059,23 @@ export const MyCoursesTab: React.FC<MyCoursesTabProps> = ({ navCourseId, onNavHa
                         </svg>
                       </div>
                       <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
-                        Delete Course Content?
+                        {t.views.courses.delete.title}
                       </h3>
                       <p className="text-gray-500 dark:text-gray-400 text-sm leading-relaxed mb-6">
-                        You are about to permanently erase all downloaded files for{' '}
-                        <span className="font-semibold text-gray-800 dark:text-gray-200">
-                          &quot;{selectedCourse.title}&quot;
-                        </span>{' '}
-                        from your computer disk.
+                        {t('views.courses.delete.subtitle', {
+                          title: (
+                            <span className="font-semibold text-gray-800 dark:text-gray-200">
+                              &quot;{selectedCourse.title}&quot;
+                            </span>
+                          )
+                        })}
                       </p>
                       <div className="grid grid-cols-2 gap-3 w-full">
                         <button
                           onClick={() => setIsDeleteModalOpen(false)}
                           className="py-3 px-4 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 font-semibold rounded-xl transition-all cursor-pointer"
                         >
-                          Cancel
+                          {t.words.cancel}
                         </button>
                         <button
                           onClick={async () => {
@@ -1071,7 +1092,7 @@ export const MyCoursesTab: React.FC<MyCoursesTabProps> = ({ navCourseId, onNavHa
                           }}
                           className="py-3 px-4 bg-red-600 hover:bg-red-500 text-white font-semibold rounded-xl transition-all shadow-lg hover:shadow-red-600/30 cursor-pointer"
                         >
-                          Yes, Delete All
+                          {t.views.downloads.deleteMenu.deleteAll}
                         </button>
                       </div>
                     </>
@@ -1093,10 +1114,10 @@ export const MyCoursesTab: React.FC<MyCoursesTabProps> = ({ navCourseId, onNavHa
                         </svg>
                       </div>
                       <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
-                        No Downloads Found
+                        {t.views.courses.delete.noDownloads}
                       </h3>
                       <p className="text-gray-500 dark:text-gray-400 text-sm leading-relaxed mb-6">
-                        There are currently no downloaded local files detected on disk for{' '}
+                        {t.views.courses.delete.noLocalDownloads}{' '}
                         <span className="font-semibold text-gray-800 dark:text-gray-200">
                           &quot;{selectedCourse.title}&quot;
                         </span>
@@ -1106,7 +1127,7 @@ export const MyCoursesTab: React.FC<MyCoursesTabProps> = ({ navCourseId, onNavHa
                         onClick={() => setIsDeleteModalOpen(false)}
                         className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl transition-all shadow-lg hover:shadow-blue-500/30 cursor-pointer"
                       >
-                        Understood
+                        {t.words.understood}
                       </button>
                     </>
                   )}
@@ -1139,14 +1160,16 @@ export const MyCoursesTab: React.FC<MyCoursesTabProps> = ({ navCourseId, onNavHa
                     </svg>
                   </div>
                   <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
-                    Pin Course?
+                    {t.views.courses.pin.title}
                   </h3>
                   <p className="text-gray-500 dark:text-gray-400 text-sm leading-relaxed mb-6">
-                    You are about to pin this course to{' '}
-                    <span className="font-semibold text-gray-800 dark:text-gray-200">
-                      {pinModalConfig.volumeName}
-                    </span>
-                    . Move existing downloaded files?
+                    {t('views.courses.pin.subtitle', {
+                      volumeName: (
+                        <span className="font-semibold text-gray-800 dark:text-gray-200">
+                          {pinModalConfig.volumeName}
+                        </span>
+                      )
+                    })}
                   </p>
                   <div className="flex flex-col gap-3 w-full">
                     <button
@@ -1169,7 +1192,7 @@ export const MyCoursesTab: React.FC<MyCoursesTabProps> = ({ navCourseId, onNavHa
                       disabled={isUnpinning}
                       className="w-full py-3 bg-purple-600 hover:bg-purple-500 text-white font-semibold rounded-xl transition-all shadow-lg hover:shadow-purple-500/30 flex justify-center items-center gap-2 cursor-pointer disabled:opacity-70"
                     >
-                      {isUnpinning ? 'Moving...' : 'Yes, Move Files & Pin'}
+                      {isUnpinning ? t.views.courses.pin.moving : t.views.courses.pin.yesMove}
                     </button>
                     {!isUnpinning && (
                       <>
@@ -1192,13 +1215,13 @@ export const MyCoursesTab: React.FC<MyCoursesTabProps> = ({ navCourseId, onNavHa
                           }}
                           className="w-full py-3 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-800 dark:text-white font-semibold rounded-xl transition-all cursor-pointer"
                         >
-                          No, Pin Only (New Downloads)
+                          {t.views.courses.pin.noMove}
                         </button>
                         <button
                           onClick={() => setPinModalConfig(null)}
                           className="w-full py-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 font-medium transition-colors cursor-pointer text-sm"
                         >
-                          Cancel
+                          {t.words.cancel}
                         </button>
                       </>
                     )}
@@ -1233,11 +1256,10 @@ export const MyCoursesTab: React.FC<MyCoursesTabProps> = ({ navCourseId, onNavHa
                     </svg>
                   </div>
                   <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
-                    Unpin Course?
+                    {t.views.courses.unpin.title}
                   </h3>
                   <p className="text-gray-500 dark:text-gray-400 text-sm leading-relaxed mb-6">
-                    Would you like to automatically transfer downloaded files back to your local
-                    folder?
+                    {t.views.courses.unpin.subtitle}
                   </p>
                   <div className="flex flex-col gap-3 w-full">
                     <button
@@ -1259,7 +1281,7 @@ export const MyCoursesTab: React.FC<MyCoursesTabProps> = ({ navCourseId, onNavHa
                       disabled={isUnpinning}
                       className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl transition-all shadow-lg hover:shadow-blue-500/30 flex justify-center items-center gap-2 cursor-pointer disabled:opacity-70"
                     >
-                      {isUnpinning ? 'Moving...' : 'Yes, Move Files & Unpin'}
+                      {isUnpinning ? t.views.courses.pin.moving : t.views.courses.unpin.yesMove}
                     </button>
                     {!isUnpinning && (
                       <>
@@ -1281,13 +1303,13 @@ export const MyCoursesTab: React.FC<MyCoursesTabProps> = ({ navCourseId, onNavHa
                           }}
                           className="w-full py-3 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-800 dark:text-white font-semibold rounded-xl transition-all cursor-pointer"
                         >
-                          No, Unpin Only (Leave Files)
+                          {t.views.courses.unpin.noMove}
                         </button>
                         <button
                           onClick={() => setUnpinModalConfig({ isOpen: false, type: null })}
                           className="w-full py-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 font-medium transition-colors cursor-pointer text-sm"
                         >
-                          Cancel
+                          {t.words.cancel}
                         </button>
                       </>
                     )}
@@ -1312,14 +1334,16 @@ export const MyCoursesTab: React.FC<MyCoursesTabProps> = ({ navCourseId, onNavHa
                   </div>
                   <div className="flex-1">
                     <h4 className="text-gray-900 dark:text-white font-bold text-sm">
-                      Successfully Queued
+                      {t.views.courses.queue.success}
                     </h4>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 leading-relaxed">
-                      Added{' '}
-                      <span className="font-bold text-green-600 dark:text-green-400">
-                        {queuedCount}
-                      </span>{' '}
-                      new item{queuedCount !== 1 ? 's' : ''} to the background queue.
+                      {t('views.courses.queue.addedQueue', {
+                        queuedCount: (
+                          <span className="font-bold text-green-600 dark:text-green-400">
+                            {queuedCount}
+                          </span>
+                        )
+                      })}
                     </p>
                   </div>
                   <button
