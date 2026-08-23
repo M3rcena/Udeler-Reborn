@@ -235,7 +235,10 @@ export const MyCoursesTab: React.FC<MyCoursesTabProps> = ({ navCourseId, onNavHa
     }
   }, [navCourseId, courses, onNavHandled, handleViewContent])
 
-  const currentMapping = selectedCourse ? volumeMappings[selectedCourse.id] : undefined
+  const currentMapping = selectedCourse
+    ? (volumeMappings[selectedCourse.id] ??
+      volumeMappings[String(selectedCourse.id) as unknown as number])
+    : undefined
   const isModalOffline = currentMapping ? !currentMapping.isAvailable : false
 
   return (
@@ -521,13 +524,15 @@ export const MyCoursesTab: React.FC<MyCoursesTabProps> = ({ navCourseId, onNavHa
                     {selectedCourse.title}
                   </h2>
                   <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">
-                    {t('views.courses.curriculum.courseCurriculum', {
-                      currentMapping:
-                        currentMapping &&
-                        t('views.courses.curriculum.savedTo', {
-                          currentMappingName: currentMapping.name
-                        })
-                    })}
+                    <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">
+                      {t('views.courses.curriculum.courseCurriculum', {
+                        currentMapping: currentMapping
+                          ? t('views.courses.curriculum.savedTo', {
+                              currentMappingName: currentMapping.name
+                            })
+                          : ''
+                      })}
+                    </p>
                   </p>
                 </div>
               </div>

@@ -184,26 +184,23 @@ export function getBlobsForCourse(courseId: number): { hash: string; ext: string
 
 export function getCourseVolumeMappings(): Record<number, CourseVolumeMapping> {
   if (!db) return {}
-  const rows = db
-    .prepare(
-      `
-    SELECT cv.course_id, v.id as volumeId, v.name, v.is_available, v.root_path
+  const stmt = db.prepare(`
+    SELECT cv.course_id, cv.volume_id, v.name, v.is_available, v.root_path
     FROM course_volumes cv
     JOIN volumes v ON cv.volume_id = v.id
-  `
-    )
-    .all() as CourseVolumeRow[]
+  `)
+  const rows = stmt.all() as CourseVolumeRow[]
 
-  const map: Record<number, CourseVolumeMapping> = {}
+  const mappings: Record<number, CourseVolumeMapping> = {}
   for (const row of rows) {
-    map[row.course_id] = {
+    mappings[Number(row.course_id)] = {
       volumeId: row.volumeId,
       name: row.name,
       isAvailable: row.is_available === 1,
       rootPath: row.root_path
     }
   }
-  return map
+  return mappings
 }
 
 export function closeDb(): void {
