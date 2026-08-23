@@ -1,0 +1,296 @@
+{
+  "words": {
+    "localDrive": "Local Drive",
+    "resume": "Resume",
+    "pause": "Pause",
+    "stopAll": "Stop All",
+    "waiting": "Waiting",
+    "inProgress": "In Progress",
+    "completed": "Completed",
+    "failed": "Failed",
+    "drmLocked": "DRM Locked",
+    "drmProtected": "DRM Protected",
+    "library": "Library",
+    "removeAll": "Remove All",
+    "goBack": "Go Back",
+    "offline": "Offline",
+    "files": "files",
+    "cancel": "Cancel",
+    "new": "New",
+    "quiz": "Quiz",
+    "understood": "Understood",
+    "unlimited": "Unlimited",
+    "loading": "Loading..."
+  },
+  "components": {
+    "sidebar": {
+      "courses": "My Courses",
+      "downloads": "Downloads",
+      "settings": "Settings",
+      "about": "About",
+      "lightMode": "☀️ Light Mode",
+      "darkMode": "🌙 Dark Mode",
+      "logout": "Logout"
+    },
+    "helpModal": {
+      "locateToken": "Locate your Token",
+      "followSteps": "Follow these steps in your browser to securely link your account.",
+      "loginUdemy": "Open your web browser and log in to your {{udemyBold}} account.",
+      "pressKey": "Press {{f12Key}} (or right-click and select \"Inspect\") to open the Developer Tools.",
+      "navigateToApplication": "Navigate to the {{applicationStrong}} tab (Chrome/Edge) or {{storageBold}} tab (Firefox).",
+      "navigateKeys": {
+        "application": "Application",
+        "storage": "Storage"
+      },
+      "cookies": {
+        "main": "Expand {{cookiesStrong}} and click {{udemyURL}}. Find the row named {{tokenCode}}, copy its Value, and paste it below!",
+        "cookies": "Cookies"
+      },
+      "gotToken": "I've got my token"
+    },
+    "libraryHealth": {
+      "title": "Library Health & Integrity",
+      "scanning": "Scanning Library...",
+      "runCheck": "Run Integrity Check",
+      "verifyChecksums": "Verifying Hash Checksums",
+      "healthy": "Library is perfectly healthy! All checksums match.",
+      "corruptedFiles": "{{issuesLength}} Corrupted File(s) Detected",
+      "reason": "Reason: {{reason}}",
+      "delete": "Delete (Archived)",
+      "autoRepair": "Auto-Repair"
+    },
+    "pathAlert": {
+      "setupRequired": "Setup Required",
+      "selectFolder": "You need to select a {{downloadFolder}} in the Settings menu before you can save course content to your computer.",
+      "downloadFolder": "Download Folder",
+      "gotIt": "Got it"
+    },
+    "search": {
+      "noResults": "No results found for \"{{query}}\"",
+      "titleMatches": "Title Matches",
+      "transcriptMatches": "Transcript Matches",
+      "customEngine": "Custom Local Engine",
+      "closeKey": "{{esc}} to close"
+    },
+    "globalDownloads": {
+      "active": "Active Downloads",
+      "queued": "{{queueCount}} Queued",
+      "processing": "Processing queue...",
+      "pause": "Pause Queue",
+      "resume": "Resume Queue",
+      "stopAll": "Stop All"
+    },
+    "update": {
+      "updateAvailable": "Update Available",
+      "newVersion": "Udeler Reborn {{version}} is ready!",
+      "download": "Download",
+      "whatsNew": "What's New",
+      "devBuild": "Developer Build",
+      "unreleasedVer": "You are running an unreleased version.",
+      "goToRelease": "Go to Release"
+    }
+  },
+  "views": {
+    "about": {
+      "app": {
+        "name": "Udeler {{rebornName}}",
+        "description": "The modern, blazing-fast, and secure way to download and archive your educational content for offline viewing."
+      },
+      "updateTab": {
+        "version": "Version {{appVersion}}",
+        "checkingUpdates": "Checking for updates...",
+        "updateAvailable": "Update {{version}} is available!",
+        "downloadInstall": "Download and Install",
+        "unreleasedBuild": "Unreleased Build",
+        "unreleasedDesc": "You are running a higher version than the official release. This build may contain bugs.",
+        "upToDate": "You're up to date!",
+        "latestVersion": "Udeler Reborn {{appVersion}} is the latest version available.",
+        "checkUpdates": "Check for Updates"
+      },
+      "credits": {
+        "title": "Resources & Credits",
+        "githubRepo": "GitHub Repository",
+        "joinDiscord": "Join the Discord",
+        "remadeBy": "Remade with ❤️ by {{userName}}"
+      },
+      "zeroTrustBadge": "Zero-Trust Audit: {{passedChecks}} IPC checks passed ({{anomalies}} anomalies)"
+    },
+    "downloads": {
+      "title": "Queue & Library",
+      "subtitle": "Monitor active downloads and play saved media.",
+      "queueStatus": "Queue: {{status}}",
+      "controls": {
+        "title": "Master Controls",
+        "subtitle": "Manage the background worker engine."
+      },
+      "queueManager": {
+        "title": "Pending Tasks Queue",
+        "subtitle": "Reorder download priority or cancel upcoming lectures."
+      },
+      "refreshDisk": "Refresh Disk",
+      "playVideo": "Play Video",
+      "readContent": "Read Content",
+      "library": {
+        "scanning": "Scanning local disk...",
+        "noFiles": "No downloaded files found in your settings path.",
+        "noFilesDrive": "No downloaded courses found on this drive.",
+        "countFiles": "{{count}} file(s)"
+      },
+      "deleteMenu": {
+        "deleteAllFiles": "Delete All Library Files?",
+        "description": "You are about to permanently erase {{files}} from your local disk. This will clear your entire downloaded library.",
+        "deleting": "Deleting...",
+        "deleteAll": "Yes, Delete All"
+      }
+    },
+    "login": {
+      "errors": {
+        "tooEarly": "Login window was closed before authentication completed.",
+        "tryManual": "An unexpected error occurred. Please try the manual token method."
+      },
+      "appDesc": "Modern Course Downloader",
+      "businessAccount": "Udemy Business Account",
+      "orgSubdomain": "Organization Subdomain",
+      "waitingLogin": "Waiting for login...",
+      "authenticated": "Authenticated!",
+      "signInBusiness": "Sign in via Udemy Business",
+      "signInNormal": "Sign in securely via Udemy",
+      "manualToken": "Or manual token",
+      "udemyAccessToken": "Udemy Access Token",
+      "howTo": "How to find your token",
+      "connecting": "Connecting to Udemy...",
+      "manualLogin": "Manual Login",
+      "endToEnd": "End-to-End Encrypted Storage"
+    },
+    "courses": {
+      "orphanedLectures": {
+        "archivedVideo": "Archived Video",
+        "removedBy": "📦 Archived (Removed by Instructor)"
+      },
+      "title": "My Courses",
+      "toolbar": {
+        "enqueuing": "Enqueuing...",
+        "selectedQueue": "Queue Selected",
+        "selectAll": "Select All",
+        "deselectAll": "Deselect All",
+        "search": "Search courses...",
+        "refreshCourses": "Refresh Courses"
+      },
+      "offlineDrive": "Drive Offline",
+      "archivedOn": "Archived on:",
+      "view": {
+        "offline": "View (Offline)",
+        "content": "View Content"
+      },
+      "noCourses": "No courses found",
+      "fixSearch": "Try adjusting your search query.",
+      "curriculum": {
+        "courseCurriculum": "Course Curriculum {{currentMapping}}",
+        "savedTo": "- Saved to {{currentMappingName}}",
+        "pauseDownloads": "Pause Downloads",
+        "resumeDownloads": "Resume Downloads",
+        "stopQueue": "Stop Queue",
+        "removeFiles": "Remove Files",
+        "externalDrive": "External Drive",
+        "pin": "Pin to Drive",
+        "unpin": "Unpin: {{currentMappingName}}",
+        "decrypt": "Decrypting Course Curriculum...",
+        "deleteFile": "Delete File"
+      },
+      "delete": {
+        "title": "Delete Course Content?",
+        "subtitle": "You are about to permanently erase all downloaded files for {{title}} from your computer disk.",
+        "noDownloads": "No Downloads Found",
+        "noLocalDownloads": "There are currently no downloaded local files detected on disk for"
+      },
+      "pin": {
+        "title": "Pin Course?",
+        "subtitle": "You are about to pin this course to {{volumeName}}. Move existing downloaded files?",
+        "moving": "Moving...",
+        "yesMove": "Yes, Move Files & Pin",
+        "noMove": "No, Pin Only (New Downloads)"
+      },
+      "unpin": {
+        "title": "Unpin Course?",
+        "subtitle": "Would you like to automatically transfer downloaded files back to your local folder?",
+        "yesMove": "Yes, Move Files & Unpin",
+        "noMove": "No, Unpin Only (Leave Files)"
+      },
+      "queue": {
+        "success": "Successfully Queued",
+        "addedQueue": "Added {{queuedCount}} new item(s) to the background queue."
+      }
+    },
+    "settings": {
+      "title": "Application Settings",
+      "quality": {
+        "auto": "Auto (Best Available)",
+        "highest": "Highest Resolution",
+        "lowest": "Lowest (Save Space)"
+      },
+      "debug": {
+        "title": "Troubleshooting & Diagnostics",
+        "subtitle": "If you are experiencing issues with missing courses, failed downloads, or unexpected crashes, generate a diagnostic log file to help identify the problem.",
+        "saved": "Debug logs saved successfully! Please send this file to the developer.",
+        "failed": "Failed to save logs."
+      },
+      "location": {
+        "downloadLocation": "Download Location",
+        "browse": "Browse..."
+      },
+      "language": {
+        "title": "Application Language",
+        "select": "Select Interface Language",
+        "communityDriven": "Community-Driven Localization",
+        "content": "New translations are detected automatically from JSON dictionaries. To contribute a language, add a new {{codeLocale}} file to the repository."
+      },
+      "preferences": {
+        "downloadPref": "Download Preferences",
+        "videoQual": "Video Quality",
+        "skipAttachments": "Skip Course Attachments",
+        "skipSub": "Skip Subtitles / Closed Captions",
+        "autoRetry": "Auto-Retry on Network Error",
+        "runBackground": "Keep running in background when closed"
+      },
+      "network": {
+        "title": "Network & Scheduling",
+        "maxDownload": "Max Download Speed (KB/s)",
+        "kbps": "Kilobytes / Sec"
+      },
+      "schedule": {
+        "enable": "Enable Scheduled Downloads",
+        "startTime": "Start Time",
+        "endTime": "End Time"
+      },
+      "vault": {
+        "title": "Vault Mode (Encrypted Storage)",
+        "subtitle": "Encrypts downloaded videos and auth tokens on disk using your OS Keychain."
+      },
+      "storage": {
+        "title": "Storage Optimization",
+        "sweeping": "Sweeping...",
+        "reclaimedSpace": "Disk Space Reclaimed",
+        "automaticallySaved": "Automatically saved via cross-course asset and video deduplication.",
+        "completeRemoved": "Cleanup complete: Permanently removed {{purgedCount}} orphaned files, freeing up {{freedBytes}} of disk space.",
+        "completeNoFiles": "Cleanup complete: No orphaned files found. Your storage is perfectly optimized!"
+      },
+      "moveFolder": {
+        "title": "Move Downloaded Files?",
+        "subtitle": "You changed your download location. Would you like to migrate all previously downloaded courses to the new folder?",
+        "moving": "Moving Files...",
+        "yesMove": "Yes, Move Files",
+        "noMove": "No, Leave Them There",
+        "cancel": "Cancel Change"
+      },
+      "error": {
+        "migrationFailed": "Migration Failed"
+      },
+      "buttons": {
+        "savedSuccess": "Settings Saved Successfully!",
+        "saveAll": "Save All Settings",
+        "cleanOrphaned": "Clean Orphaned Blobs",
+        "exportDebug": "Export Debug Logs"
+      }
+    }
+  }
+}

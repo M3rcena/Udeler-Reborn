@@ -22,6 +22,7 @@
     "test:watch": "vitest",
     "start": "electron-vite preview",
     "dev": "electron-vite dev",
+    "i18n:export": "npx tsx scripts/export-i18n.ts",
     "prebuild": "tsx scripts/prebuild.ts",
     "build": "npm run typecheck && electron-vite build && electron-builder --publish always",
     "postinstall": "electron-builder install-app-deps",

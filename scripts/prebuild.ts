@@ -16,7 +16,7 @@ export const appVersion = '${version}'
 
 const files = [
   join(import.meta.dirname, '../src/main/version.ts'),
-  join(import.meta.dirname, '../src/renderer/src/version.ts'),
+  join(import.meta.dirname, '../src/renderer/src/version.ts')
 ]
 
 for (const file of files) {
