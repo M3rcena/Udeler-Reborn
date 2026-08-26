@@ -293,29 +293,43 @@ export const SettingsTab: React.FC = () => {
               </button>
             </div>
 
-            <div className="p-5 rounded-2xl bg-gray-50/70 dark:bg-white/5 border border-gray-100 dark:border-white/5 flex items-start gap-4">
-              <div className="p-2.5 rounded-xl bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 shrink-0">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="p-5 rounded-2xl bg-gray-50/70 dark:bg-white/5 border border-gray-100 dark:border-white/5 flex flex-col justify-between gap-4">
+              <div className="flex items-start gap-3.5">
+                <div className="p-2.5 rounded-xl bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 shrink-0">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"
+                    />
+                  </svg>
+                </div>
+                <div className="text-xs leading-relaxed">
+                  <p className="font-bold text-gray-800 dark:text-gray-200 text-sm mb-1">
+                    {t.views.settings.language.communityDriven}
+                  </p>
+                  <p className="text-gray-500 dark:text-gray-400">
+                    {t.views.settings.language.content}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => window.open('https://crowdin.com/project/udeler-reborn', '_blank')}
+                className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs rounded-xl shadow-md hover:shadow-blue-500/25 transition-all cursor-pointer flex items-center justify-center gap-2"
+              >
+                <span>{t.views.settings.language.crowdinBtn}</span>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth="2"
-                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
                   />
                 </svg>
-              </div>
-              <div className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
-                <p className="font-bold text-gray-800 dark:text-gray-200 mb-1 text-sm">
-                  {t.views.settings.language.communityDriven}
-                </p>
-                {t('views.settings.language.content', {
-                  codeLocale: (
-                    <code className="font-mono text-[11px] text-blue-500 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-1 py-0.5 rounded">
-                      Locale.json
-                    </code>
-                  )
-                })}
-              </div>
+              </button>
             </div>
           </div>
         </div>

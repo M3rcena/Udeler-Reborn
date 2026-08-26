@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+ 
+## [3.3.0] - 2026-08-26
+ 
+This release focuses on making the app easier to use at scale and easier to trust as a project — bulk library actions, a real localization system, in-app release notes, and a proper testing/CI pipeline.
+ 
+### Added
+- **Bulk Course Selection** — select multiple courses in the Library view (or use "Select All") and queue them all for download in a single action, instead of opening each course individually.
+- **Download Queue Reordering** — the Downloads tab now includes a Queue Manager panel where pending items can be moved up or down to control what downloads next.
+- **Localization (i18n)** — the UI now ships with a full translation system, available at Settings → Language. English (US) and Greek are included at launch, with a flag-based language switcher and a community-translation workflow for contributing additional languages.
+- **In-App Release Notes** — an "Update Available" toast now includes a **What's New** button that opens the actual GitHub release notes, rendered as formatted text inside the app. A one-time **What's New** dialog also appears automatically the first time the app is opened after an update.
+- **Automated Test Suite** — introduced Vitest-based unit tests covering the vault encryption engine, database/manifest layer, bandwidth throttle, search service, IPC audit layer, and OS validation schemas.
+- **Continuous Integration** — pull requests and pushes to `master` now run a GitHub Actions pipeline that type-checks, lints, and runs the test suite on Windows, macOS, and Linux before anything merges.
+- **Structured Issue & PR Templates** — bug reports now use a guided form (OS, app version, account type, diagnostic log export) instead of a free-text box, alongside a new feature-request template and pull request checklist.
+### Fixed
+- The startup update-checker and post-update "What's New" dialog were pointed at the project's current repository; both previously referenced a legacy pre-rename repository path.
+### Changed
+- Added `scripts/export-i18n.ts` to help maintain and validate translation files as new languages are added.
+
+---
 
 ## [3.2.0] - 2026-08-05
 

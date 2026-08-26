@@ -42,10 +42,12 @@ jobs:
       - name: Install Dependencies
         run: |
           npm ci
-          npm audit fix
 
       - name: Compile and Release Distribution Packages
         run: |
           npm run build
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MS_APPX_IDENTITY_NAME: ${{ secrets.MS_APPX_IDENTITY_NAME }}
+          MS_APPX_PUBLISHER_DISPLAY_NAME: ${{ secrets.MS_APPX_PUBLISHER_DISPLAY_NAME }}
+          MS_APPX_PUBLISHER_ID: ${{ secrets.MS_APPX_PUBLISHER_ID }}

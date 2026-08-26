@@ -259,7 +259,8 @@ export const EnglishUS = {
         select: 'Select Interface Language',
         communityDriven: 'Community-Driven Localization',
         content:
-          'New translations are detected automatically from JSON dictionaries. To contribute a language, add a new {{codeLocale}} file to the repository.'
+          'Help us translate Udeler Reborn into your native language or improve existing translations on Crowdin.',
+        crowdinBtn: 'Translate on Crowdin'
       },
       preferences: {
         downloadPref: 'Download Preferences',

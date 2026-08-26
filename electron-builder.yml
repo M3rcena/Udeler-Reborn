@@ -17,24 +17,37 @@ win:
   target:
     - target: nsis
     - target: portable
+    - target: appx
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
-  createDesktopShortcut: always
+  createDesktopShortcut: true
 portable:
   artifactName: ${name}-${version}-portable.${ext}
+appx:
+  artifactName: ${name}-${version}-store.${ext}
+  applicationId: UdelerReborn
+  identityName: ${env.MS_APPX_IDENTITY_NAME}
+  publisherDisplayName: ${env.MS_APPX_PUBLISHER_DISPLAY_NAME}
+  publisher: ${env.MS_APPX_PUBLISHER_ID}
+  backgroundColor: '#09090e'
+  languages:
+    - en-US
+    - el-GR
 mac:
+  identity: '-'
+  notarize: false
+  gatekeeperAssess: false
+  hardenedRuntime: false
   icon: resources/icon.icns
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
-    - NSCameraUsageDescription: Application requests access to the device's camera.
-    - NSMicrophoneUsageDescription: Application requests access to the device's microphone.
-    - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
-    - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
-  notarize: false
+    - NSDocumentsFolderUsageDescription: Application requests access to save your course content.
+    - NSDownloadsFolderUsageDescription: Application requests access to save your course content.
 dmg:
   artifactName: ${name}-${version}.${ext}
+  sign: false
 linux:
   icon: resources/icon.png
   target:
@@ -42,6 +55,7 @@ linux:
     - snap
     - deb
     - rpm
+    - tar.gz
   maintainer: M3rcena
   category: Utility
 appImage:
@@ -50,13 +64,16 @@ rpm:
   artifactName: ${name}-${version}.${ext}
 deb:
   artifactName: ${name}-${version}.${ext}
+snap:
+  artifactName: ${name}-${version}.${ext}
+  publish:
+    provider: github
+    owner: M3rcena
+    repo: Udeler-Reborn
+tar.gz:
+  artifactName: ${name}-${version}.${ext}
 npmRebuild: false
 publish:
   provider: github
   owner: M3rcena
   repo: Udeler-Reborn
-snap:
-  publish:
-    provider: github
-    owner: M3rcena
-    repo: Udeler-Reborn
