@@ -40,7 +40,7 @@ export const SimpleMarkdown: React.FC<SimpleMarkdownProps> = ({ content }) => {
               key={index}
               href={linkMatch[2]}
               target="_blank"
-              rel="noreferrer"
+              rel="noopener noreferrer"
               className="text-blue-500 hover:underline cursor-pointer"
             >
               {linkMatch[1]}
@@ -88,7 +88,7 @@ export const SimpleMarkdown: React.FC<SimpleMarkdownProps> = ({ content }) => {
       )
       .replace(
         /\[(.*?)\]\((.*?)\)/gim,
-        '<a href="$2" target="_blank" rel="noreferrer" class="text-blue-500 hover:underline cursor-pointer">$1</a>'
+        '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-blue-500 hover:underline cursor-pointer">$1</a>'
       )
       .replace(
         /^\s*[-*]\s+(.*$)/gim,
@@ -120,7 +120,7 @@ export const SimpleMarkdown: React.FC<SimpleMarkdownProps> = ({ content }) => {
         'li',
         'center'
       ],
-      ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'align', 'target', 'rel', 'style']
+      ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'align', 'target', 'rel']
     })
 
     return (

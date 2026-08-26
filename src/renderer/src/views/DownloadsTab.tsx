@@ -1162,11 +1162,11 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({
                       setDownloadProgress({})
                       setIsDeleteAllModalOpen(false)
                     } else {
-                      alert('Failed to delete library files.')
+                      alert(t.views.downloads.deleteMenu.failed)
                     }
                   } catch (err) {
                     console.error('Failed to delete all downloads:', err)
-                    alert('An error occurred while deleting library files.')
+                    alert(t.views.downloads.deleteMenu.errorOccurred)
                   } finally {
                     setIsDeletingAll(false)
                   }

@@ -152,7 +152,9 @@ export const EnglishUS = {
         description:
           'You are about to permanently erase {{files}} from your local disk. This will clear your entire downloaded library.',
         deleting: 'Deleting...',
-        deleteAll: 'Yes, Delete All'
+        deleteAll: 'Yes, Delete All',
+        failed: 'Failed to delete library files.',
+        errorOccurred: 'An error occurred while deleting library files.'
       }
     },
     login: {

@@ -768,16 +768,24 @@ app.whenReady().then(() => {
   )
 
   registerSecureIpc('delete-all-downloads', async (): Promise<boolean> => {
+    let hasError = false
     const settings = store.get('app_settings') as AppSettings | undefined
-    const volumeMappings = (store.get('volume_mappings') || {}) as Record<
-      number,
-      CourseVolumeMapping
-    >
 
     const basePaths = new Set<string>()
-    if (settings?.downloadPath) basePaths.add(settings.downloadPath)
-    for (const mapping of Object.values(volumeMappings)) {
-      if (mapping.rootPath) basePaths.add(mapping.rootPath)
+    if (settings?.downloadPath) {
+      basePaths.add(settings.downloadPath)
+    }
+
+    try {
+      const dbVolumes = getAllVolumes()
+      for (const vol of dbVolumes) {
+        if (vol.root_path) {
+          basePaths.add(vol.root_path)
+        }
+      }
+    } catch (err: unknown) {
+      console.error('Failed to retrieve volume roots from database:', err)
+      hasError = true
     }
 
     const cachedDownloads = (store.get('cached_downloads') || []) as DownloadedFile[]
@@ -805,15 +813,18 @@ app.whenReady().then(() => {
             }
           } catch (err: unknown) {
             console.error(`Failed to delete course directory ${fullPath}:`, err)
+            hasError = true
           }
         }
+
         runGarbageCollector(basePath)
       } catch (err: unknown) {
         console.error(`Failed reading base directory ${basePath}:`, err)
+        hasError = true
       }
     }
 
-    return true
+    return !hasError
   })
 
   registerSecureIpc('cancel-download', async (_event, lectureId: number): Promise<boolean> => {
