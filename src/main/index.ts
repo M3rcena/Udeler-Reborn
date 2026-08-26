@@ -769,51 +769,50 @@ app.whenReady().then(() => {
 
   registerSecureIpc('delete-all-downloads', async (): Promise<boolean> => {
     const settings = store.get('app_settings') as AppSettings | undefined
-    if (!settings || !settings.downloadPath) return false
+    const volumeMappings = (store.get('volume_mappings') || {}) as Record<
+      number,
+      CourseVolumeMapping
+    >
 
     const basePaths = new Set<string>()
-    basePaths.add(settings.downloadPath)
-
-    const volumeMappings = getCourseVolumeMappings()
+    if (settings?.downloadPath) basePaths.add(settings.downloadPath)
     for (const mapping of Object.values(volumeMappings)) {
-      if (mapping.isAvailable && mapping.rootPath) {
-        basePaths.add(mapping.rootPath)
-      }
+      if (mapping.rootPath) basePaths.add(mapping.rootPath)
     }
 
+    const cachedDownloads = (store.get('cached_downloads') || []) as DownloadedFile[]
+    const cachedCourses = (store.get('cached_courses') || []) as Course[]
+    const sanitizeName = (name: string): string => name.replace(/[<>:"/\\|?*]+/g, '-').trim()
+
+    const allowedDirs = new Set<string>([
+      ...cachedDownloads.map((d) => d.course).filter((c): c is string => Boolean(c)),
+      ...cachedCourses.map((c) => sanitizeName(c.title)).filter(Boolean)
+    ])
+
     for (const basePath of basePaths) {
-      if (!fs.existsSync(basePath)) continue
+      if (!(await fs.pathExists(basePath))) continue
 
-      const cachedDownloads = (store.get('cached_downloads') || []) as DownloadedFile[]
-      const cachedCourses = (store.get('cached_courses') || []) as Course[]
-
-      const sanitizeName = (name: string): string => name.replace(/[<>:"/\\|?*]+/g, '-').trim()
-
-      const allowedDirs = new Set<string>([
-        ...cachedDownloads.map((d) => d.course).filter((c): c is string => Boolean(c)),
-        ...cachedCourses.map((c) => sanitizeName(c.title)).filter(Boolean)
-      ])
-
-      for (const basePath of basePaths) {
-        if (!fs.existsSync(basePath)) continue
-
-        const entries = fs.readdirSync(basePath)
+      try {
+        const entries = await fs.readdir(basePath)
         for (const entry of entries) {
           if (entry.startsWith('.') || !allowedDirs.has(entry)) continue
 
           const fullPath = path.join(basePath, entry)
           try {
-            if (fs.statSync(fullPath).isDirectory()) {
-              fs.rmSync(fullPath, { recursive: true, force: true })
+            const stat = await fs.stat(fullPath)
+            if (stat.isDirectory()) {
+              await fs.remove(fullPath)
             }
           } catch (err: unknown) {
             console.error(`Failed to delete course directory ${fullPath}:`, err)
           }
         }
+        runGarbageCollector(basePath)
+      } catch (err: unknown) {
+        console.error(`Failed reading base directory ${basePath}:`, err)
       }
-
-      runGarbageCollector(basePath)
     }
+
     return true
   })
 

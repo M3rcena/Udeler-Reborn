@@ -1155,11 +1155,21 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({
               <button
                 onClick={async () => {
                   setIsDeletingAll(true)
-                  await window.api.invoke('delete-all-downloads')
-                  setDownloadedFiles([])
-                  setDownloadProgress({})
-                  setIsDeletingAll(false)
-                  setIsDeleteAllModalOpen(false)
+                  try {
+                    const success = await window.api.invoke('delete-all-downloads')
+                    if (success) {
+                      setDownloadedFiles([])
+                      setDownloadProgress({})
+                      setIsDeleteAllModalOpen(false)
+                    } else {
+                      alert('Failed to delete library files.')
+                    }
+                  } catch (err) {
+                    console.error('Failed to delete all downloads:', err)
+                    alert('An error occurred while deleting library files.')
+                  } finally {
+                    setIsDeletingAll(false)
+                  }
                 }}
                 disabled={isDeletingAll}
                 className="flex items-center justify-center gap-2 py-3 px-4 bg-red-600 hover:bg-red-500 text-white font-semibold rounded-xl transition-all shadow-lg hover:shadow-red-600/30 cursor-pointer disabled:opacity-70"

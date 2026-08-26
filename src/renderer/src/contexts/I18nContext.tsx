@@ -94,8 +94,14 @@ export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const setLocale = async (code: string): Promise<void> => {
     if (dictionaries[code]) {
+      const previous = currentLocale
       setCurrentLocale(code)
-      await window.api.invoke('store-set', 'app_language', code)
+      try {
+        await window.api.invoke('store-set', 'app_language', code)
+      } catch (err) {
+        console.error('Failed to persist language selection:', err)
+        setCurrentLocale(previous)
+      }
     }
   }
 
