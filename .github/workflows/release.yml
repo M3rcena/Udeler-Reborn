@@ -45,9 +45,10 @@ jobs:
 
       - name: Compile and Release Distribution Packages
         run: |
-          npm run build
+          npx electron-builder --publish always \
+            -c.appx.identityName="${{ secrets.MS_APPX_IDENTITY_NAME }}" \
+            -c.appx.publisherDisplayName="${{ secrets.MS_APPX_PUBLISHER_DISPLAY_NAME }}" \
+            -c.appx.publisher="${{ secrets.MS_APPX_PUBLISHER_ID }}"
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          MS_APPX_IDENTITY_NAME: ${{ secrets.MS_APPX_IDENTITY_NAME }}
-          MS_APPX_PUBLISHER_DISPLAY_NAME: ${{ secrets.MS_APPX_PUBLISHER_DISPLAY_NAME }}
-          MS_APPX_PUBLISHER_ID: ${{ secrets.MS_APPX_PUBLISHER_ID }}
