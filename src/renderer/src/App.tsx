@@ -5,7 +5,9 @@ import { PathAlertModal } from './components/PathAlertModal'
 import { SearchModal } from './components/SearchModal'
 import { Sidebar } from './components/Sidebar'
 import { UpdateToast } from './components/UpdateToast'
+import { WhatsNewModal } from './components/WhatsNewModal'
 import { useAuth } from './contexts/AuthContext'
+import { useI18n } from './contexts/I18nContext'
 import { AboutTab } from './views/AboutTab'
 import { DownloadsTab } from './views/DownloadsTab'
 import { LoginView } from './views/LoginView'
@@ -13,6 +15,8 @@ import { MyCoursesTab } from './views/MyCoursesTab'
 import { SettingsTab } from './views/SettingsTab'
 
 function App(): React.JSX.Element {
+  const { t } = useI18n()
+
   const { isLoggedIn, isAuthLoading, handleLogout } = useAuth()
   const [isPathAlertOpen, setIsPathAlertOpen] = useState<boolean>(false)
 
@@ -88,7 +92,7 @@ function App(): React.JSX.Element {
   if (isAuthLoading || isAppLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center dark:bg-gray-900 dark:text-white">
-        Loading...
+        {t.words.loading}
       </div>
     )
   }
@@ -144,6 +148,7 @@ function App(): React.JSX.Element {
 
       {/* --- GLOBAL NOTIFICATIONS --- */}
       <UpdateToast />
+      <WhatsNewModal />
 
       {/* --- GLOBAL DOWNLOADS MANAGER WIDGET */}
       <GlobalDownloadWidget />

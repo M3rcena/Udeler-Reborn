@@ -1,9 +1,16 @@
 import { useDownload } from '@renderer/contexts/DownloadContext'
+import { useI18n } from '@renderer/contexts/I18nContext'
 import React, { useEffect, useState } from 'react'
-import { Course, CurriculumItem, IntegrityIssue, IntegrityProgress } from 'src/preload/types/ipc-types'
+import {
+  Course,
+  CurriculumItem,
+  IntegrityIssue,
+  IntegrityProgress
+} from 'src/preload/types/ipc-types'
 
 export const LibraryHealthPanel: React.FC = () => {
   const { handleDownloadItem } = useDownload()
+  const { t } = useI18n()
   const [isScanning, setIsScanning] = useState(false)
   const [progress, setProgress] = useState<IntegrityProgress | null>(null)
   const [issues, setIssues] = useState<IntegrityIssue[]>([])
@@ -75,21 +82,21 @@ export const LibraryHealthPanel: React.FC = () => {
               ></path>
             </svg>
           </div>
-          Library Health & Integrity
+          {t.components.libraryHealth.title}
         </h3>
         <button
           onClick={runScan}
           disabled={isScanning}
           className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl transition-all shadow-lg hover:shadow-indigo-500/30 cursor-pointer disabled:opacity-50"
         >
-          {isScanning ? 'Scanning Library...' : 'Run Integrity Check'}
+          {isScanning ? t.components.libraryHealth.scanning : t.components.libraryHealth.runCheck}
         </button>
       </div>
 
       {isScanning && progress && (
         <div className="mb-6 bg-gray-50 dark:bg-black/20 p-4 rounded-2xl border border-gray-200 dark:border-white/5">
           <div className="flex justify-between text-sm mb-2 font-medium text-gray-700 dark:text-gray-300">
-            <span>Verifying Hash Checksums</span>
+            <span>{t.components.libraryHealth.verifyChecksums}</span>
             <span>{percent}%</span>
           </div>
           <div className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden mb-2">
@@ -112,14 +119,16 @@ export const LibraryHealthPanel: React.FC = () => {
               d="M5 13l4 4L19 7"
             ></path>
           </svg>
-          <span className="font-bold">Library is perfectly healthy! All checksums match.</span>
+          <span className="font-bold">{t.components.libraryHealth.healthy}</span>
         </div>
       )}
 
       {issues.length > 0 && (
         <div className="flex flex-col gap-3">
           <div className="px-4 py-2 bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400 font-bold rounded-xl text-sm border border-red-200 dark:border-red-500/30 flex items-center justify-between">
-            <span>{issues.length} Corrupted File(s) Detected</span>
+            <span>
+              {t('components.libraryHealth.corruptedFiles', { issuesLength: issues.length })}
+            </span>
           </div>
           <div className="max-h-64 overflow-y-auto custom-scrollbar flex flex-col gap-2">
             {issues.map((issue) => (
@@ -135,7 +144,9 @@ export const LibraryHealthPanel: React.FC = () => {
                     {issue.courseTitle} <span className="opacity-50">/</span> {issue.chapterTitle}
                   </p>
                   <p className="text-xs font-mono mt-1 text-red-500">
-                    Reason: {issue.status.replace('_', ' ').toUpperCase()}
+                    {t('components.libraryHealth.reason', {
+                      reason: issue.status.replace('_', ' ').toUpperCase()
+                    })}
                   </p>
                 </div>
 
@@ -147,14 +158,14 @@ export const LibraryHealthPanel: React.FC = () => {
                     }}
                     className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white font-semibold rounded-lg text-sm shadow-md cursor-pointer shrink-0"
                   >
-                    Delete (Archived)
+                    {t.components.libraryHealth.delete}
                   </button>
                 ) : (
                   <button
                     onClick={() => handleRepair(issue)}
                     className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-lg text-sm shadow-md cursor-pointer shrink-0"
                   >
-                    Auto-Repair
+                    {t.components.libraryHealth.autoRepair}
                   </button>
                 )}
               </div>

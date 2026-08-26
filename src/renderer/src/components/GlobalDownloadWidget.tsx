@@ -1,4 +1,5 @@
 import { useDownload } from '@renderer/contexts/DownloadContext'
+import { useI18n } from '@renderer/contexts/I18nContext'
 import React, { useRef, useState } from 'react'
 
 export const GlobalDownloadWidget: React.FC = () => {
@@ -12,6 +13,7 @@ export const GlobalDownloadWidget: React.FC = () => {
     cancelQueue,
     downloadSpeeds
   } = useDownload()
+  const { t } = useI18n()
 
   const [isHovered, setIsHovered] = useState(false)
   const hoverTimeout = useRef<NodeJS.Timeout | null>(null)
@@ -57,10 +59,12 @@ export const GlobalDownloadWidget: React.FC = () => {
         <div className="px-5 py-4 border-b border-gray-200/50 dark:border-white/5 flex justify-between items-center bg-gray-50/50 dark:bg-white/5">
           <div className="flex items-center gap-2.5">
             <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse shadow-[0_0_8px_rgba(59,130,246,0.8)]"></div>
-            <h3 className="text-sm font-bold text-gray-900 dark:text-white">Active Downloads</h3>
+            <h3 className="text-sm font-bold text-gray-900 dark:text-white">
+              {t.components.globalDownloads.active}
+            </h3>
           </div>
           <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-500/20 px-2.5 py-1 rounded-lg">
-            {queueCount} Queued
+            {t('components.globalDownloads.queued', { queueCount })}
           </span>
         </div>
 
@@ -81,7 +85,7 @@ export const GlobalDownloadWidget: React.FC = () => {
                   d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
                 ></path>
               </svg>
-              <p className="text-xs font-medium">Processing queue...</p>
+              <p className="text-xs font-medium">{t.components.globalDownloads.processing}</p>
             </div>
           ) : (
             activeKeys.map((idStr) => {
@@ -133,21 +137,21 @@ export const GlobalDownloadWidget: React.FC = () => {
                 onClick={pauseQueue}
                 className="flex-1 text-xs py-2 font-bold bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 hover:bg-yellow-500/20 rounded-xl transition-all cursor-pointer"
               >
-                Pause Queue
+                {t.components.globalDownloads.pause}
               </button>
             ) : (
               <button
                 onClick={resumeQueue}
                 className="flex-1 text-xs py-2 font-bold bg-green-500/10 text-green-600 dark:text-green-400 hover:bg-green-500/20 rounded-xl transition-all cursor-pointer"
               >
-                Resume Queue
+                {t.components.globalDownloads.resume}
               </button>
             )}
             <button
               onClick={cancelQueue}
               className="flex-1 text-xs py-2 font-bold bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20 rounded-xl transition-all cursor-pointer"
             >
-              Stop All
+              {t.components.globalDownloads.stopAll}
             </button>
           </div>
         )}

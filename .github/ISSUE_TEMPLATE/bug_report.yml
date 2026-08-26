@@ -1,0 +1,83 @@
+name: 🐛 Bug Report
+description: Report an issue or unexpected behavior in Udeler Reborn.
+labels: ['bug', 'triage']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this bug! Please ensure you have tried exporting your diagnostic logs via **Settings -> Troubleshooting & Diagnostics**.
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating System
+      description: What OS are you using?
+      options:
+        - Windows 11
+        - Windows 10
+        - macOS (Apple Silicon - M1/M2/M3)
+        - macOS (Intel)
+        - Linux (Ubuntu / Debian)
+        - Linux (Fedora / RHEL / openSUSE)
+        - Linux (Arch / Other)
+    validations:
+      required: true
+
+  - type: input
+    id: app_version
+    attributes:
+      label: App Version
+      description: Which version of Udeler Reborn are you running (e.g. v3.2.0)?
+      placeholder: v3.2.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: account_type
+    attributes:
+      label: Account Type
+      options:
+        - Personal Udemy Account (udemy.com)
+        - Udemy Business (Subdomain)
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: How can we reproduce this bug?
+      placeholder: |
+        1. Open Udeler Reborn
+        2. Navigate to 'My Courses'
+        3. Click 'Download All' on Course X
+        4. See error...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Diagnostic Logs
+      description: Paste relevant logs from Settings -> Troubleshooting & Diagnostics -> Export Debug Logs.
+      render: text
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Validation Checklist
+      options:
+        - label: I have verified that this issue is not already reported in open issues.
+          required: true
+        - label: I am not downloading DRM-protected content (which Udemy restricts).
+          required: true
