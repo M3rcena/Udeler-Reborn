@@ -194,7 +194,7 @@ export function getCourseVolumeMappings(): Record<number, CourseVolumeMapping> {
   const mappings: Record<number, CourseVolumeMapping> = {}
   for (const row of rows) {
     mappings[Number(row.course_id)] = {
-      volumeId: row.volumeId,
+      volumeId: row.volume_id,
       name: row.name,
       isAvailable: row.is_available === 1,
       rootPath: row.root_path

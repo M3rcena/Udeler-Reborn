@@ -243,7 +243,7 @@ export interface VolumeRow {
 
 export interface CourseVolumeRow {
   course_id: number
-  volumeId: string
+  volume_id: string
   name: string
   is_available: number
   root_path: string
