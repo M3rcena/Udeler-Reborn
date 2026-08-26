@@ -43,9 +43,9 @@ jobs:
         run: |
           npm ci
 
-      - name: Compile and Release Distribution Packages
+      - name: Compile, Package and Release
         run: |
-          npx electron-builder --publish always \
+          npm run build -- \
             -c.appx.identityName="${{ secrets.MS_APPX_IDENTITY_NAME }}" \
             -c.appx.publisherDisplayName="${{ secrets.MS_APPX_PUBLISHER_DISPLAY_NAME }}" \
             -c.appx.publisher="${{ secrets.MS_APPX_PUBLISHER_ID }}"
