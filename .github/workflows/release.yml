@@ -43,9 +43,15 @@ jobs:
         run: |
           npm ci
 
-      - name: Compile, Package and Release
+      - name: Compile Frontend & Main Source
         run: |
-          npm run build -- \
+          npm run typecheck
+          npx electron-vite build
+
+      - name: Package and Publish App Binaries
+        shell: bash
+        run: |
+          npx electron-builder --publish always \
             -c.appx.identityName="${{ secrets.MS_APPX_IDENTITY_NAME }}" \
             -c.appx.publisherDisplayName="${{ secrets.MS_APPX_PUBLISHER_DISPLAY_NAME }}" \
             -c.appx.publisher="${{ secrets.MS_APPX_PUBLISHER_ID }}"
