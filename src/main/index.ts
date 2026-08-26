@@ -783,18 +783,35 @@ app.whenReady().then(() => {
 
     for (const basePath of basePaths) {
       if (!fs.existsSync(basePath)) continue
-      const entries = fs.readdirSync(basePath)
-      for (const entry of entries) {
-        if (entry.startsWith('.')) continue
-        const fullPath = path.join(basePath, entry)
-        if (fs.statSync(fullPath).isDirectory()) {
+
+      const cachedDownloads = (store.get('cached_downloads') || []) as DownloadedFile[]
+      const cachedCourses = (store.get('cached_courses') || []) as Course[]
+
+      const sanitizeName = (name: string): string => name.replace(/[<>:"/\\|?*]+/g, '-').trim()
+
+      const allowedDirs = new Set<string>([
+        ...cachedDownloads.map((d) => d.course).filter((c): c is string => Boolean(c)),
+        ...cachedCourses.map((c) => sanitizeName(c.title)).filter(Boolean)
+      ])
+
+      for (const basePath of basePaths) {
+        if (!fs.existsSync(basePath)) continue
+
+        const entries = fs.readdirSync(basePath)
+        for (const entry of entries) {
+          if (entry.startsWith('.') || !allowedDirs.has(entry)) continue
+
+          const fullPath = path.join(basePath, entry)
           try {
-            await fs.remove(fullPath)
-          } catch (e) {
-            console.error(`Failed to remove ${entry}:`, e)
+            if (fs.statSync(fullPath).isDirectory()) {
+              fs.rmSync(fullPath, { recursive: true, force: true })
+            }
+          } catch (err: unknown) {
+            console.error(`Failed to delete course directory ${fullPath}:`, err)
           }
         }
       }
+
       runGarbageCollector(basePath)
     }
     return true

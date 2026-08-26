@@ -248,6 +248,13 @@ export const SettingsTab: React.FC = () => {
                       {availableLocales.map((opt) => (
                         <div
                           key={opt.code}
+                          role="menuitemradio"
+                          tabIndex={0}
+                          aria-checked={currentLocale === opt.code}
+                          onKeyDown={(e) =>
+                            (e.key === 'Enter' || e.key === ' ') &&
+                            (e.preventDefault(), setLocale(opt.code), setIsLangMenuOpen(false))
+                          }
                           onClick={(e) => {
                             e.stopPropagation()
                             setLocale(opt.code)

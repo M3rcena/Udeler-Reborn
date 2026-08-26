@@ -952,7 +952,7 @@ export const DownloadsTab: React.FC<DownloadsTabProps> = ({
                             </p>
                             <div className="flex items-center gap-3 mt-1">
                               <p className="text-xs text-gray-500 truncate">
-                                {item.type} {item.size} MB
+                                {item.type} • {item.size} MB
                               </p>
                               {progressData && (
                                 <div className="w-24 h-1.5 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">

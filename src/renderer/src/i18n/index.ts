@@ -45,7 +45,11 @@ const availableLocalesList: LocaleMeta[] = [
 ]
 
 for (const path in localeModules) {
-  const mod = localeModules[path] as Record<string, unknown>
+  const rawMod = localeModules[path] as Record<string, unknown>
+  const mod = (
+    rawMod.default && typeof rawMod.default === 'object' ? rawMod.default : rawMod
+  ) as Record<string, unknown>
+
   const fileNameMatch = path.match(/\/([^/]+)\.json$/)
   if (!fileNameMatch) continue
 

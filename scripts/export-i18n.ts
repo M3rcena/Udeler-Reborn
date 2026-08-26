@@ -4,7 +4,7 @@ import * as path from 'path'
 import { EnglishUS } from '../src/renderer/src/locales/EnglishUS'
 
 function exportToJson(): void {
-  const outputPath = path.resolve(__dirname, '../src/renderer/src/locales/EnglishUS.json')
+  const outputPath = path.resolve(import.meta.dirname, '../src/renderer/src/locales/EnglishUS.json')
 
   try {
     const jsonString = JSON.stringify(EnglishUS, null, 2)

@@ -1,3 +1,4 @@
+import DOMPurify from 'dompurify'
 import React from 'react'
 
 interface SimpleMarkdownProps {
@@ -63,7 +64,7 @@ export const SimpleMarkdown: React.FC<SimpleMarkdownProps> = ({ content }) => {
   const hasRawHtml = /<[a-z][\s\S]*>/i.test(content)
 
   if (hasRawHtml) {
-    const processed = content
+    const rawProcessed = content
       .replace(
         /^### (.*$)/gim,
         '<h4 class="text-sm font-bold text-blue-600 dark:text-blue-400 mt-3 mb-1">$1</h4>'
@@ -95,10 +96,37 @@ export const SimpleMarkdown: React.FC<SimpleMarkdownProps> = ({ content }) => {
       )
       .replace(/\n\n/g, '<div class="h-3"></div>')
 
+    const cleanHtml = DOMPurify.sanitize(rawProcessed, {
+      ALLOWED_TAGS: [
+        'h1',
+        'h2',
+        'h3',
+        'h4',
+        'h5',
+        'h6',
+        'p',
+        'span',
+        'div',
+        'strong',
+        'em',
+        'code',
+        'pre',
+        'a',
+        'img',
+        'br',
+        'hr',
+        'ul',
+        'ol',
+        'li',
+        'center'
+      ],
+      ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'align', 'target', 'rel', 'style']
+    })
+
     return (
       <div
         className="flex flex-col gap-1 text-xs text-gray-700 dark:text-gray-300 leading-relaxed [&_h1]:text-xl [&_h1]:font-extrabold [&_h2]:text-lg [&_h2]:font-bold [&_h3]:text-base [&_h3]:font-bold [&_p]:leading-relaxed [&_img]:max-w-full [&_img]:rounded-xl"
-        dangerouslySetInnerHTML={{ __html: processed }}
+        dangerouslySetInnerHTML={{ __html: cleanHtml }}
       />
     )
   }
