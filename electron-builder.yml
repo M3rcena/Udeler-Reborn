@@ -70,8 +70,6 @@ snap:
     provider: github
     owner: M3rcena
     repo: Udeler-Reborn
-tar.gz:
-  artifactName: ${name}-${version}.${ext}
 npmRebuild: false
 publish:
   provider: github
