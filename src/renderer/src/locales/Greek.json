@@ -300,5 +300,9 @@
         "exportDebug": "Εξαγωγή Καταγραφικού"
       }
     }
+  },
+  "sponsors": {
+    "about": "Υποστήριξη μέσω του GitHub Sponsors",
+    "sidebar": "Υποστηρίξτε με"
   }
 }

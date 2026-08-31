@@ -9,8 +9,8 @@ permissions:
   contents: write
 
 jobs:
-  release:
-    name: Build and Publish App Binaries
+  build:
+    name: Build App Binaries
     runs-on: ${{ matrix.os }}
 
     strategy:
@@ -48,13 +48,53 @@ jobs:
           npm run typecheck
           npx electron-vite build
 
-      - name: Package and Publish App Binaries
+      - name: Package App Binaries
         shell: bash
         run: |
-          npx electron-builder --publish always \
+          npx electron-builder --publish never \
             -c.appx.identityName="${{ secrets.MS_APPX_IDENTITY_NAME }}" \
             -c.appx.publisherDisplayName="${{ secrets.MS_APPX_PUBLISHER_DISPLAY_NAME }}" \
             -c.appx.publisher="${{ secrets.MS_APPX_PUBLISHER_ID }}"
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ matrix.os }}
+          path: |
+            dist/*.exe
+            dist/*.appx
+            dist/*.dmg
+            dist/*.AppImage
+            dist/*.deb
+            dist/*.rpm
+            dist/*.snap
+            dist/*.tar.gz
+            dist/*.zip
+            dist/*.blockmap
+            dist/latest*.yml
+          if-no-files-found: ignore
+
+  publish:
+    name: Publish Unified Release
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Download All Build Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Create Single GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-assets/*
+          draft: true
+          prerelease: false
+          generate_release_notes: true
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

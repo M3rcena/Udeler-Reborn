@@ -1,6 +1,6 @@
 {
   "name": "Udeler",
-  "version": "3.3.0",
+  "version": "3.3.1",
   "description": "A cross platform (Windows, Mac, Linux) desktop application for downloading Udemy Courses.",
   "main": "./out/main/index.js",
   "author": {

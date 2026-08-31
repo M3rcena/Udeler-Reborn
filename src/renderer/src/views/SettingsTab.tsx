@@ -397,7 +397,7 @@ export const SettingsTab: React.FC = () => {
 
                 {/* The Popup Menu */}
                 {isQualityMenuOpen && (
-                  <div className="absolute top-[105%] left-0 w-full mt-2 bg-white/95 dark:bg-[#12121a]/95 backdrop-blur-2xl border border-gray-200 dark:border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="absolute top-[53%] left-0 w-full mt-2 bg-white/95 dark:bg-[#12121a]/95 backdrop-blur-2xl border border-gray-200 dark:border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
                     <div className="p-2 flex flex-col gap-1">
                       {qualityOptions.map((option) => (
                         <div
