@@ -249,6 +249,24 @@ Join our community to report issues, suggest features, or chat with other develo
 
 ---
 
+## 💖 Support the Project
+
+Udeler Reborn is a free, zero-trust, open-source project developed and maintained in my free time. If the software helped you preserve your educational library or saved you bandwidth and disk space, consider supporting ongoing development, reverse engineering, and platform maintenance!
+
+<p align="left">
+  <a href="https://github.com/sponsors/M3rcena">
+    <img src="https://img.shields.io/badge/Sponsor_on_GitHub-EA4AAA?style=for-the-badge&logo=github-sponsors&logoColor=white" alt="GitHub Sponsors" />
+  </a>
+</p>
+
+### Ways to Support
+* **GitHub Sponsors:** [Become a sponsor](https://github.com/sponsors/M3rcena) to fund continuous maintenance and build server costs.
+* **Star the Repo:** Give the project a ⭐ on GitHub to help others discover it.
+* **Community Translations:** Help localize the client into your language via our [Crowdin Hub](https://crowdin.com/project/udeler-reborn).
+* **Report & Feedback:** Submit bug reports or feature suggestions through [GitHub Issues](https://github.com/M3rcena/Udeler-Reborn/issues) or chat directly on [Discord](https://discord.gg/ZgXKk6eTfC).
+
+---
+
 ## 📄 License
 
 This software is distributed under the terms of the **MIT License**. Check the root `LICENSE` profile for comprehensive parameters.

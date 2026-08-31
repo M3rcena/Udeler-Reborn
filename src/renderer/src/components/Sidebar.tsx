@@ -11,6 +11,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const { t } = useI18n()
 
+  const openExternalLink = (url: string): void => {
+    window.open(url, '_blank')
+  }
+
   return (
     <aside className="relative w-64 flex flex-col bg-white/40 dark:bg-white/5 backdrop-blur-xl border-r border-gray-200 dark:border-white/10 z-10 transition-all duration-300">
       {/* Logo Area */}
@@ -113,6 +117,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Sidebar Footer (Theme & Logout) */}
       <div className="p-4 border-t border-gray-200/50 dark:border-white/5 flex flex-col gap-2">
+        <button
+          onClick={() => openExternalLink('https://github.com/sponsors/M3rcena')}
+          className="w-full flex items-center justify-center p-4 rounded-xl bg-gray-50 dark:bg-black/20 hover:bg-pink-50 dark:hover:bg-pink-500/10 border border-gray-200 dark:border-white/5 transition-all group cursor-pointer"
+        >
+          <div className="flex items-center gap-3">
+            <svg className="w-6 h-6 text-pink-500" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+            </svg>
+            <span className="font-semibold text-gray-800 dark:text-gray-200 group-hover:text-pink-500 transition-colors">
+              {t.sponsors.sidebar}
+            </span>
+          </div>
+        </button>
         <button
           onClick={toggleTheme}
           className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gray-200 dark:bg-white/5 text-gray-800 dark:text-white transition-all hover:bg-gray-300 dark:hover:bg-white/10 cursor-pointer font-medium"

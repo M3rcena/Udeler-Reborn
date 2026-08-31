@@ -315,6 +315,10 @@ export const EnglishUS = {
         exportDebug: 'Export Debug Logs'
       }
     }
+  },
+  sponsors: {
+    about: 'Support via GitHub Sponsors',
+    sidebar: 'Support me'
   }
 } as const
 
