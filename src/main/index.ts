@@ -100,27 +100,61 @@ async function moveCourseFiles(
   }
 }
 
-// --- GLOBAL ERROR LOGGER ---
-const debugLogs: string[] = []
+// --- ENHANCED CIRCULAR DIAGNOSTIC RECORDER ---
+interface LogEntry {
+  timestamp: string
+  level: 'INFO' | 'WARN' | 'ERROR' | 'NETWORK'
+  message: string
+  data?: unknown
+}
+
+const diagnosticRingBuffer: LogEntry[] = []
+const MAX_LOGS = 1000
+
+export function logDiagnostic(level: LogEntry['level'], message: string, data?: unknown): void {
+  const entry: LogEntry = {
+    timestamp: new Date().toISOString(),
+    level,
+    message,
+    data: data ? JSON.parse(JSON.stringify(data)) : undefined
+  }
+
+  diagnosticRingBuffer.push(entry)
+  if (diagnosticRingBuffer.length > MAX_LOGS) {
+    diagnosticRingBuffer.shift()
+  }
+
+  const formattedData = data ? ` | Data: ${JSON.stringify(data)}` : ''
+  if (level === 'ERROR') {
+    originalConsoleError(`[${entry.timestamp}] [${level}] ${message}${formattedData}`)
+  } else if (level === 'WARN') {
+    originalConsoleWarn(`[${entry.timestamp}] [${level}] ${message}${formattedData}`)
+  } else {
+    originalConsoleLog(`[${entry.timestamp}] [${level}] ${message}${formattedData}`)
+  }
+}
+
+const originalConsoleLog = console.log
+const originalConsoleWarn = console.warn
 const originalConsoleError = console.error
-console.error = (...args) => {
-  const timestamp = new Date().toISOString()
-  const message = args
-    .map((a) =>
-      typeof a === 'object' && a !== null
-        ? JSON.stringify(a, Object.getOwnPropertyNames(a))
-        : String(a)
-    )
-    .join(' ')
-  debugLogs.push(`[ERROR] [${timestamp}] ${message}`)
-  originalConsoleError(...args)
+
+console.log = (msg: unknown, ...args: unknown[]): void => {
+  logDiagnostic('INFO', String(msg), args.length ? args : undefined)
+}
+console.warn = (msg: unknown, ...args: unknown[]): void => {
+  logDiagnostic('WARN', String(msg), args.length ? args : undefined)
+}
+console.error = (msg: unknown, ...args: unknown[]): void => {
+  logDiagnostic('ERROR', String(msg), args.length ? args : undefined)
 }
 
 process.on('uncaughtException', (error) => {
-  console.error('UncaughtException:', error)
+  logDiagnostic('ERROR', `UncaughtException: ${error.message}`, { stack: error.stack })
 })
 process.on('unhandledRejection', (reason) => {
-  console.error('UnhandledRejection:', reason)
+  logDiagnostic('ERROR', `UnhandledRejection: ${String(reason)}`, {
+    stack: reason instanceof Error ? reason.stack : undefined
+  })
 })
 
 let mainWindow: BrowserWindow | null = null
@@ -340,20 +374,48 @@ app.whenReady().then(() => {
 
   registerSecureIpc('export-debug-logs', async (): Promise<boolean> => {
     const { canceled, filePath } = await dialog.showSaveDialog({
-      title: 'Save Debug Logs',
-      defaultPath: 'udeler-debug-logs.txt',
+      title: 'Save Diagnostic Logs',
+      defaultPath: `udeler-debug-${Date.now()}.txt`,
       filters: [{ name: 'Text Files', extensions: ['txt'] }]
     })
 
-    if (!canceled && filePath) {
-      const header = `=== Udeler Reborn Diagnostic Logs ===\nGenerated: ${new Date().toISOString()}\n\n`
-      const logContent =
-        debugLogs.length > 0 ? debugLogs.join('\n') : 'No backend errors recorded in this session.'
+    if (canceled || !filePath) return false
 
-      fs.writeFileSync(filePath, header + logContent, 'utf-8')
-      return true
+    const rawToken = (store.get('udemy_token') as string) || ''
+    const maskedToken = rawToken
+      ? `${rawToken.substring(0, 6)}...${rawToken.substring(rawToken.length - 4)} (Length: ${rawToken.length})`
+      : 'EMPTY / NOT FOUND'
+
+    const subdomain = (store.get('udemy_subdomain') as string) || 'None (Standard Marketplace)'
+    const settings = store.get('app_settings') || {}
+    const cachedCourses = (store.get('cached_courses') as unknown[]) || []
+
+    let report = `=======================================================\n`
+    report += `         UDELER REBORN COMPREHENSIVE DIAGNOSTICS       \n`
+    report += `=======================================================\n`
+    report += `Timestamp        : ${new Date().toISOString()}\n`
+    report += `App Version      : ${app.getVersion()}\n`
+    report += `Platform/OS      : ${process.platform} (${process.arch}) ${process.getSystemVersion()}\n`
+    report += `Node / Electron  : ${process.versions.node} / ${process.versions.electron}\n`
+    report += `Account Domain   : ${subdomain}\n`
+    report += `Active Token     : ${maskedToken}\n`
+    report += `Cached Courses   : ${cachedCourses.length} in store\n`
+    report += `App Settings     : ${JSON.stringify(settings, null, 2)}\n`
+    report += `\n================== DIAGNOSTIC TRACE ===================\n\n`
+
+    if (diagnosticRingBuffer.length === 0) {
+      report += `No runtime events captured in current session.\n`
+    } else {
+      for (const log of diagnosticRingBuffer) {
+        report += `[${log.timestamp}] [${log.level.padEnd(7)}] ${log.message}\n`
+        if (log.data) {
+          report += `   Payload: ${JSON.stringify(log.data, null, 2)}\n`
+        }
+      }
     }
-    return false
+
+    await fs.writeFile(filePath, report, 'utf-8')
+    return true
   })
 
   registerSecureIpc('store-get', (_event, key: string): unknown => {
@@ -410,13 +472,25 @@ app.whenReady().then(() => {
   })
 
   registerSecureIpc(
+    'log-client-event',
+    (
+      _event,
+      level: 'INFO' | 'WARN' | 'ERROR' | 'NETWORK',
+      message: string,
+      data?: unknown
+    ): void => {
+      logDiagnostic(level, `[Renderer] ${message}`, data)
+    }
+  )
+
+  registerSecureIpc(
     'fetch-curriculum',
     async (_event, courseId: number): Promise<CurriculumItem[]> => {
       const token = store.get('udemy_token') as string | undefined
       const subdomain = store.get('udemy_subdomain') as string | undefined
       if (!token) throw new Error('No token found')
 
-      const rawItems = await fetchCourseCurriculum(token, courseId, subdomain)
+      const rawItems = await fetchCourseCurriculum(courseId, token, subdomain)
 
       return rawItems.map((item): CurriculumItem => {
         const mappedItem: CurriculumItem = {

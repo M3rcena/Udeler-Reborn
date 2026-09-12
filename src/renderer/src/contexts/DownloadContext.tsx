@@ -15,6 +15,10 @@ import type {
   QueuedDownloadTask
 } from 'src/preload/types/ipc-types'
 
+const logTrace = (level: 'INFO' | 'WARN' | 'ERROR', msg: string, data?: unknown): void => {
+  window.api.invoke('log-client-event', level, msg, data).catch(() => {})
+}
+
 const DownloadContext = createContext<DownloadContextType | undefined>(undefined)
 
 export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -279,10 +283,29 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
     curriculum: CurriculumItem[],
     currentChapterTitle: string
   ): Promise<number> => {
-    if (!course || curriculum.length === 0) return 0
+    logTrace('INFO', 'startDownloadQueue invoked', {
+      courseId: course?.id,
+      courseTitle: course?.title,
+      curriculumLength: curriculum?.length
+    })
+
+    if (!course) {
+      logTrace('WARN', 'startDownloadQueue aborted: course is undefined')
+      return 0
+    }
+
+    if (!curriculum || curriculum.length === 0) {
+      logTrace('WARN', 'startDownloadQueue aborted: curriculum array is empty', {
+        courseId: course.id
+      })
+      return 0
+    }
 
     const isValid = await validateDownloadPath()
-    if (!isValid) return 0
+    if (!isValid) {
+      logTrace('WARN', 'startDownloadQueue aborted: download path is invalid or empty')
+      return 0
+    }
 
     const settings = (await window.api.invoke('store-get', 'app_settings')) as
       AppSettings | undefined
@@ -303,9 +326,16 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
       }
     }
 
+    logTrace('INFO', 'Download queue scheduling status', {
+      scheduleEnabled: settings?.scheduleEnabled,
+      isWithinScheduleWindow,
+      manualOverride: manualOverride.current
+    })
+
     let trackingTitle = currentChapterTitle
     let lectureCounter = 1
     const newTasks: typeof downloadQueue.current = []
+    const skippedStats = { quizzes: 0, downloading: 0, success: 0, alreadyQueued: 0, other: 0 }
 
     for (const item of curriculum) {
       if (item._class === 'chapter') {
@@ -314,17 +344,41 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
       }
 
       const currentIndex = lectureCounter++
-      if (item._class === 'quiz') continue
+
+      if (item._class === 'quiz') {
+        skippedStats.quizzes++
+        continue
+      }
 
       const status = downloadProgress[item.id]
-
       const isAlreadyQueued = downloadQueue.current.some((q) => q.item.id === item.id)
-      if (status === 'downloading' || status === 'success' || isAlreadyQueued) continue
+
+      if (status === 'downloading') {
+        skippedStats.downloading++
+        continue
+      }
+      if (status === 'success') {
+        skippedStats.success++
+        continue
+      }
+      if (isAlreadyQueued) {
+        skippedStats.alreadyQueued++
+        continue
+      }
 
       newTasks.push({ course, item, chapterTitle: trackingTitle, index: currentIndex })
     }
 
-    if (newTasks.length === 0) return 0
+    logTrace('INFO', 'Queue filter evaluation result', {
+      generatedTasksCount: newTasks.length,
+      skippedStats,
+      existingQueueLength: downloadQueue.current.length
+    })
+
+    if (newTasks.length === 0) {
+      logTrace('WARN', 'startDownloadQueue: 0 new tasks generated to download', { skippedStats })
+      return 0
+    }
 
     totalSessionItems.current += newTasks.length
     downloadQueue.current = [...downloadQueue.current, ...newTasks]
@@ -336,10 +390,14 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
       isQueuePaused.current = false
       setQueueStatus('running')
       const availableWorkers = Math.max(0, 3 - activeWorkers.current)
+      logTrace('INFO', `Dispatching ${availableWorkers} queue workers`, {
+        activeWorkers: activeWorkers.current
+      })
       for (let i = 0; i < availableWorkers; i++) {
         setTimeout(processQueue, i * 500)
       }
     } else {
+      logTrace('WARN', 'Queue placed into paused state due to active schedule outside window')
       isQueuePaused.current = true
       setQueueStatus('paused')
     }

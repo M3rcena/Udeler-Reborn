@@ -36,7 +36,8 @@ const IPC_MANIFEST: Record<keyof IpcChannels, IpcManifestEntry> = {
   'get-all-volumes': { tier: 'read-only-metadata', maxCallsPerSecond: 50 },
   'pin-course': { tier: 'filesystem-write', maxCallsPerSecond: 20 },
   'unpin-course': { tier: 'filesystem-write', maxCallsPerSecond: 20 },
-  'get-security-audit-stats': { tier: 'read-only-metadata', maxCallsPerSecond: 100 }
+  'get-security-audit-stats': { tier: 'read-only-metadata', maxCallsPerSecond: 100 },
+  'log-client-event': { tier: 'read-only-metadata', maxCallsPerSecond: 100 }
 }
 
 let passedChecks = 0

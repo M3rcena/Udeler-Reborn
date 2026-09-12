@@ -338,4 +338,8 @@ export interface IpcChannels {
     args: []
     returns: { passedChecks: number; anomalies: number }
   }
+  'log-client-event': {
+    args: [level: 'INFO' | 'WARN' | 'ERROR' | 'NETWORK', message: string, data?: unknown]
+    returns: void
+  }
 }

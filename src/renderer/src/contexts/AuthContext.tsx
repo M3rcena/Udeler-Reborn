@@ -29,7 +29,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }): React.JSX.E
   }, [])
 
   const handleLogin = async (tokenInput: string): Promise<void> => {
-    if (!tokenInput.trim()) {
+    const cleanedToken = tokenInput.trim().replace(/^["']|["']$/g, '')
+    if (!cleanedToken) {
       setAuthStatus('error')
       setAuthErrorMsg('Please paste a token before authenticating.')
       return
@@ -39,8 +40,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }): React.JSX.E
     setAuthErrorMsg('')
 
     try {
-      await window.api.invoke('store-set', 'udemy_token', tokenInput)
-      // Test the token by fetching courses
+      await window.api.invoke('store-set', 'udemy_token', cleanedToken)
       await window.api.invoke('fetch-courses')
 
       setAuthStatus('success')

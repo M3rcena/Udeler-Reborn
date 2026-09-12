@@ -5,4 +5,4 @@
  *
  */
 
-export const appVersion = 'v3.3.1'
+export const appVersion = 'v3.3.1-debug'

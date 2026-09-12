@@ -5,6 +5,7 @@ import type { ClientRequest, IncomingMessage } from 'http'
 import * as https from 'https'
 import * as path from 'path'
 import { z } from 'zod'
+import { logDiagnostic } from '.'
 import { AppSettings, DownloadRequest } from '../preload/types/ipc-types'
 import { addReclaimedBytes, checkBlobExists, insertBlob, recordLectureLink } from './database/db'
 import { store } from './database/store'
@@ -116,6 +117,21 @@ function downloadExtraFile(url: string, destPath: string): Promise<void> {
 }
 
 export async function processDownload(req: DownloadRequest): Promise<string> {
+  logDiagnostic('INFO', 'processDownload started', {
+    lectureId: req.lectureId,
+    lectureTitle: req.lectureTitle,
+    courseTitle: req.courseTitle,
+    downloadPath: req.downloadPath,
+    type: req.type
+  })
+
+  if (!fs.existsSync(req.downloadPath)) {
+    logDiagnostic('ERROR', 'Target download root directory does not exist on disk', {
+      downloadPath: req.downloadPath
+    })
+    throw new Error(`Download directory not found: ${req.downloadPath}`)
+  }
+
   canceledDownloads.delete(req.lectureId)
 
   const minutes = req.timeEstimation ? ` (${Math.ceil(req.timeEstimation / 60)}m)` : ''

@@ -98,6 +98,13 @@ const api = {
     return (): void => {
       ipcRenderer.removeListener('volume-mappings-updated', listener)
     }
+  },
+  logClientEvent: (
+    level: 'INFO' | 'WARN' | 'ERROR' | 'NETWORK',
+    message: string,
+    data?: unknown
+  ): void => {
+    ipcRenderer.invoke('log-client-event', level, message, data)
   }
 }
 
