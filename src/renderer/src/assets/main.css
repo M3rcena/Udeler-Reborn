@@ -1,24 +1,73 @@
 @import 'tailwindcss';
-@custom-variant dark (&:where(.dark, .dark *));
 
-body {
-  background: radial-gradient(circle at top left, #1e1e2f, #0b0b14);
-  color: white;
-  min-height: 100vh;
+@layer theme {
+  :root,
+  [data-theme='violet'] {
+    --bg-main: #09090e;
+    --bg-surface: rgba(18, 18, 28, 0.92);
+    --bg-card: rgba(255, 255, 255, 0.05);
+    --border-color: rgba(255, 255, 255, 0.08);
+    --border-highlight: rgba(168, 85, 247, 0.35);
+    --accent-from: #3b82f6;
+    --accent-to: #9333ea;
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+  }
+
+  [data-theme='midnight'] {
+    --bg-main: #030712;
+    --bg-surface: rgba(15, 23, 42, 0.92);
+    --bg-card: rgba(255, 255, 255, 0.04);
+    --border-color: rgba(255, 255, 255, 0.07);
+    --border-highlight: rgba(56, 189, 248, 0.35);
+    --accent-from: #0284c7;
+    --accent-to: #06b6d4;
+    --text-primary: #f1f5f9;
+    --text-secondary: #64748b;
+  }
+
+  [data-theme='cyberpunk'] {
+    --bg-main: #0d0221;
+    --bg-surface: rgba(25, 4, 48, 0.95);
+    --bg-card: rgba(255, 0, 128, 0.06);
+    --border-color: rgba(0, 240, 255, 0.2);
+    --border-highlight: rgba(255, 0, 128, 0.5);
+    --accent-from: #ff007f;
+    --accent-to: #00f0ff;
+    --text-primary: #ffffff;
+    --text-secondary: #d946ef;
+  }
+
+  [data-theme='light'] {
+    --bg-main: #f8fafc;
+    --bg-surface: rgba(255, 255, 255, 0.95);
+    --bg-card: rgba(0, 0, 0, 0.03);
+    --border-color: rgba(0, 0, 0, 0.08);
+    --border-highlight: rgba(59, 130, 246, 0.4);
+    --accent-from: #2563eb;
+    --accent-to: #7c3aed;
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+  }
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
   margin: 0;
-  font-family:
-    system-ui,
-    -apple-system,
-    sans-serif;
+  padding: 0;
+  background: transparent !important;
+  background-color: transparent !important;
+  user-select: none;
+  overflow: hidden;
 }
 
-.custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
+.window-drag {
+  -webkit-app-region: drag;
 }
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(156, 163, 175, 0.3);
-  border-radius: 10px;
+
+.window-no-drag {
+  -webkit-app-region: no-drag;
 }

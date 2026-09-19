@@ -28,7 +28,6 @@ function mergeDeep<T extends Record<string, unknown>>(base: T, target: Record<st
   return result as T
 }
 
-// Dynamically discover all JSON locale files in ../locales
 const localeModules = import.meta.glob('../locales/*.json', { eager: true })
 
 const loadedTranslations: Record<string, TranslationSchema> = {
@@ -58,8 +57,8 @@ for (const path in localeModules) {
 
   const meta = (mod._meta as Record<string, string>) || {}
   const merged = mergeDeep(EnglishUS as unknown as Record<string, unknown>, mod)
-  loadedTranslations[code] = merged as TranslationSchema
 
+  loadedTranslations[code] = merged as TranslationSchema
   availableLocalesList.push({
     code,
     name: meta.name || code,

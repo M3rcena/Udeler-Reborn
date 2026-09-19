@@ -1,104 +1,36 @@
 import { electronAPI } from '@electron-toolkit/preload'
-import { contextBridge } from 'electron'
-import { ipcRenderer } from 'electron/renderer'
-import {
-  CourseVolumeMapping,
-  DownloadedFile,
-  IntegrityProgress,
-  IpcChannels
-} from './types/ipc-types'
+import { contextBridge, ipcRenderer } from 'electron'
+import type {
+  AppVersionInfo,
+  AuthResult,
+  PlatformId,
+  PlatformSession,
+  UpdaterStatusPayload,
+  WebAuthOptions
+} from '../shared/types'
 
 const api = {
-  invoke: <Channel extends keyof IpcChannels>(
-    channel: Channel,
-    ...args: IpcChannels[Channel]['args']
-  ): Promise<IpcChannels[Channel]['returns']> => {
-    return ipcRenderer.invoke(channel, ...args)
-  },
-
-  onDownloadProgress: (
-    callback: (data: { lectureId: number; percentage: number }) => void
-  ): (() => void) => {
-    const listener = (
-      _event: Electron.IpcRendererEvent,
-      data: { lectureId: number; percentage: number }
-    ): void => {
+  checkUpdates: (): Promise<void> => ipcRenderer.invoke('updater:check'),
+  getAppVersion: (): Promise<AppVersionInfo> => ipcRenderer.invoke('app:version'),
+  exportDebugLogs: (): Promise<boolean> => ipcRenderer.invoke('export-debug-logs'),
+  onUpdaterStatus: (callback: (status: UpdaterStatusPayload) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, data: UpdaterStatusPayload): void => {
       callback(data)
     }
+    ipcRenderer.on('updater:status', handler)
+    return () => {
+      ipcRenderer.removeListener('updater:status', handler)
+    }
+  },
+  resizeToMain: (): Promise<void> => ipcRenderer.invoke('app:resize-to-main'),
 
-    ipcRenderer.on('download-progress', listener)
-
-    return (): void => {
-      ipcRenderer.removeListener('download-progress', listener)
-    }
-  },
-  onSchedulePause: (callback: () => void): (() => void) => {
-    const listener = (): void => callback()
-    ipcRenderer.on('schedule-pause', listener)
-    return (): void => {
-      ipcRenderer.removeListener('schedule-pause', listener)
-    }
-  },
-  onScheduleResume: (callback: () => void): (() => void) => {
-    const listener = (): void => callback()
-    ipcRenderer.on('schedule-resume', listener)
-    return (): void => {
-      ipcRenderer.removeListener('schedule-resume', listener)
-    }
-  },
-  onTrayAction: (callback: (action: 'pause' | 'resume' | 'cancel') => void): (() => void) => {
-    const listener = (
-      _event: Electron.IpcRendererEvent,
-      action: 'pause' | 'resume' | 'cancel'
-    ): void => {
-      callback(action)
-    }
-    ipcRenderer.on('tray-action', listener)
-    return (): void => {
-      ipcRenderer.removeListener('tray-action', listener)
-    }
-  },
-  onPlayRecentMedia: (callback: (file: DownloadedFile) => void): (() => void) => {
-    const listener = (_event: Electron.IpcRendererEvent, file: DownloadedFile): void => {
-      callback(file)
-    }
-    ipcRenderer.on('play-recent-media', listener)
-    return (): void => {
-      ipcRenderer.removeListener('play-recent-media', listener)
-    }
-  },
-  onNavigateCourse: (callback: (courseId: number) => void): (() => void) => {
-    const listener = (_event: Electron.IpcRendererEvent, courseId: number): void => {
-      callback(courseId)
-    }
-    ipcRenderer.on('navigate-course', listener)
-    return (): void => {
-      ipcRenderer.removeListener('navigate-course', listener)
-    }
-  },
-  onIntegrityProgress: (callback: (data: IntegrityProgress) => void): (() => void) => {
-    const listener = (_event: Electron.IpcRendererEvent, data: IntegrityProgress): void => {
-      callback(data)
-    }
-    ipcRenderer.on('integrity-progress', listener)
-    return (): void => {
-      ipcRenderer.removeListener('integrity-progress', listener)
-    }
-  },
-  onVolumeMappingsUpdated: (
-    callback: (mappings: Record<number, CourseVolumeMapping>) => void
-  ): (() => void) => {
-    const listener = (
-      _event: Electron.IpcRendererEvent,
-      mappings: Record<number, CourseVolumeMapping>
-    ): void => {
-      callback(mappings)
-    }
-    ipcRenderer.on('volume-mappings-updated', listener)
-    return (): void => {
-      ipcRenderer.removeListener('volume-mappings-updated', listener)
-    }
-  }
+  getSessions: (): Promise<PlatformSession[]> => ipcRenderer.invoke('auth:get-sessions'),
+  launchWebAuth: (options: WebAuthOptions): Promise<AuthResult> =>
+    ipcRenderer.invoke('auth:launch-web', options),
+  removeSession: (platformId: PlatformId): Promise<boolean> =>
+    ipcRenderer.invoke('auth:remove-session', platformId),
+  ensureValidToken: (platformId: PlatformId): Promise<string | null> =>
+    ipcRenderer.invoke('auth:ensure-valid-token', platformId)
 }
 
 if (process.contextIsolated) {

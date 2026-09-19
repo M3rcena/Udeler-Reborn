@@ -1,20 +1,13 @@
-import './assets/main.css'
-
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App'
-import { AuthProvider } from './contexts/AuthContext'
-import { DownloadProvider } from './contexts/DownloadContext'
+import './assets/main.css'
 import { I18nProvider } from './contexts/I18nContext'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <I18nProvider>
-      <AuthProvider>
-        <DownloadProvider>
-          <App />
-        </DownloadProvider>
-      </AuthProvider>
+      <App />
     </I18nProvider>
   </StrictMode>
 )

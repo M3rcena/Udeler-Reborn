@@ -3,13 +3,12 @@ import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
   test: {
-    globals: true,
-    environment: 'happy-dom',
-    include: ['src/**/*.{test,spec}.{ts,tsx}', 'tests/**/*.{test,spec}.{ts,tsx}'],
+    include: ['src/**/*.{test,spec}.ts'],
+    exclude: ['old/**', 'node_modules/**', 'dist/**', 'out/**']
+  },
+  resolve: {
     alias: {
-      '@renderer': resolve(__dirname, 'src/renderer/src'),
-      '@main': resolve(__dirname, 'src/main'),
-      '@preload': resolve(__dirname, 'src/preload')
+      '@shared': resolve(__dirname, 'src/shared')
     }
   }
 })

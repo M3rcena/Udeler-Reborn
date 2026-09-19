@@ -4,27 +4,35 @@
     "src/renderer/src/env.d.ts",
     "src/renderer/src/**/*",
     "src/renderer/src/**/*.tsx",
-    "src/preload/*.d.ts", 
-    "src/preload/types/index.d.ts", 
-    "src/preload/types/ipc-types.d.ts"  
-  ],
-  "exclude": [
-    "node_modules", 
-    "dist", 
-    "out", 
-    "**/*.test.ts", 
-    "**/*.test.tsx", 
-    "**/*.spec.ts", 
-    "**/*.spec.tsx"
+    "src/preload/*.d.ts",
+    "src/shared/**/*"
   ],
   "compilerOptions": {
     "composite": true,
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.web.tsbuildinfo",
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "module": "ESNext",
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "noEmit": true,
     "jsx": "react-jsx",
+
+    /* Linting */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
     "paths": {
-      "@renderer/*": [
-        "./src/renderer/src/*"
-      ],
-      "*": ["./*"]
+      "@renderer/*": ["./src/renderer/src/*"],
+      "@shared/*": ["./src/shared/*"]
     }
   }
 }

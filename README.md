@@ -260,10 +260,11 @@ Udeler Reborn is a free, zero-trust, open-source project developed and maintaine
 </p>
 
 ### Ways to Support
-* **GitHub Sponsors:** [Become a sponsor](https://github.com/sponsors/M3rcena) to fund continuous maintenance and build server costs.
-* **Star the Repo:** Give the project a ⭐ on GitHub to help others discover it.
-* **Community Translations:** Help localize the client into your language via our [Crowdin Hub](https://crowdin.com/project/udeler-reborn).
-* **Report & Feedback:** Submit bug reports or feature suggestions through [GitHub Issues](https://github.com/M3rcena/Udeler-Reborn/issues) or chat directly on [Discord](https://discord.gg/ZgXKk6eTfC).
+
+- **GitHub Sponsors:** [Become a sponsor](https://github.com/sponsors/M3rcena) to fund continuous maintenance and build server costs.
+- **Star the Repo:** Give the project a ⭐ on GitHub to help others discover it.
+- **Community Translations:** Help localize the client into your language via our [Crowdin Hub](https://crowdin.com/project/udeler-reborn).
+- **Report & Feedback:** Submit bug reports or feature suggestions through [GitHub Issues](https://github.com/M3rcena/Udeler-Reborn/issues) or chat directly on [Discord](https://discord.gg/ZgXKk6eTfC).
 
 ---
 
