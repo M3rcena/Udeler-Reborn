@@ -102,6 +102,9 @@ export class AuthManager {
     return active.token
   }
 
+  /**
+   * Attempts to extract dynamic user identity directly from the in-memory window state
+   */
   private async extractWindowIdentity(
     loginWin: electron.BrowserWindow,
     platformId: PlatformId
@@ -113,38 +116,56 @@ export class AuthManager {
         const js = `
           (() => {
             try {
+              // 1. Direct inspection of ApplicationStore.userData
               const appStore = window.App?.context?.dispatcher?.stores?.ApplicationStore;
               if (appStore?.userData) {
                 const ud = appStore.userData;
                 const name = ud.fullName || ud.full_name || ud.display_name || ud.email_address;
-                if (name) return name;
+                if (name && typeof name === 'string' && name.trim()) return name.trim();
               }
 
+              // 2. Direct inspection of coursera.user
               if (window.coursera?.user) {
                 const u = typeof window.coursera.user === 'function' ? window.coursera.user() : window.coursera.user;
                 if (u) {
                   const name = u.full_name || u.fullName || u.display_name || u.email_address;
-                  if (name) return name;
+                  if (name && typeof name === 'string' && name.trim()) return name.trim();
                 }
               }
 
+              // 3. Apollo GraphQL cache state
               if (window.__APOLLO_STATE__) {
                 const apollo = window.__APOLLO_STATE__;
-                if (apollo['LearnerProfileQueries:{}']?.me?.fullName) {
-                  return apollo['LearnerProfileQueries:{}'].me.fullName;
+                const lp = apollo['LearnerProfileQueries:{}']?.me;
+                if (lp?.fullName && typeof lp.fullName === 'string' && lp.fullName.trim()) {
+                  return lp.fullName.trim();
+                }
+                const rootQuery = apollo['ROOT_QUERY'];
+                if (rootQuery) {
+                  for (const key of Object.keys(rootQuery)) {
+                    if (key.startsWith('FindUserEmailsByUserIdResponse')) {
+                      const emails = rootQuery[key]?.userEmails;
+                      if (emails && emails[0]?.emailAddress) {
+                        return emails[0].emailAddress.trim();
+                      }
+                    }
+                  }
                 }
               }
 
+              // 4. Form inputs (if rendered on account-settings)
               const nameInput = document.getElementById('settings-basic-full-name') || document.querySelector('input[name="fullName"]');
-              if (nameInput && nameInput.value) {
+              if (nameInput && nameInput.value && nameInput.value.trim()) {
                 return nameInput.value.trim();
               }
 
+              // 5. Profile header avatar / dropdown label
               const headerBtn = document.querySelector('[data-e2e="header-profile"]');
               if (headerBtn) {
                 const aria = headerBtn.getAttribute('aria-label');
                 if (aria && aria.includes('for ')) {
-                  return aria.split('for ')[1].trim();
+                  const parsed = aria.split('for ')[1].trim();
+                  if (parsed) return parsed;
                 }
               }
             } catch (e) {}
@@ -158,16 +179,16 @@ export class AuthManager {
         const js = `
           (() => {
             try {
-              if (window.Skillshare && window.Skillshare.currentUser) {
+              if (window.Skillshare?.currentUser) {
                 const u = window.Skillshare.currentUser;
                 const name = u.name || u.fullName || u.username || u.email;
-                if (name) return name;
+                if (name && typeof name === 'string' && name.trim()) return name.trim();
               }
 
-              if (window.__INITIAL_STATE__ && window.__INITIAL_STATE__.currentUser) {
+              if (window.__INITIAL_STATE__?.currentUser) {
                 const u = window.__INITIAL_STATE__.currentUser;
                 const name = u.name || u.fullName || u.username || u.email;
-                if (name) return name;
+                if (name && typeof name === 'string' && name.trim()) return name.trim();
               }
 
               const userMenu = document.querySelector('.user-menu-wrapper, [data-testid="user-avatar"], [class*="UserMenu"], .avatar');
@@ -190,7 +211,7 @@ export class AuthManager {
         return (await loginWin.webContents.executeJavaScript(js)) as string | null
       }
     } catch {
-      // Ignored
+      // Ignored during mid-navigation frame tearing
     }
     return null
   }
@@ -233,19 +254,35 @@ export class AuthManager {
 
         try {
           const permRes = await net.fetch(
-            'https://www.coursera.org/api/adminUserPermissions.v1?q=my',
+            'https://www.coursera.org/api/adminUserPermissions.v1?q=my&includes=user',
             { headers }
           )
           if (permRes.ok) {
-            const permData = (await permRes.json()) as { elements?: Array<{ id?: string }> }
-            const userId = permData.elements?.[0]?.id
-            if (userId) {
-              return `Learner (${userId})`
+            const permData = (await permRes.json()) as {
+              linked?: { 'users.v1'?: Array<{ fullName?: string; email?: string }> }
+            }
+            const linked = permData.linked?.['users.v1']?.[0]
+            if (linked?.fullName || linked?.email) {
+              return linked.fullName || linked.email!
+            }
+          }
+        } catch {}
+
+        try {
+          const memRes = await net.fetch('https://www.coursera.org/api/memberships.v1?q=me', {
+            headers
+          })
+          if (memRes.ok) {
+            const memData = (await memRes.json()) as {
+              linked?: { 'users.v1'?: Array<{ fullName?: string; email?: string }> }
+            }
+            const user = memData.linked?.['users.v1']?.[0]
+            if (user?.fullName || user?.email) {
+              return user.fullName || user.email!
             }
           }
         } catch {}
       } else if (platformId === 'skillshare') {
-        // Query Skillshare user identity endpoint with authenticated cookies
         const userId =
           cookieMap['skillshare_user_id'] || cookieMap['ss_user_id'] || cookieMap['api_uid']
         try {
@@ -265,10 +302,6 @@ export class AuthManager {
             if (resolved) return resolved
           }
         } catch {}
-
-        if (userId) {
-          return `Skillshare User (${userId})`
-        }
       } else if (platformId === 'edx') {
         if (cookieMap['edx-jwt-info']) {
           try {
@@ -279,7 +312,6 @@ export class AuthManager {
             }
           } catch {}
         }
-
         const res = await net.fetch('https://courses.edx.org/api/user/v1/accounts/', { headers })
         if (res.ok) {
           const data = (await res.json()) as Array<{
@@ -315,7 +347,6 @@ export class AuthManager {
         targetUrl = 'https://www.coursera.org/?authMode=login'
         break
       case 'skillshare':
-        // Start from skillshare.com/signin which redirects to auth.skillshare.com with all required PKCE parameters
         targetUrl = 'https://www.skillshare.com/en/signin'
         break
       case 'edx':
@@ -326,7 +357,6 @@ export class AuthManager {
     const partition = `persist:auth_${platformId}`
     const authSession = session.fromPartition(partition)
 
-    // Clear stale session cookies if previously revoked
     if (!this.getSession(platformId)) {
       await authSession.clearStorageData({ storages: ['cookies', 'localstorage'] })
     }
@@ -370,7 +400,6 @@ export class AuthManager {
         try {
           const currentUrl = loginWin.webContents.getURL()
 
-          // For Skillshare: do not authenticate while still inside the Auth0 auth.skillshare.com domain
           if (platformId === 'skillshare' && currentUrl.includes('auth.skillshare.com')) {
             return
           }
@@ -392,7 +421,6 @@ export class AuthManager {
           } else if (platformId === 'coursera' && cookieMap['CAUTH']) {
             extractedToken = cookieMap['CAUTH']
           } else if (platformId === 'skillshare') {
-            // Only authenticate once redirected back to skillshare.com with valid credentials
             const hasAuthCookie =
               cookieMap['skillshare_user_id'] ||
               cookieMap['ss_user_id'] ||
@@ -417,7 +445,26 @@ export class AuthManager {
               loginWin.hide()
             }
 
-            let realUsername = await this.extractWindowIdentity(loginWin, platformId)
+            let realUsername: string | null = null
+
+            for (let i = 0; i < 10; i++) {
+              if (loginWin.isDestroyed()) break
+              realUsername = await this.extractWindowIdentity(loginWin, platformId)
+              if (realUsername) break
+              await new Promise((r) => setTimeout(r, 250))
+            }
+
+            if (platformId === 'coursera' && !realUsername && !loginWin.isDestroyed()) {
+              try {
+                await loginWin.loadURL('https://www.coursera.org/account-settings')
+                for (let i = 0; i < 8; i++) {
+                  if (loginWin.isDestroyed()) break
+                  realUsername = await this.extractWindowIdentity(loginWin, platformId)
+                  if (realUsername) break
+                  await new Promise((r) => setTimeout(r, 250))
+                }
+              } catch {}
+            }
 
             if (!realUsername) {
               realUsername = await this.fetchProfileName(
@@ -431,7 +478,7 @@ export class AuthManager {
 
             const verifiedSession: PlatformSession = {
               platformId,
-              username: realUsername,
+              username: realUsername || `${platformId} user`,
               token: extractedToken,
               cookies: cookieMap,
               subdomain,
@@ -441,7 +488,10 @@ export class AuthManager {
 
             this.activeSessions.set(platformId, verifiedSession)
             this.saveSessionsToDisk()
-            logger.info('AUTH', `Session authenticated for ${platformId} as ${realUsername}`)
+            logger.info(
+              'AUTH',
+              `Session authenticated for ${platformId} as ${verifiedSession.username}`
+            )
 
             setImmediate(() => {
               if (!loginWin.isDestroyed()) {
