@@ -179,30 +179,26 @@ export class AuthManager {
         const js = `
           (() => {
             try {
-              if (window.Skillshare?.currentUser) {
-                const u = window.Skillshare.currentUser;
-                const name = u.name || u.fullName || u.username || u.email;
-                if (name && typeof name === 'string' && name.trim()) return name.trim();
+              const nextScript = document.getElementById('__NEXT_DATA__');
+              if (nextScript?.textContent) {
+                const nextData = JSON.parse(nextScript.textContent);
+                const auth = nextData?.props?.authContext;
+                if (auth?.username) return auth.username;
+                if (auth?.email) return auth.email;
+              }
+      
+              const avatarImg = document.querySelector('img[alt]:not([alt=""]):not([alt*="Skillshare"])');
+              if (avatarImg) {
+                const alt = avatarImg.getAttribute('alt')?.replace(/\s*avatar\s*/i, '').trim();
+                if (alt) return alt;
               }
 
-              if (window.__INITIAL_STATE__?.currentUser) {
-                const u = window.__INITIAL_STATE__.currentUser;
-                const name = u.name || u.fullName || u.username || u.email;
-                if (name && typeof name === 'string' && name.trim()) return name.trim();
-              }
-
-              const userMenu = document.querySelector('.user-menu-wrapper, [data-testid="user-avatar"], [class*="UserMenu"], .avatar');
-              if (userMenu) {
-                const alt = userMenu.getAttribute('alt') || userMenu.getAttribute('aria-label');
-                if (alt && !alt.toLowerCase().includes('avatar') && !alt.toLowerCase().includes('user')) {
-                  return alt.trim();
+              if (Array.isArray(window.dataLayer)) {
+                for (const item of window.dataLayer) {
+                  if (item?.customerRawEmail && typeof item.customerRawEmail === 'string') {
+                    return item.customerRawEmail.trim();
+                  }
                 }
-              }
-
-              const nameEl = document.querySelector('.user-information .name, a[href*="/user/"] span');
-              if (nameEl && nameEl.textContent) {
-                const text = nameEl.textContent.trim();
-                if (text.length > 1 && text.length < 50) return text;
               }
             } catch (e) {}
             return null;
@@ -211,7 +207,7 @@ export class AuthManager {
         return (await loginWin.webContents.executeJavaScript(js)) as string | null
       }
     } catch {
-      // Ignored during mid-navigation frame tearing
+      // Ignored
     }
     return null
   }
@@ -283,25 +279,15 @@ export class AuthManager {
           }
         } catch {}
       } else if (platformId === 'skillshare') {
-        const userId =
-          cookieMap['skillshare_user_id'] || cookieMap['ss_user_id'] || cookieMap['api_uid']
-        try {
-          const endpoint = userId
-            ? `https://www.skillshare.com/api/users/${userId}`
-            : 'https://www.skillshare.com/api/v2/users/me'
-          const res = await net.fetch(endpoint, { headers })
-          if (res.ok) {
-            const data = (await res.json()) as Record<string, unknown>
-            const resolved =
-              (data.name as string) ||
-              (data.first_name && data.last_name
-                ? `${data.first_name} ${data.last_name}`
-                : undefined) ||
-              (data.username as string) ||
-              (data.email as string)
-            if (resolved) return resolved
-          }
-        } catch {}
+        const userIdCookie = Object.keys(cookieMap).find((k) => k.startsWith('skillshare_user_'))
+        const userId = userIdCookie
+          ? userIdCookie.replace('skillshare_user_', '')
+          : cookieMap['api_uid']
+
+        if (userId) {
+          return `User ${userId}`
+        }
+        return 'Skillshare Member'
       } else if (platformId === 'edx') {
         if (cookieMap['edx-jwt-info']) {
           try {
@@ -347,7 +333,8 @@ export class AuthManager {
         targetUrl = 'https://www.coursera.org/?authMode=login'
         break
       case 'skillshare':
-        targetUrl = 'https://www.skillshare.com/en/signin'
+        targetUrl =
+          'https://www.skillshare.com/auth0/login?connection_hint=&final_destination_uri=%2Fen%2F&lang=en&error_destination_uri=%2Flogin'
         break
       case 'edx':
         targetUrl = 'https://courses.edx.org/login'
@@ -400,7 +387,12 @@ export class AuthManager {
         try {
           const currentUrl = loginWin.webContents.getURL()
 
-          if (platformId === 'skillshare' && currentUrl.includes('auth.skillshare.com')) {
+          if (
+            platformId === 'skillshare' &&
+            (currentUrl.includes('auth.skillshare.com') ||
+              currentUrl.includes('/auth0/login') ||
+              currentUrl.includes('/auth0/callback'))
+          ) {
             return
           }
 
@@ -421,14 +413,17 @@ export class AuthManager {
           } else if (platformId === 'coursera' && cookieMap['CAUTH']) {
             extractedToken = cookieMap['CAUTH']
           } else if (platformId === 'skillshare') {
-            const hasAuthCookie =
-              cookieMap['skillshare_user_id'] ||
-              cookieMap['ss_user_id'] ||
-              cookieMap['api_uid'] ||
-              cookieMap['skillshare_user']
+            const hasSkillshareUser = Object.keys(cookieMap).some((k) =>
+              k.startsWith('skillshare_user')
+            )
+            const hasAccessToken = Boolean(cookieMap['access_token'])
 
-            if (hasAuthCookie && !currentUrl.includes('signin') && !currentUrl.includes('login')) {
-              extractedToken = cookieMap['PHPSESSID'] || hasAuthCookie
+            if (
+              (hasAccessToken || hasSkillshareUser) &&
+              !currentUrl.includes('/login') &&
+              !currentUrl.includes('/auth0/')
+            ) {
+              extractedToken = cookieMap['access_token'] || cookieMap['PHPSESSID'] || ''
             }
           } else if (
             platformId === 'edx' &&
@@ -438,16 +433,8 @@ export class AuthManager {
           }
 
           if (extractedToken && !isResolved) {
-            isResolved = true
-            cleanup()
-
-            if (!loginWin.isDestroyed()) {
-              loginWin.hide()
-            }
-
             let realUsername: string | null = null
-
-            for (let i = 0; i < 10; i++) {
+            for (let i = 0; i < 8; i++) {
               if (loginWin.isDestroyed()) break
               realUsername = await this.extractWindowIdentity(loginWin, platformId)
               if (realUsername) break
@@ -474,6 +461,13 @@ export class AuthManager {
                 cookieMap,
                 subdomain
               )
+            }
+
+            isResolved = true
+            cleanup()
+
+            if (!loginWin.isDestroyed()) {
+              loginWin.hide()
             }
 
             const verifiedSession: PlatformSession = {
@@ -522,7 +516,7 @@ export class AuthManager {
           'edx-jwt-info',
           'edxloggedin'
         ]
-        if (triggerCookies.includes(cookie.name)) {
+        if (triggerCookies.includes(cookie.name) || cookie.name.startsWith('skillshare_user')) {
           checkAuth()
         }
       }
