@@ -1,3 +1,4 @@
+import { WindowControls } from '@renderer/components/WindowControls'
 import type { PlatformId, PlatformSession } from '@shared/types'
 import React, { useEffect, useState } from 'react'
 import { BrandLogo } from '../components/brand/BrandLogo'
@@ -47,7 +48,6 @@ export const PlatformSelectView: React.FC<PlatformSelectViewProps> = ({ onSelect
     const isAllConnected = profiles.length >= AVAILABLE_PLATFORMS.length
 
     useEffect(() => {
-        window.api?.resizeToMain?.()
         loadActiveSessions()
     }, [])
 
@@ -170,8 +170,8 @@ export const PlatformSelectView: React.FC<PlatformSelectViewProps> = ({ onSelect
                                 onClick={() => setTheme(thm)}
                                 title={String(t(`splash.themes.${thm}`))}
                                 className={`h-3.5 w-3.5 cursor-pointer rounded-full transition-all ${theme === thm
-                                        ? 'scale-125 ring-2 ring-white/80 ring-offset-1 ring-offset-black/50'
-                                        : 'opacity-40 hover:opacity-90'
+                                    ? 'scale-125 ring-2 ring-white/80 ring-offset-1 ring-offset-black/50'
+                                    : 'opacity-40 hover:opacity-90'
                                     }`}
                                 style={{
                                     backgroundColor:
@@ -185,6 +185,10 @@ export const PlatformSelectView: React.FC<PlatformSelectViewProps> = ({ onSelect
                                 }}
                             />
                         ))}
+                    </div>
+
+                    <div className="ml-1 pl-3 border-l border-[var(--border-color)]">
+                        <WindowControls />
                     </div>
                 </div>
             </header>
@@ -323,8 +327,8 @@ export const PlatformSelectView: React.FC<PlatformSelectViewProps> = ({ onSelect
                                                 disabled={isAlreadyAdded}
                                                 onClick={() => handleOpenConnect(meta)}
                                                 className={`flex items-center gap-4 rounded-2xl border p-4 text-left transition-all ${isAlreadyAdded
-                                                        ? 'opacity-35 border-[var(--border-color)] cursor-not-allowed bg-black/20'
-                                                        : 'border-[var(--border-color)] bg-[var(--bg-card)] hover:border-[var(--border-highlight)] hover:bg-[var(--bg-surface)] cursor-pointer hover:scale-[1.02] shadow-xs'
+                                                    ? 'opacity-35 border-[var(--border-color)] cursor-not-allowed bg-black/20'
+                                                    : 'border-[var(--border-color)] bg-[var(--bg-card)] hover:border-[var(--border-highlight)] hover:bg-[var(--bg-surface)] cursor-pointer hover:scale-[1.02] shadow-xs'
                                                     }`}
                                             >
                                                 <div

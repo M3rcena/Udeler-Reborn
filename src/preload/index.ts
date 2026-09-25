@@ -30,7 +30,21 @@ const api = {
   removeSession: (platformId: PlatformId): Promise<boolean> =>
     ipcRenderer.invoke('auth:remove-session', platformId),
   ensureValidToken: (platformId: PlatformId): Promise<string | null> =>
-    ipcRenderer.invoke('auth:ensure-valid-token', platformId)
+    ipcRenderer.invoke('auth:ensure-valid-token', platformId),
+
+  onWindowStateChanged: (callback: (state: { isMaximized: boolean }) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, state: { isMaximized: boolean }): void => {
+      callback(state)
+    }
+    ipcRenderer.on('window:state-changed', handler)
+    return () => {
+      ipcRenderer.removeListener('window:state-changed', handler)
+    }
+  },
+  minimizeWindow: (): Promise<void> => ipcRenderer.invoke('app:minimize'),
+  maximizeWindow: (): Promise<boolean> => ipcRenderer.invoke('app:maximize'),
+  closeWindow: (): Promise<void> => ipcRenderer.invoke('app:close'),
+  isMaximized: (): Promise<boolean> => ipcRenderer.invoke('app:is-maximized')
 }
 
 if (process.contextIsolated) {
