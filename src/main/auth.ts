@@ -103,28 +103,26 @@ export class AuthManager {
   }
 
   /**
-   * Attempts to extract dynamic user identity directly from the in-memory window state
+   * Attempts to extract dynamic user identity directly from in-memory DOM / window state
    */
   private async extractWindowIdentity(
     loginWin: electron.BrowserWindow,
     platformId: PlatformId
   ): Promise<string | null> {
     if (loginWin.isDestroyed()) return null
-
     try {
       if (platformId === 'coursera') {
         const js = `
           (() => {
             try {
-              // 1. Direct inspection of ApplicationStore.userData
               const appStore = window.App?.context?.dispatcher?.stores?.ApplicationStore;
+
               if (appStore?.userData) {
                 const ud = appStore.userData;
                 const name = ud.fullName || ud.full_name || ud.display_name || ud.email_address;
                 if (name && typeof name === 'string' && name.trim()) return name.trim();
               }
 
-              // 2. Direct inspection of coursera.user
               if (window.coursera?.user) {
                 const u = typeof window.coursera.user === 'function' ? window.coursera.user() : window.coursera.user;
                 if (u) {
@@ -133,7 +131,6 @@ export class AuthManager {
                 }
               }
 
-              // 3. Apollo GraphQL cache state
               if (window.__APOLLO_STATE__) {
                 const apollo = window.__APOLLO_STATE__;
                 const lp = apollo['LearnerProfileQueries:{}']?.me;
@@ -153,13 +150,11 @@ export class AuthManager {
                 }
               }
 
-              // 4. Form inputs (if rendered on account-settings)
               const nameInput = document.getElementById('settings-basic-full-name') || document.querySelector('input[name="fullName"]');
               if (nameInput && nameInput.value && nameInput.value.trim()) {
                 return nameInput.value.trim();
               }
 
-              // 5. Profile header avatar / dropdown label
               const headerBtn = document.querySelector('[data-e2e="header-profile"]');
               if (headerBtn) {
                 const aria = headerBtn.getAttribute('aria-label');
@@ -186,10 +181,10 @@ export class AuthManager {
                 if (auth?.username) return auth.username;
                 if (auth?.email) return auth.email;
               }
-      
+
               const avatarImg = document.querySelector('img[alt]:not([alt=""]):not([alt*="Skillshare"])');
               if (avatarImg) {
-                const alt = avatarImg.getAttribute('alt')?.replace(/\s*avatar\s*/i, '').trim();
+                const alt = avatarImg.getAttribute('alt')?.replace(/\\s*avatar\\s*/i, '').trim();
                 if (alt) return alt;
               }
 
@@ -206,9 +201,71 @@ export class AuthManager {
         `
         return (await loginWin.webContents.executeJavaScript(js)) as string | null
       }
+
+      if (platformId === 'edx') {
+        const js = `
+          (() => {
+            try {
+              // 1. edX userModel / global state
+              if (window.userModel?.attributes) {
+                const attr = window.userModel.attributes;
+                const name = attr.name || attr.username || attr.email;
+                if (name && typeof name === 'string' && name.trim()) return name.trim();
+              }
+              // 2. edX header user dropdown / menu button
+              const userBtn = document.querySelector('.user-dropdown .username, [data-testid="user-dropdown-name"], .user-menu-btn, button[aria-label*="Account Menu"]');
+              if (userBtn && userBtn.textContent?.trim()) {
+                const txt = userBtn.textContent.trim();
+                if (txt && !txt.toLowerCase().includes('account') && !txt.toLowerCase().includes('sign in')) {
+                  return txt;
+                }
+              }
+              // 3. User name display in learner dashboard
+              const dashTitle = document.querySelector('.user-profile-name, h1.page-header, .dashboard-user-name');
+              if (dashTitle && dashTitle.textContent?.trim()) {
+                return dashTitle.textContent.trim();
+              }
+            } catch (e) {}
+            return null;
+          })()
+        `
+        return (await loginWin.webContents.executeJavaScript(js)) as string | null
+      }
     } catch {
       // Ignored
     }
+    return null
+  }
+
+  private parseEdxCookie(
+    cookieVal: string
+  ): { username?: string; email?: string; name?: string } | null {
+    if (!cookieVal) return null
+    // Try URL decoding first
+    try {
+      const decodedUrl = decodeURIComponent(cookieVal)
+      if (decodedUrl.startsWith('{') && decodedUrl.endsWith('}')) {
+        return JSON.parse(decodedUrl)
+      }
+    } catch {}
+
+    // Try Base64 decoding
+    try {
+      const b64 = Buffer.from(cookieVal, 'base64').toString('utf-8')
+      if (b64.startsWith('{') && b64.endsWith('}')) {
+        return JSON.parse(b64)
+      }
+    } catch {}
+
+    // Try parsing JWT payload (header.payload.signature)
+    try {
+      const parts = cookieVal.split('.')
+      if (parts.length === 3) {
+        const payload = Buffer.from(parts[1], 'base64').toString('utf-8')
+        return JSON.parse(payload)
+      }
+    } catch {}
+
     return null
   }
 
@@ -289,26 +346,40 @@ export class AuthManager {
         }
         return 'Skillshare Member'
       } else if (platformId === 'edx') {
-        if (cookieMap['edx-jwt-info']) {
+        const userInfoRaw = cookieMap['edx-user-info'] || cookieMap['edx-jwt-info']
+        if (userInfoRaw) {
+          const parsed = this.parseEdxCookie(userInfoRaw)
+          if (parsed?.name || parsed?.username || parsed?.email) {
+            return parsed.name || parsed.username || parsed.email!
+          }
+        }
+
+        if (cookieMap['edx-csrf-token'] || cookieMap['csrftoken']) {
+          headers['X-CSRFToken'] = cookieMap['edx-csrf-token'] || cookieMap['csrftoken']
+        }
+
+        const candidateUrls = [
+          'https://courses.edx.org/api/user/v1/me',
+          'https://courses.edx.org/api/user/v1/accounts/'
+        ]
+
+        for (const url of candidateUrls) {
           try {
-            const rawDecoded = Buffer.from(cookieMap['edx-jwt-info'], 'base64').toString('utf-8')
-            const parsed = JSON.parse(rawDecoded) as { username?: string; email?: string }
-            if (parsed.username || parsed.email) {
-              return parsed.username || parsed.email!
+            const res = await net.fetch(url, { headers })
+            if (res.ok) {
+              const data = (await res.json()) as
+                Record<string, unknown> | Array<Record<string, unknown>>
+              const user = Array.isArray(data) ? data[0] : data
+              const name =
+                (user?.name as string) || (user?.username as string) || (user?.email as string)
+              if (name) return name
             }
           } catch {}
         }
-        const res = await net.fetch('https://courses.edx.org/api/user/v1/accounts/', { headers })
-        if (res.ok) {
-          const data = (await res.json()) as Array<{
-            username?: string
-            email?: string
-            name?: string
-          }>
-          const user = Array.isArray(data)
-            ? data[0]
-            : (data as { username?: string; email?: string; name?: string })
-          return user?.name || user?.username || user?.email || 'edX Student'
+
+        // Fallback to edxloggedin cookie value if present
+        if (cookieMap['edxloggedin'] && cookieMap['edxloggedin'] !== 'true') {
+          return decodeURIComponent(cookieMap['edxloggedin'])
         }
       }
     } catch (err) {
@@ -371,6 +442,8 @@ export class AuthManager {
       })
 
       loginWin.setMenuBarVisibility(false)
+
+      let isProcessing = false
       let isResolved = false
       let pollInterval: NodeJS.Timeout | null = null
 
@@ -379,10 +452,11 @@ export class AuthManager {
           clearInterval(pollInterval)
           pollInterval = null
         }
+        authSession.cookies.removeListener('changed', cookieListener)
       }
 
       const checkAuth = async (): Promise<void> => {
-        if (isResolved || loginWin.isDestroyed()) return
+        if (isProcessing || isResolved || loginWin.isDestroyed()) return
 
         try {
           const currentUrl = loginWin.webContents.getURL()
@@ -394,6 +468,14 @@ export class AuthManager {
               currentUrl.includes('/auth0/callback'))
           ) {
             return
+          }
+
+          if (
+            platformId === 'edx' &&
+            currentUrl.includes('/login') &&
+            !currentUrl.includes('redirect')
+          ) {
+            // Still on the login page; don't trigger yet unless we have active auth cookies
           }
 
           const cookies = await authSession.cookies.get({})
@@ -425,32 +507,32 @@ export class AuthManager {
             ) {
               extractedToken = cookieMap['access_token'] || cookieMap['PHPSESSID'] || ''
             }
-          } else if (
-            platformId === 'edx' &&
-            (cookieMap['edx-jwt-info'] || cookieMap['edxloggedin'])
-          ) {
-            extractedToken = cookieMap['edx-jwt-info'] || cookieMap['edxloggedin']
+          } else if (platformId === 'edx') {
+            if (
+              cookieMap['edx-jwt-info'] ||
+              cookieMap['edx-user-info'] ||
+              cookieMap['edxloggedin']
+            ) {
+              extractedToken =
+                cookieMap['edx-jwt-info'] || cookieMap['edx-user-info'] || cookieMap['edxloggedin']
+            }
           }
 
-          if (extractedToken && !isResolved) {
+          if (extractedToken && !isProcessing && !isResolved) {
+            isProcessing = true
+
+            if (!loginWin.isDestroyed()) {
+              loginWin.hide()
+            }
+
+            cleanup()
+
             let realUsername: string | null = null
-            for (let i = 0; i < 8; i++) {
+            for (let i = 0; i < 6; i++) {
               if (loginWin.isDestroyed()) break
               realUsername = await this.extractWindowIdentity(loginWin, platformId)
               if (realUsername) break
-              await new Promise((r) => setTimeout(r, 250))
-            }
-
-            if (platformId === 'coursera' && !realUsername && !loginWin.isDestroyed()) {
-              try {
-                await loginWin.loadURL('https://www.coursera.org/account-settings')
-                for (let i = 0; i < 8; i++) {
-                  if (loginWin.isDestroyed()) break
-                  realUsername = await this.extractWindowIdentity(loginWin, platformId)
-                  if (realUsername) break
-                  await new Promise((r) => setTimeout(r, 250))
-                }
-              } catch {}
+              await new Promise((r) => setTimeout(r, 200))
             }
 
             if (!realUsername) {
@@ -464,11 +546,6 @@ export class AuthManager {
             }
 
             isResolved = true
-            cleanup()
-
-            if (!loginWin.isDestroyed()) {
-              loginWin.hide()
-            }
 
             const verifiedSession: PlatformSession = {
               platformId,
@@ -482,6 +559,7 @@ export class AuthManager {
 
             this.activeSessions.set(platformId, verifiedSession)
             this.saveSessionsToDisk()
+
             logger.info(
               'AUTH',
               `Session authenticated for ${platformId} as ${verifiedSession.username}`
@@ -496,6 +574,7 @@ export class AuthManager {
             resolve({ success: true, session: verifiedSession })
           }
         } catch (err) {
+          isProcessing = false
           logger.error('AUTH', `Cookie inspection error: ${String(err)}`)
         }
       }
@@ -506,7 +585,8 @@ export class AuthManager {
         _cause: unknown,
         removed: boolean
       ): void => {
-        if (removed || isResolved) return
+        if (removed || isProcessing || isResolved) return
+
         const triggerCookies = [
           'access_token',
           'CAUTH',
@@ -514,12 +594,14 @@ export class AuthManager {
           'ss_user_id',
           'api_uid',
           'edx-jwt-info',
+          'edx-user-info',
           'edxloggedin'
         ]
         if (triggerCookies.includes(cookie.name) || cookie.name.startsWith('skillshare_user')) {
           checkAuth()
         }
       }
+
       authSession.cookies.on('changed', cookieListener)
 
       pollInterval = setInterval(checkAuth, 350)
@@ -530,7 +612,7 @@ export class AuthManager {
 
       loginWin.on('closed', () => {
         cleanup()
-        authSession.cookies.removeListener('changed', cookieListener)
+
         if (!isResolved) {
           isResolved = true
           resolve({ success: false, error: 'Authentication window closed before completion' })
