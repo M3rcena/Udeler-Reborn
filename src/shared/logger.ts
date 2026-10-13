@@ -1,5 +1,6 @@
 import { app } from 'electron'
 import * as fs from 'node:fs'
+import * as os from 'node:os'
 import * as path from 'node:path'
 import type { LogEntry, LogLevel } from './types'
 
@@ -138,12 +139,65 @@ export class AppLogger {
 
   public async exportLogs(targetPath: string): Promise<boolean> {
     try {
+      const appVersion = app?.getVersion ? app.getVersion() : '4.0.0-dev.1.0'
+      const appName = app?.getName ? app.getName() : 'Udeler'
+      const appLocale = app?.getLocale ? app.getLocale() : 'N/A'
+      const isPackaged =
+        app?.isPackaged !== undefined
+          ? app.isPackaged
+            ? 'Production (Packaged)'
+            : 'Development (Unpackaged)'
+          : 'N/A'
+      const userDataPath = app?.getPath ? app.getPath('userData') : 'N/A'
+
+      const totalMem = typeof os.totalmem === 'function' ? os.totalmem() : 0
+      const freeMem = typeof os.freemem === 'function' ? os.freemem() : 0
+      const totalMemGb = totalMem > 0 ? (totalMem / 1024 / 1024 / 1024).toFixed(2) + ' GB' : 'N/A'
+      const freeMemGb = freeMem > 0 ? (freeMem / 1024 / 1024 / 1024).toFixed(2) + ' GB' : 'N/A'
+      const memUsedPercent = totalMem > 0 ? Math.round((1 - freeMem / totalMem) * 100) + '%' : 'N/A'
+
+      const cpus = typeof os.cpus === 'function' ? os.cpus() : []
+      const cpuModel = cpus.length > 0 ? cpus[0].model.trim() : 'N/A'
+      const cpuCores = cpus.length
+
+      const osType = typeof os.type === 'function' ? os.type() : ''
+      const osRelease = typeof os.release === 'function' ? os.release() : ''
+      const osVersion = typeof os.version === 'function' ? os.version() : ''
+
+      const memUsage = typeof process.memoryUsage === 'function' ? process.memoryUsage() : null
+      const rssMb = memUsage ? Math.round(memUsage.rss / 1024 / 1024) + ' MB' : 'N/A'
+      const heapUsedMb = memUsage ? Math.round(memUsage.heapUsed / 1024 / 1024) + ' MB' : 'N/A'
+      const heapTotalMb = memUsage ? Math.round(memUsage.heapTotal / 1024 / 1024) + ' MB' : 'N/A'
+      const uptimeSec =
+        typeof process.uptime === 'function' ? Math.round(process.uptime()) + 's' : 'N/A'
+
       const header = [
-        `=== Udeler-Reborn Diagnostic Log Dump ===`,
-        `Generated: ${new Date().toISOString()}`,
-        `Platform: ${process.platform} (${process.arch})`,
-        `Node: ${process.version}`,
-        `=========================================\n\n`
+        '================================================================================',
+        '                   === Udeler-Reborn Diagnostic Log Dump ===                   ',
+        '================================================================================',
+        `Generated At:     ${new Date().toISOString()}`,
+        `Timezone:         ${Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'}`,
+        '--------------------------------------------------------------------------------',
+        `Application:      ${appName} v${appVersion}`,
+        `Build Channel:    ${isPackaged}`,
+        `User Data Path:   ${userDataPath}`,
+        `System Locale:    ${appLocale}`,
+        '--------------------------------------------------------------------------------',
+        `Operating System: ${process.platform} (${process.arch})`,
+        `OS Kernel / Rel:  ${osType} ${osRelease} ${osVersion ? `[${osVersion}]` : ''}`.trim(),
+        `CPU Hardware:     ${cpuModel} (${cpuCores} logical cores)`,
+        `System Memory:    ${freeMemGb} free / ${totalMemGb} total (${memUsedPercent} in use)`,
+        `Process Memory:   ${rssMb} RSS | ${heapUsedMb} heap used of ${heapTotalMb} heap total`,
+        `Process Uptime:   ${uptimeSec} (PID: ${process.pid})`,
+        '--------------------------------------------------------------------------------',
+        `Electron Shell:   v${process.versions.electron || 'N/A'}`,
+        `Chromium Engine:  v${process.versions.chrome || 'N/A'}`,
+        `Node.js Runtime:  v${process.versions.node || process.version || 'N/A'}`,
+        `V8 Engine:        v${process.versions.v8 || 'N/A'}`,
+        `OpenSSL:          v${process.versions.openssl || 'N/A'}`,
+        '================================================================================',
+        `Total Log Events: ${this.ringBuffer.length} (Max Buffer: ${this.maxBufferSize})`,
+        '================================================================================\n\n'
       ].join('\n')
 
       const entries = this.ringBuffer

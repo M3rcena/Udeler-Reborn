@@ -1,7 +1,9 @@
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
+import { CourseItem, PlatformId } from '@shared/types'
 import { app, BrowserWindow, ipcMain, screen, shell } from 'electron'
 import { join } from 'path'
 import { AuthManager, registerAuthIpc } from './auth'
+import { UdemyService } from './services/UdemyService'
 import { AppUpdater, registerUpdaterIpc } from './updater'
 
 const updater = new AppUpdater()
@@ -157,6 +159,22 @@ app.whenReady().then(() => {
   ipcMain.handle('app:is-maximized', (event) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     return win && !win.isDestroyed() ? win.isMaximized() : false
+  })
+
+  /**
+   * Handlers for Services
+   */
+  ipcMain.handle('courses:get', async (_event, platformId: PlatformId): Promise<CourseItem[]> => {
+    const session = authManager.getSession(platformId)
+    if (!session) {
+      throw new Error(`No active session found for platform ${platformId}`)
+    }
+
+    if (platformId === 'udemy') {
+      return UdemyService.fetchEnrolledCourses(session)
+    }
+
+    return []
   })
 
   createSplashWindow()

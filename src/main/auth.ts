@@ -1,4 +1,4 @@
-import electron from 'electron'
+import electron, { safeStorage } from 'electron'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import { logger } from '../shared/logger'
@@ -34,14 +34,28 @@ export class AuthManager {
   private loadSessionsFromDisk(): void {
     try {
       if (this.storageFilePath && fs.existsSync(this.storageFilePath)) {
-        const raw = fs.readFileSync(this.storageFilePath, 'utf-8')
-        const data = JSON.parse(raw) as Record<string, PlatformSession>
+        const fileBuffer = fs.readFileSync(this.storageFilePath)
+        let rawContent = ''
+
+        if (safeStorage.isEncryptionAvailable()) {
+          try {
+            // Attempt to decrypt assuming it was saved encrypted
+            rawContent = safeStorage.decryptString(fileBuffer)
+          } catch {
+            // Fallback for legacy plaintext JSON files
+            rawContent = fileBuffer.toString('utf-8')
+          }
+        } else {
+          rawContent = fileBuffer.toString('utf-8')
+        }
+
+        const data = JSON.parse(rawContent) as Record<string, PlatformSession>
         for (const [key, sess] of Object.entries(data)) {
           this.activeSessions.set(key as PlatformId, sess)
         }
         logger.info('AUTH', `Restored ${this.activeSessions.size} active sessions from disk`)
       }
-    } catch (err) {
+    } catch (err: unknown) {
       logger.error('AUTH', `Failed to load sessions from disk: ${String(err)}`)
     }
   }
@@ -53,8 +67,16 @@ export class AuthManager {
       for (const [key, sess] of this.activeSessions.entries()) {
         obj[key] = sess
       }
-      fs.writeFileSync(this.storageFilePath, JSON.stringify(obj, null, 2), 'utf-8')
-    } catch (err) {
+
+      const jsonPayload = JSON.stringify(obj, null, 2)
+
+      if (safeStorage?.isEncryptionAvailable()) {
+        const encryptedBuffer = safeStorage.encryptString(jsonPayload)
+        fs.writeFileSync(this.storageFilePath, encryptedBuffer)
+      } else {
+        fs.writeFileSync(this.storageFilePath, jsonPayload, 'utf-8')
+      }
+    } catch (err: unknown) {
       logger.error('AUTH', `Failed to persist sessions to disk: ${String(err)}`)
     }
   }
@@ -440,6 +462,10 @@ export class AuthManager {
           contextIsolation: true
         }
       })
+
+      loginWin.webContents.setUserAgent(
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36'
+      )
 
       loginWin.setMenuBarVisibility(false)
 

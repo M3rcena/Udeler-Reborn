@@ -2,7 +2,7 @@ import { is } from '@electron-toolkit/utils'
 import electron from 'electron'
 import { autoUpdater } from 'electron-updater'
 import { logger } from '../shared/logger'
-import type { UpdaterStatusPayload } from '../shared/types'
+import type { AppVersionInfo, UpdaterStatusPayload } from '../shared/types'
 
 const { app, dialog, ipcMain } = electron
 
@@ -90,11 +90,24 @@ export function registerUpdaterIpc(updater: AppUpdater): void {
     updater.checkForUpdates()
   })
 
-  ipcMain.handle('app:version', () => {
+  ipcMain.handle('app:version', (): AppVersionInfo => {
     return {
       version: app.getVersion(),
-      platform: process.platform
+      platform: process.platform,
+      arch: process.arch,
+      electron: process.versions.electron,
+      node: process.versions.node,
+      chrome: process.versions.chrome
     }
+  })
+
+  ipcMain.handle('logger:get', () => {
+    return logger.getRecentLogs()
+  })
+
+  ipcMain.handle('logger:clear', () => {
+    logger.clearBuffer()
+    return true
   })
 
   ipcMain.handle('export-debug-logs', async () => {

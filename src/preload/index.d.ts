@@ -12,6 +12,8 @@ export interface AppApiBridge {
   checkUpdates: () => Promise<void>
   getAppVersion: () => Promise<AppVersionInfo>
   exportDebugLogs: () => Promise<boolean>
+  getLogs: () => Promise<LogEntry[]>
+  clearLogs: () => Promise<void>
   onUpdaterStatus: (callback: (status: UpdaterStatusPayload) => void) => () => void
   resizeToMain: () => Promise<void>
 
@@ -25,6 +27,8 @@ export interface AppApiBridge {
   maximizeWindow: () => Promise<boolean>
   closeWindow: () => Promise<void>
   isMaximized: () => Promise<boolean>
+
+  getCourses: (platformId: PlatformId) => Promise<CourseItem[]>
 }
 
 declare global {

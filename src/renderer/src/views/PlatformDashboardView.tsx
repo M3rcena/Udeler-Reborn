@@ -1,0 +1,260 @@
+import type { CourseFilterStatus, CourseItem, CourseSortOption, PlatformSession } from '@shared/types'
+import React, { useEffect, useState } from 'react'
+import { PlatformIcon } from '../components/brand/PlatformIcons'
+import { DashboardSidebar, DashboardTab } from '../components/navigation/DashboardSidebar'
+import { DashboardTopBar } from '../components/navigation/DashboardTopBar'
+import { DashboardSkeleton } from '../components/skeletons/DashboardSkeleton'
+import { CustomDropdown, DropdownOption } from '../components/ui/CustomDropdown'
+import { AboutView } from './AboutView'
+import type { AppTheme } from './PlatformSelectView'
+import { SettingsView } from './SettingsView'
+
+interface PlatformDashboardViewProps {
+    session: PlatformSession
+    onBackToPlatforms: () => void
+    onSelectCourse: (course: CourseItem) => void
+}
+
+const SORT_OPTIONS: DropdownOption<CourseSortOption>[] = [
+    { value: 'recent', label: 'Recently Accessed' },
+    { value: 'title', label: 'Course Title (A-Z)' },
+    { value: 'progress', label: 'Completion %' },
+    { value: 'lectures', label: 'Lecture Count' }
+]
+
+export const PlatformDashboardView: React.FC<PlatformDashboardViewProps> = ({
+    session,
+    onBackToPlatforms,
+    onSelectCourse
+}) => {
+    const [activeTab, setActiveTab] = useState<DashboardTab>('courses')
+    const [theme, setTheme] = useState<AppTheme>(
+        (document.documentElement.getAttribute('data-theme') as AppTheme) || 'violet'
+    )
+    const [loading, setLoading] = useState<boolean>(true)
+    const [courses, setCourses] = useState<CourseItem[]>([])
+    const [activeFilter, setActiveFilter] = useState<CourseFilterStatus>('all')
+    const [sortBy, setSortBy] = useState<CourseSortOption>('recent')
+
+    useEffect(() => {
+        document.documentElement.setAttribute('data-theme', theme)
+    }, [theme])
+
+    useEffect(() => {
+        loadPlatformCourses()
+    }, [session.platformId])
+
+    const loadPlatformCourses = async (): Promise<void> => {
+        setLoading(true)
+        try {
+            if (window.api?.getCourses) {
+                const res = await window.api.getCourses(session.platformId)
+                setCourses(res)
+            } else {
+                await new Promise((resolve) => setTimeout(resolve, 1200))
+                setCourses([])
+            }
+        } catch (err: unknown) {
+            console.error('Failed to load courses:', err)
+            setCourses([])
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const formatDuration = (seconds: number): string => {
+        const hours = Math.floor(seconds / 3600)
+        return hours > 0 ? `${hours}h` : `${Math.floor(seconds / 60)}m`
+    }
+
+    const filteredCourses = courses
+        .filter((c) => {
+            if (activeFilter === 'downloaded') return c.isDownloaded
+            if (activeFilter === 'in-progress') return c.progressPercent > 0 && c.progressPercent < 100
+            if (activeFilter === 'completed') return c.progressPercent === 100
+            return true
+        })
+        .sort((a, b) => {
+            if (sortBy === 'title') return a.title.localeCompare(b.title)
+            if (sortBy === 'progress') return b.progressPercent - a.progressPercent
+            if (sortBy === 'lectures') return b.totalLectures - a.totalLectures
+            return (b.lastAccessedAt || 0) - (a.lastAccessedAt || 0)
+        })
+
+    return (
+        <div className="relative flex h-screen w-full overflow-hidden bg-[var(--bg-main)] select-none">
+            {/* AMBIENT RADIAL LIGHTS */}
+            <div className="pointer-events-none absolute -top-40 left-1/4 h-[550px] w-[800px] rounded-full bg-radial from-[var(--accent-from)]/20 via-transparent to-transparent blur-[140px]" />
+            <div className="pointer-events-none absolute -bottom-40 right-1/4 h-[550px] w-[800px] rounded-full bg-radial from-[var(--accent-to)]/15 via-transparent to-transparent blur-[140px]" />
+
+            {/* 1. MODULAR FLOATING STACK SIDEBAR */}
+            <DashboardSidebar
+                session={session}
+                activeTab={activeTab}
+                onSelectTab={setActiveTab}
+                courses={courses}
+                activeFilter={activeFilter}
+                onSelectFilter={setActiveFilter}
+                onSwitchPlatform={onBackToPlatforms}
+            />
+
+            {/* 2. WORKSPACE AREA */}
+            <div className="relative flex flex-1 flex-col overflow-hidden">
+                {/* DETACHED TOP BAR HUD */}
+                <DashboardTopBar
+                    session={session}
+                    activeTab={activeTab}
+                    theme={theme}
+                    onThemeChange={setTheme}
+                />
+
+                {/* WORKSPACE CONTENT CONTAINER */}
+                <main className="relative flex flex-1 min-h-0 flex-col overflow-hidden">
+                    {activeTab === 'courses' ? (
+                        <div className="flex flex-1 flex-col overflow-hidden px-6 pt-4 pb-6 gap-5">
+                            {/* SORT & FILTER BAR */}
+                            <div className="flex shrink-0 flex-wrap items-center justify-between gap-4">
+                                <div className="flex items-center gap-2">
+                                    {(['all', 'in-progress', 'downloaded', 'completed'] as CourseFilterStatus[]).map((tab) => {
+                                        const isActive = activeFilter === tab
+                                        return (
+                                            <button
+                                                key={tab}
+                                                type="button"
+                                                onClick={() => setActiveFilter(tab)}
+                                                className={`cursor-pointer rounded-full px-4 py-1.5 text-xs font-bold capitalize transition-all ${isActive
+                                                    ? 'bg-gradient-to-r from-[var(--accent-from)] to-[var(--accent-to)] text-white shadow-md shadow-[var(--accent-from)]/25'
+                                                    : 'border border-[var(--border-color)] bg-[var(--bg-card)] text-[var(--text-secondary)] hover:border-[var(--border-highlight)] hover:text-[var(--text-primary)]'
+                                                    }`}
+                                            >
+                                                {tab.replace('-', ' ')}
+                                            </button>
+                                        )
+                                    })}
+                                </div>
+
+                                <CustomDropdown
+                                    prefixLabel="Sort by:"
+                                    value={sortBy}
+                                    options={SORT_OPTIONS}
+                                    onChange={(val) => setSortBy(val)}
+                                />
+                            </div>
+
+                            {/* CARD GRID OR SKELETON */}
+                            {loading ? (
+                                <DashboardSkeleton />
+                            ) : filteredCourses.length === 0 ? (
+                                <div className="flex flex-1 flex-col items-center justify-center gap-3.5 text-center p-8">
+                                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)] shadow-inner">
+                                        <PlatformIcon
+                                            platformId={session.platformId}
+                                            className="h-8 w-8 text-[var(--text-secondary)] opacity-50"
+                                            color="currentColor"
+                                        />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-sm font-extrabold text-[var(--text-primary)]">
+                                            {activeFilter === 'downloaded'
+                                                ? 'No downloaded courses found'
+                                                : activeFilter === 'in-progress'
+                                                    ? 'No courses in progress'
+                                                    : 'No courses found'}
+                                        </h3>
+                                        <p className="mt-1 text-xs text-[var(--text-secondary)] max-w-sm">
+                                            {activeFilter === 'downloaded'
+                                                ? "You haven't saved any courses offline yet."
+                                                : 'No enrolled courses match the current filter.'}
+                                        </p>
+                                    </div>
+                                    {activeFilter !== 'all' ? (
+                                        <button
+                                            type="button"
+                                            onClick={() => setActiveFilter('all')}
+                                            className="cursor-pointer mt-2 rounded-xl bg-gradient-to-r from-[var(--accent-from)] to-[var(--accent-to)] px-4 py-2 text-xs font-bold text-white shadow-md transition-all hover:opacity-90 active:scale-95"
+                                        >
+                                            Show All Courses
+                                        </button>
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            onClick={loadPlatformCourses}
+                                            className="cursor-pointer mt-2 rounded-xl bg-gradient-to-r from-[var(--accent-from)] to-[var(--accent-to)] px-4 py-2 text-xs font-bold text-white shadow-md transition-all hover:opacity-90 active:scale-95"
+                                        >
+                                            Sync Courses
+                                        </button>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="flex-1 overflow-y-auto pr-1 [scrollbar-gutter:stable]">
+                                    <div className="grid grid-cols-1 gap-5 pb-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                                        {filteredCourses.map((course) => (
+                                            <div
+                                                key={course.id}
+                                                onClick={() => onSelectCourse(course)}
+                                                className="group relative flex flex-col overflow-hidden rounded-2xl border border-[var(--border-color)] bg-[var(--bg-surface)] shadow-md backdrop-blur-xl transition-all duration-200 hover:-translate-y-1 hover:border-[var(--border-highlight)] hover:shadow-xl cursor-pointer"
+                                            >
+                                                {/* THUMBNAIL BANNER */}
+                                                <div className="relative aspect-video w-full overflow-hidden bg-black/40">
+                                                    <img
+                                                        src={course.thumbnailUrl}
+                                                        alt={course.title}
+                                                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                                    />
+                                                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+                                                    <span className="absolute bottom-2 right-2 rounded-md bg-black/70 px-2 py-0.5 font-mono text-[10px] font-bold text-white backdrop-blur-xs">
+                                                        {formatDuration(course.totalDurationSeconds)}
+                                                    </span>
+                                                    {course.isDownloaded && (
+                                                        <span className="absolute top-2 left-2 flex items-center gap-1 rounded-full bg-emerald-500/90 px-2.5 py-0.5 text-[9px] font-extrabold text-white backdrop-blur-xs shadow-md">
+                                                            <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
+                                                            LOCAL
+                                                        </span>
+                                                    )}
+                                                </div>
+
+                                                {/* BODY CONTENT */}
+                                                <div className="flex flex-1 flex-col justify-between p-4 gap-3">
+                                                    <div>
+                                                        <h4 className="line-clamp-2 text-xs font-black tracking-tight text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-from)]">
+                                                            {course.title}
+                                                        </h4>
+                                                        <p className="mt-1 text-[11px] text-[var(--text-secondary)] truncate">
+                                                            {course.instructors.map((i) => i.name).join(', ') || 'Instructor'}
+                                                        </p>
+                                                    </div>
+
+                                                    {/* PROGRESS BAR */}
+                                                    <div className="space-y-1.5 border-t border-[var(--border-color)] pt-2.5">
+                                                        <div className="flex items-center justify-between text-[10px] font-bold text-[var(--text-secondary)]">
+                                                            <span>{course.totalLectures} lectures</span>
+                                                            <span>{course.progressPercent}%</span>
+                                                        </div>
+                                                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+                                                            <div
+                                                                className="h-full rounded-full bg-gradient-to-r from-[var(--accent-from)] to-[var(--accent-to)] transition-all duration-300"
+                                                                style={{ width: `${course.progressPercent}%` }}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    ) : activeTab === 'settings' ? (
+                        <SettingsView />
+                    ) : activeTab === 'about' ? (
+                        <AboutView />
+                    ) : (
+                        <div className="flex flex-1 items-center justify-center p-8 text-center text-xs text-[var(--text-secondary)]">
+                            <span>{activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} view ready for implementation.</span>
+                        </div>
+                    )}
+                </main>
+            </div>
+        </div>
+    )
+}

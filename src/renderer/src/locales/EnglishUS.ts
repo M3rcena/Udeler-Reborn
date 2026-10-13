@@ -78,6 +78,29 @@ export const EnglishUS = {
       darkMode: 'Dark Mode',
       logout: 'Logout'
     }
+  },
+  about: {
+    title: 'About & Diagnostics',
+    tagline:
+      'A fast, modern multi-platform desktop application designed for managing, backing up, and learning from your online courses.',
+    overviewTab: 'Overview & System',
+    logsTab: 'Diagnostic Logs',
+    exportLogs: 'Export Logs',
+    clearLogs: 'Clear Logs',
+    refreshLogs: 'Refresh',
+    searchLogs: 'Search logs...',
+    noLogsFound: 'No logs match the current filter.',
+    checkUpdates: 'Check for Updates',
+    checkingUpdates: 'Checking for updates...',
+    upToDate: 'Up to date',
+    updateAvailable: 'Update available',
+    unreleasedBuild: 'Unreleased / Development Build',
+    unreleasedWarning:
+      'You are running an unreleased build (v{{version}}) ahead of official release ({{releasedVersion}}). It may contain experimental features, bugs, or security vulnerabilities.',
+    unreleasedBadge: 'Pre-release Build',
+    viewReleases: 'View Releases',
+    communityTitle: 'Community & Resources',
+    licenseNotice: 'MIT License • © 2026 M3rcena. Free & Open Source.'
   }
 } as const
 

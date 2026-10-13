@@ -3,6 +3,8 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type {
   AppVersionInfo,
   AuthResult,
+  CourseItem,
+  LogEntry,
   PlatformId,
   PlatformSession,
   UpdaterStatusPayload,
@@ -13,6 +15,8 @@ const api = {
   checkUpdates: (): Promise<void> => ipcRenderer.invoke('updater:check'),
   getAppVersion: (): Promise<AppVersionInfo> => ipcRenderer.invoke('app:version'),
   exportDebugLogs: (): Promise<boolean> => ipcRenderer.invoke('export-debug-logs'),
+  getLogs: (): Promise<LogEntry[]> => ipcRenderer.invoke('logger:get'),
+  clearLogs: (): Promise<void> => ipcRenderer.invoke('logger:clear'),
   onUpdaterStatus: (callback: (status: UpdaterStatusPayload) => void): (() => void) => {
     const handler = (_event: Electron.IpcRendererEvent, data: UpdaterStatusPayload): void => {
       callback(data)
@@ -44,7 +48,10 @@ const api = {
   minimizeWindow: (): Promise<void> => ipcRenderer.invoke('app:minimize'),
   maximizeWindow: (): Promise<boolean> => ipcRenderer.invoke('app:maximize'),
   closeWindow: (): Promise<void> => ipcRenderer.invoke('app:close'),
-  isMaximized: (): Promise<boolean> => ipcRenderer.invoke('app:is-maximized')
+  isMaximized: (): Promise<boolean> => ipcRenderer.invoke('app:is-maximized'),
+
+  getCourses: (platformId: PlatformId): Promise<CourseItem[]> =>
+    ipcRenderer.invoke('courses:get', platformId)
 }
 
 if (process.contextIsolated) {

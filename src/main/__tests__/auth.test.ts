@@ -1,4 +1,6 @@
+import { PlatformSession } from '@shared/types'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { AuthManager } from '../auth'
 
 vi.mock('@electron-toolkit/utils', () => ({
   is: { dev: true }
@@ -10,7 +12,7 @@ vi.mock('electron', () => {
       setMenuBarVisibility = vi.fn()
       webContents = {
         on: vi.fn(),
-        executeJavaScript: vi.fn().mockResolvedValue('Michael Farmakis')
+        executeJavaScript: vi.fn().mockResolvedValue('Test Name')
       }
       on = vi.fn()
       loadURL = vi.fn().mockResolvedValue(undefined)
@@ -27,8 +29,8 @@ vi.mock('electron', () => {
       fetch: vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({
-          display_name: 'Michael Farmakis',
-          email: 'michaelfarmakis2007@gmail.com'
+          display_name: 'Test Name',
+          email: 'testemail@gmail.com'
         })
       })
     },
@@ -42,9 +44,6 @@ vi.mock('electron', () => {
   }
 })
 
-import type { PlatformSession } from '../../shared/types'
-import { AuthManager } from '../auth'
-
 describe('AuthManager Automatic Session Lifecycle', () => {
   let auth: AuthManager
 
@@ -55,14 +54,14 @@ describe('AuthManager Automatic Session Lifecycle', () => {
   it('detects expiring tokens accurately within the 5-minute buffer', () => {
     const expiredSession: PlatformSession = {
       platformId: 'udemy',
-      username: 'Michael Farmakis',
+      username: 'Test Name',
       token: 'tok_123',
       expiresAt: Date.now() + 2 * 60 * 1000
     }
 
     const freshSession: PlatformSession = {
       platformId: 'udemy',
-      username: 'Michael Farmakis',
+      username: 'Test Name',
       token: 'tok_456',
       expiresAt: Date.now() + 60 * 60 * 1000
     }
@@ -71,10 +70,10 @@ describe('AuthManager Automatic Session Lifecycle', () => {
     expect(auth.isTokenExpiring(freshSession)).toBe(false)
   })
 
-  it('revokes and removes active session on user disconnect', () => {
+  it('revokes and removes active session on user disconnect', async () => {
     const session: PlatformSession = {
       platformId: 'coursera',
-      username: 'Michael Farmakis',
+      username: 'Test Name',
       token: 'cauth_sample'
     }
     ;(auth as unknown as { activeSessions: Map<string, PlatformSession> }).activeSessions.set(
@@ -83,7 +82,7 @@ describe('AuthManager Automatic Session Lifecycle', () => {
     )
 
     expect(auth.getSession('coursera')).toBeDefined()
-    const removed = auth.removeSession('coursera')
+    const removed = await auth.removeSession('coursera')
     expect(removed).toBe(true)
     expect(auth.getSession('coursera')).toBeUndefined()
   })
