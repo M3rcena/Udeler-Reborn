@@ -35,7 +35,9 @@ interface PlatformSelectViewProps {
 
 export const PlatformSelectView: React.FC<PlatformSelectViewProps> = ({ onSelectPlatform }) => {
     const { t, currentLocale, setLocale, availableLocales } = useI18n()
-    const [theme, setTheme] = useState<AppTheme>('violet')
+    const [theme, setTheme] = useState<AppTheme>(
+        (document.documentElement.getAttribute('data-theme') as AppTheme) || 'violet'
+    )
     const [profiles, setProfiles] = useState<PlatformSession[]>([])
     const [showAddModal, setShowAddModal] = useState<boolean>(false)
     const [selectedToConnect, setSelectedToConnect] = useState<PlatformMeta | null>(null)
@@ -47,10 +49,6 @@ export const PlatformSelectView: React.FC<PlatformSelectViewProps> = ({ onSelect
 
     const isAllConnected = profiles.length >= AVAILABLE_PLATFORMS.length
 
-    useEffect(() => {
-        loadActiveSessions()
-    }, [])
-
     const loadActiveSessions = async (): Promise<void> => {
         if (window.api?.getSessions) {
             const active = await window.api.getSessions()
@@ -60,8 +58,42 @@ export const PlatformSelectView: React.FC<PlatformSelectViewProps> = ({ onSelect
     }
 
     useEffect(() => {
-        document.documentElement.setAttribute('data-theme', theme)
-    }, [theme])
+        loadActiveSessions()
+    }, [])
+
+    useEffect(() => {
+        let mounted = true
+        if (window.api?.getSettings) {
+            window.api.getSettings().then((s) => {
+                if (mounted && s?.theme) {
+                    setTheme(s.theme)
+                    document.documentElement.setAttribute('data-theme', s.theme)
+                }
+            }).catch(() => { })
+        }
+
+        const unsubscribe = window.api?.onSettingsChanged?.((settings) => {
+            if (mounted && settings?.theme) {
+                setTheme(settings.theme)
+                document.documentElement.setAttribute('data-theme', settings.theme)
+            }
+        })
+
+        return () => {
+            mounted = false
+            unsubscribe?.()
+        }
+    }, [])
+
+    const handleThemeChange = (newTheme: AppTheme): void => {
+        setTheme(newTheme)
+        document.documentElement.setAttribute('data-theme', newTheme)
+        if (window.api?.updateSettings) {
+            window.api.updateSettings({ theme: newTheme }).catch((err) => {
+                console.error('Failed to persist theme:', err)
+            })
+        }
+    }
 
     const handleOpenConnect = (meta: PlatformMeta): void => {
         setSelectedToConnect(meta)
@@ -167,7 +199,7 @@ export const PlatformSelectView: React.FC<PlatformSelectViewProps> = ({ onSelect
                             <button
                                 key={thm}
                                 type="button"
-                                onClick={() => setTheme(thm)}
+                                onClick={() => handleThemeChange(thm)}
                                 title={String(t(`splash.themes.${thm}`))}
                                 className={`h-3.5 w-3.5 cursor-pointer rounded-full transition-all ${theme === thm
                                     ? 'scale-125 ring-2 ring-white/80 ring-offset-1 ring-offset-black/50'

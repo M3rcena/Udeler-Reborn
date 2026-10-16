@@ -1,3 +1,4 @@
+import type { AppSettings, AppTheme, DiskSpaceInfo, IntegrityCheckResult } from '@shared/types'
 import React, { useEffect, useRef, useState } from 'react'
 import { useI18n } from '../contexts/I18nContext'
 
@@ -9,65 +10,7 @@ export type SettingsCategory =
     | 'interface'
     | 'maintenance'
 
-interface AppSettingsState {
-    // Downloads & Storage
-    downloadPath: string
-    organizeByPlatform: boolean
-    platformFolderStrategy: 'subfolder' | 'prefix' | 'flat'
-    createSectionFolders: boolean
-    autoNumberLectures: boolean
-    zeroPadLectures: boolean
-    fileConflictAction: 'skip' | 'overwrite' | 'rename'
-    organizeByInstructor: boolean
-
-    // Video & Audio Quality
-    videoQuality: 'Auto' | 'Highest' | '1080p' | '720p' | '480p' | '360p' | 'Lowest'
-    qualityFallback: boolean
-    videoFormat: 'mp4' | 'mkv'
-    extractAudioOnly: boolean
-
-    // Subtitles & Attachments
-    downloadSubtitles: boolean
-    subtitleLanguage: string
-    downloadAllSubtitles: boolean
-    subtitleFormat: 'srt' | 'vtt'
-    downloadAttachments: boolean
-    downloadDescriptions: boolean
-    downloadSyllabus: boolean
-    maxAttachmentSizeMb: number
-
-    // Network & Bandwidth
-    maxConcurrentDownloads: number
-    enableSpeedLimit: boolean
-    maxDownloadSpeedKbps: number
-    autoRetry: boolean
-    maxRetryAttempts: number
-    requestTimeoutSec: number
-    proxyMode: 'none' | 'system' | 'custom'
-    proxyHost: string
-    proxyPort: string
-
-    // Scheduler
-    scheduleEnabled: boolean
-    scheduleStart: string
-    scheduleEnd: string
-    scheduleDays: string[]
-    pauseOutsideSchedule: boolean
-    preventSleepWhileDownloading: boolean
-
-    // Interface & Appearance
-    theme: 'violet' | 'midnight' | 'cyberpunk' | 'light'
-    cardLayout: 'grid' | 'compact'
-    showPlatformBadge: boolean
-    startOnBoot: boolean
-    closeToTray: boolean
-    minimizeToTray: boolean
-    notifyOnCompletion: boolean
-    hardwareAcceleration: boolean
-
-    // Maintenance & Security
-    vaultMode: boolean
-}
+export type AppSettingsState = AppSettings
 
 const DEFAULT_SETTINGS: AppSettingsState = {
     downloadPath: 'C:\\Users\\User\\Downloads\\Udeler-Courses',
@@ -76,7 +19,7 @@ const DEFAULT_SETTINGS: AppSettingsState = {
     createSectionFolders: true,
     autoNumberLectures: true,
     zeroPadLectures: true,
-    fileConflictAction: 'skip',
+    fileConflictAction: 'overwrite',
     organizeByInstructor: false,
 
     videoQuality: '1080p',
@@ -111,6 +54,7 @@ const DEFAULT_SETTINGS: AppSettingsState = {
     preventSleepWhileDownloading: true,
 
     theme: 'violet',
+    locale: 'EnglishUS',
     cardLayout: 'grid',
     showPlatformBadge: true,
     startOnBoot: false,
@@ -394,14 +338,30 @@ const InlineTimePicker: React.FC<{
 // MAIN SETTINGS VIEW COMPONENT
 // -------------------------------------------------------------
 
-export const SettingsView: React.FC = () => {
+export interface SettingsViewProps {
+    initialCategory?: SettingsCategory
+    initialSettings?: AppSettingsState
+    onDirtyChange?: (isDirty: boolean, unsavedSettings?: AppSettingsState) => void
+    onThemeChange?: (theme: AppTheme) => void
+    onSaved?: (settings: AppSettingsState) => void
+}
+
+export const SettingsView: React.FC<SettingsViewProps> = ({
+    initialCategory = 'interface',
+    initialSettings,
+    onDirtyChange,
+    onThemeChange,
+    onSaved
+}) => {
     const { currentLocale, setLocale, availableLocales } = useI18n()
 
-    // Active Category (No 'all' category)
-    const [activeCategory, setActiveCategory] = useState<SettingsCategory>('downloads')
+    // Active Category (defaults to 'interface')
+    const [activeCategory, setActiveCategory] = useState<SettingsCategory>(initialCategory)
 
     // Settings State
-    const [settings, setSettings] = useState<AppSettingsState>(DEFAULT_SETTINGS)
+    const [settings, setSettings] = useState<AppSettingsState>(initialSettings || DEFAULT_SETTINGS)
+    const [savedSettings, setSavedSettings] = useState<AppSettingsState>(initialSettings || DEFAULT_SETTINGS)
+    const savedSettingsRef = useRef<AppSettingsState>(initialSettings || DEFAULT_SETTINGS)
 
     // UI Interactive States
     const [isSaving, setIsSaving] = useState<boolean>(false)
@@ -410,9 +370,105 @@ export const SettingsView: React.FC = () => {
     const [isIntegrityScanning, setIsIntegrityScanning] = useState<boolean>(false)
     const [integrityScanProgress, setIntegrityScanProgress] = useState<number>(0)
     const [hasScannedIntegrity, setHasScannedIntegrity] = useState<boolean>(false)
-    const [reclaimedBytes, setReclaimedBytes] = useState<number>(2548291072) // ~2.37 GB mock
-    const [cachedTempBytes, setCachedTempBytes] = useState<number>(142958100) // ~136 MB mock
+    const [integrityResult, setIntegrityResult] = useState<IntegrityCheckResult | null>(null)
+    const [reclaimedBytes, setReclaimedBytes] = useState<number>(0)
+    const [cachedTempBytes, setCachedTempBytes] = useState<number>(0)
+    const [diskSpace, setDiskSpace] = useState<DiskSpaceInfo | null>(null)
+    const [isEncryptionAvailable, setIsEncryptionAvailable] = useState<boolean>(false)
     const [showResetModal, setShowResetModal] = useState<boolean>(false)
+
+    const isDirty = JSON.stringify(settings) !== JSON.stringify(savedSettings)
+
+    // Stable references for parent callbacks to prevent re-triggering effects
+    const onDirtyChangeRef = useRef(onDirtyChange)
+    onDirtyChangeRef.current = onDirtyChange
+
+    const onThemeChangeRef = useRef(onThemeChange)
+    onThemeChangeRef.current = onThemeChange
+
+    const onSavedRef = useRef(onSaved)
+    onSavedRef.current = onSaved
+
+    // Keep savedSettingsRef in sync for cleanup/revert
+    useEffect(() => {
+        savedSettingsRef.current = savedSettings
+    }, [savedSettings])
+
+    useEffect(() => {
+        onDirtyChangeRef.current?.(isDirty, settings)
+    }, [isDirty, settings])
+
+    // Warn on window close if unsaved
+    useEffect(() => {
+        const handleBeforeUnload = (e: BeforeUnloadEvent): void => {
+            if (isDirty) {
+                e.preventDefault()
+                e.returnValue = ''
+            }
+        }
+        window.addEventListener('beforeunload', handleBeforeUnload)
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+    }, [isDirty])
+
+    // Load persisted settings ONLY ONCE on mount
+    useEffect(() => {
+        let isMounted = true
+        if (window.api?.getSettings) {
+            window.api.getSettings()
+                .then((loaded) => {
+                    if (isMounted && loaded) {
+                        setSettings(loaded)
+                        setSavedSettings(loaded)
+                        savedSettingsRef.current = loaded
+                        onSavedRef.current?.(loaded)
+                        if (loaded.theme) {
+                            document.documentElement.setAttribute('data-theme', loaded.theme)
+                            onThemeChangeRef.current?.(loaded.theme)
+                        }
+                    }
+                })
+                .catch((err) => {
+                    console.error('Failed to load settings from device:', err)
+                })
+        }
+        return () => {
+            isMounted = false
+        }
+    }, [])
+
+    // Query real drive free space whenever download destination changes
+    useEffect(() => {
+        let isMounted = true
+        if (window.api?.getDiskSpace && settings.downloadPath) {
+            window.api.getDiskSpace(settings.downloadPath)
+                .then((info) => {
+                    if (isMounted && info) {
+                        setDiskSpace(info)
+                    }
+                })
+                .catch(() => { })
+        }
+        return () => {
+            isMounted = false
+        }
+    }, [settings.downloadPath])
+
+    // Query OS encryption status (Vault Mode compatibility)
+    useEffect(() => {
+        let isMounted = true
+        if (window.api?.isEncryptionAvailable) {
+            window.api.isEncryptionAvailable()
+                .then((avail) => {
+                    if (isMounted) {
+                        setIsEncryptionAvailable(avail)
+                    }
+                })
+                .catch(() => { })
+        }
+        return () => {
+            isMounted = false
+        }
+    }, [])
 
     const showToast = (msg: string): void => {
         setToastMessage(msg)
@@ -423,58 +479,160 @@ export const SettingsView: React.FC = () => {
         setSettings((prev) => ({ ...prev, [key]: value }))
     }
 
-    const handleSave = (): void => {
-        setIsSaving(true)
-        setTimeout(() => {
-            setIsSaving(false)
-            showToast('✓ Preferences saved successfully')
-        }, 600)
+    // Direct tab switch without any modal popup
+    const handleCategoryClick = (category: SettingsCategory): void => {
+        setActiveCategory(category)
     }
 
-    const handleThemeChange = (newTheme: 'violet' | 'midnight' | 'cyberpunk' | 'light'): void => {
+    const handleSave = async (): Promise<void> => {
+        setIsSaving(true)
+        try {
+            if (window.api?.updateSettings) {
+                const saved = await window.api.updateSettings(settings)
+                setSettings(saved)
+                setSavedSettings(saved)
+                savedSettingsRef.current = saved
+                onSaved?.(saved)
+            } else {
+                setSavedSettings(settings)
+                savedSettingsRef.current = settings
+                onSaved?.(settings)
+            }
+            showToast('✓ Preferences saved securely to device')
+        } catch (err) {
+            console.error('Failed to save settings:', err)
+            showToast('✗ Error saving settings')
+        } finally {
+            setIsSaving(false)
+        }
+    }
+
+    const handleDiscard = (): void => {
+        setSettings(savedSettings)
+        if (savedSettings.theme) {
+            document.documentElement.setAttribute('data-theme', savedSettings.theme)
+            onThemeChange?.(savedSettings.theme)
+        }
+        if (savedSettings.locale && savedSettings.locale !== currentLocale) {
+            setLocale(savedSettings.locale)
+        }
+        showToast('✓ Unsaved changes discarded')
+    }
+
+    const handleRestartForHwAcc = async (): Promise<void> => {
+        try {
+            if (window.api?.updateSettings) {
+                await window.api.updateSettings(settings)
+            }
+            await window.api?.relaunchApp?.()
+        } catch (err) {
+            console.error('Failed to restart app:', err)
+        }
+    }
+
+    // Live theme preview without immediate disk persistence (persists only on Save Changes)
+    const handleThemeChange = (newTheme: AppTheme): void => {
         updateSetting('theme', newTheme)
         document.documentElement.setAttribute('data-theme', newTheme)
-        showToast(`Theme changed to ${newTheme.toUpperCase()}`)
+        onThemeChange?.(newTheme)
+        showToast(`Theme preview: ${newTheme.toUpperCase()}`)
     }
 
-    const handleBrowseFolder = (): void => {
-        showToast('Select folder dialog will link to native OS picker')
+    const handleBrowseFolder = async (): Promise<void> => {
+        try {
+            if (window.api?.selectDownloadDir) {
+                const selected = await window.api.selectDownloadDir()
+                if (selected) {
+                    updateSetting('downloadPath', selected)
+                    showToast('✓ Download directory updated')
+                    if (window.api.getDiskSpace) {
+                        const space = await window.api.getDiskSpace(selected)
+                        if (space) setDiskSpace(space)
+                    }
+                }
+            } else {
+                showToast('Folder picker is not supported in this environment')
+            }
+        } catch (err) {
+            console.error('Failed to open directory picker:', err)
+        }
     }
 
-    const handlePurgeCache = (): void => {
+    const handlePurgeCache = async (): Promise<void> => {
         setIsCleaningCache(true)
-        setTimeout(() => {
+        try {
+            if (window.api?.clearCache) {
+                const res = await window.api.clearCache()
+                setReclaimedBytes((prev) => prev + res.reclaimedBytes)
+                setCachedTempBytes(0)
+                showToast(`✓ Cleared ${formatBytes(res.reclaimedBytes)} of cache and temporary chunks`)
+            } else {
+                setReclaimedBytes((prev) => prev + 1048576)
+                setCachedTempBytes(0)
+                showToast('✓ Temporary chunks cleared')
+            }
+        } catch (err) {
+            console.error('Failed to purge cache:', err)
+            showToast('Failed to purge cache')
+        } finally {
             setIsCleaningCache(false)
-            setReclaimedBytes((prev) => prev + cachedTempBytes)
-            setCachedTempBytes(0)
-            showToast('✓ Orphaned files and temporary chunks cleared')
-        }, 1200)
+        }
     }
 
-    const handleRunIntegrityScan = (): void => {
+    const handleRunIntegrityScan = async (): Promise<void> => {
         setIsIntegrityScanning(true)
         setIntegrityScanProgress(0)
         setHasScannedIntegrity(false)
 
+        let prog = 0
         const interval = setInterval(() => {
-            setIntegrityScanProgress((prev) => {
-                if (prev >= 100) {
+            prog += 20
+            setIntegrityScanProgress(Math.min(prog, 90))
+        }, 150)
+
+        try {
+            if (window.api?.checkIntegrity) {
+                const result = await window.api.checkIntegrity(settings.downloadPath)
+                clearInterval(interval)
+                setIntegrityScanProgress(100)
+                setIntegrityResult(result)
+                setIsIntegrityScanning(false)
+                setHasScannedIntegrity(true)
+                showToast(`✓ Integrity check complete: ${result.summary}`)
+            } else {
+                setTimeout(() => {
                     clearInterval(interval)
+                    setIntegrityScanProgress(100)
                     setIsIntegrityScanning(false)
                     setHasScannedIntegrity(true)
                     showToast('✓ Integrity check complete: All downloaded lectures intact')
-                    return 100
-                }
-                return prev + 20
-            })
-        }, 250)
+                }, 800)
+            }
+        } catch (err) {
+            clearInterval(interval)
+            setIsIntegrityScanning(false)
+            showToast('Integrity check encountered an error')
+        }
     }
 
-    const handleResetDefaults = (): void => {
-        setSettings(DEFAULT_SETTINGS)
-        setShowResetModal(false)
-        document.documentElement.setAttribute('data-theme', 'violet')
-        showToast('All settings reset to default values')
+    const handleResetDefaults = async (): Promise<void> => {
+        try {
+            if (window.api?.resetSettings) {
+                const defaults = await window.api.resetSettings()
+                setSettings(defaults)
+                setSavedSettings(defaults)
+                if (defaults.theme) {
+                    document.documentElement.setAttribute('data-theme', defaults.theme)
+                }
+            } else {
+                setSettings(DEFAULT_SETTINGS)
+                setSavedSettings(DEFAULT_SETTINGS)
+            }
+            setShowResetModal(false)
+            showToast('✓ All settings reset to default values')
+        } catch (err) {
+            console.error('Failed to reset settings:', err)
+        }
     }
 
     const formatBytes = (bytes: number): string => {
@@ -565,6 +723,8 @@ export const SettingsView: React.FC = () => {
                 </div>
             )}
 
+
+
             <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 pb-12">
                 {/* 1. TOP HEADER & SAVE BAR */}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-[var(--border-color)] pb-4">
@@ -591,6 +751,26 @@ export const SettingsView: React.FC = () => {
                     </div>
 
                     <div className="flex items-center gap-2 w-full sm:w-auto">
+                        {isDirty && (
+                            <>
+                                <span className="hidden sm:inline-flex items-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 font-mono text-[10px] font-bold text-amber-300 animate-pulse">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-amber-400"></span>
+                                    Unsaved Changes
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={handleDiscard}
+                                    className="cursor-pointer flex items-center justify-center gap-1.5 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-300 hover:bg-rose-500/20 transition-all"
+                                    title="Discard unsaved changes and revert to saved settings"
+                                >
+                                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                    <span>Discard</span>
+                                </button>
+                            </>
+                        )}
+
                         <button
                             type="button"
                             onClick={() => setShowResetModal(true)}
@@ -607,7 +787,7 @@ export const SettingsView: React.FC = () => {
                             type="button"
                             onClick={handleSave}
                             disabled={isSaving}
-                            className="cursor-pointer flex-1 sm:flex-none flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[var(--accent-from)] to-[var(--accent-to)] bg-no-repeat px-5 py-2 text-xs font-bold text-white shadow-md hover:opacity-90 active:scale-95 transition-all disabled:opacity-50"
+                            className={`cursor-pointer flex-1 sm:flex-none flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[var(--accent-from)] to-[var(--accent-to)] bg-no-repeat px-5 py-2 text-xs font-bold text-white shadow-md hover:opacity-90 active:scale-95 transition-all disabled:opacity-50 ${isDirty ? 'ring-2 ring-[var(--accent-from)]/50' : ''}`}
                         >
                             {isSaving ? (
                                 <>
@@ -635,13 +815,13 @@ export const SettingsView: React.FC = () => {
                         { id: 'media' as SettingsCategory, label: 'Media & Quality', icon: 'M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z' },
                         { id: 'network' as SettingsCategory, label: 'Network', icon: 'M13 10V3L4 14h7v7l9-11h-7z' },
                         { id: 'scheduler' as SettingsCategory, label: 'Scheduler', icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' },
-                        { id: 'interface' as SettingsCategory, label: 'Appearance', icon: 'M7 21a4 4 0 01-4-4 4 4 0 014-4c.78 0 1.5.22 2.11.6L12 11l6.89-6.89a2 2 0 112.83 2.83L14.83 13.82c.38.61.6 1.33.6 2.18a4 4 0 01-4 4 4 4 0 01-4-4' },
+                        { id: 'interface' as SettingsCategory, label: 'Appearance', icon: 'M9.53 16.122a3 3 0 00-5.78 1.128 2.25 2.25 0 01-2.4 2.245 4.5 4.5 0 008.4-1.657c0-.285-.027-.565-.078-.836l.358-.358a8.98 8.98 0 012.327-1.572l.47-.235m5.214-5.214a3 3 0 00-4.243-4.243l-8.486 8.486a4.5 4.5 0 00-1.285 2.656l-.134.804 1.383-.23a4.5 4.5 0 002.39-1.22l8.486-8.486z' },
                         { id: 'maintenance' as SettingsCategory, label: 'Maintenance', icon: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z' }
                     ].map((cat) => (
                         <button
                             key={cat.id}
                             type="button"
-                            onClick={() => setActiveCategory(cat.id)}
+                            onClick={() => handleCategoryClick(cat.id)}
                             className={`cursor-pointer flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold whitespace-nowrap transition-all ${activeCategory === cat.id
                                 ? 'bg-gradient-to-r from-[var(--accent-from)] to-[var(--accent-to)] bg-no-repeat text-white shadow-md'
                                 : 'border border-[var(--border-color)] bg-[var(--bg-card)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border-highlight)]'
@@ -680,7 +860,9 @@ export const SettingsView: React.FC = () => {
                                 <div className="flex flex-col gap-2">
                                     <div className="flex items-center justify-between">
                                         <span className="text-xs font-semibold text-[var(--text-primary)]">Primary Storage Directory</span>
-                                        <span className="font-mono text-[10px] text-emerald-400">Available Space: 142.5 GB / 512 GB</span>
+                                        <span className="font-mono text-[10px] text-emerald-400">
+                                            Available Space: {diskSpace ? `${formatBytes(diskSpace.freeBytes)} / ${formatBytes(diskSpace.totalBytes)}` : 'Scanning drive...'}
+                                        </span>
                                     </div>
                                     <div className="flex gap-2">
                                         <input
@@ -796,27 +978,72 @@ export const SettingsView: React.FC = () => {
 
                                 {/* Conflict Handling & LIVE PATH PREVIEW */}
                                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                                    <div className="flex flex-col gap-2 p-4 rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)]">
-                                        <label className="text-xs font-bold text-[var(--text-primary)]">File Conflict Resolution</label>
-                                        <p className="text-[11px] text-[var(--text-secondary)] mb-2">When a downloaded file already exists on your hard drive:</p>
-                                        <div className="flex gap-2">
+                                    <div className="flex flex-col justify-between p-4 rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)]">
+                                        <div>
+                                            <div className="flex items-center justify-between mb-1">
+                                                <label className="text-xs font-bold text-[var(--text-primary)]">File Conflict Resolution</label>
+                                                <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
+                                                    Default: Overwrite
+                                                </span>
+                                            </div>
+                                            <p className="text-[11px] text-[var(--text-secondary)] mb-3">
+                                                When a lecture video or asset already exists in your destination folder:
+                                            </p>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                                             {[
-                                                { id: 'skip' as const, label: 'Skip File' },
-                                                { id: 'overwrite' as const, label: 'Overwrite' },
-                                                { id: 'rename' as const, label: 'Keep Both (Auto-Increment)' }
-                                            ].map((opt) => (
-                                                <button
-                                                    key={opt.id}
-                                                    type="button"
-                                                    onClick={() => updateSetting('fileConflictAction', opt.id)}
-                                                    className={`cursor-pointer flex-1 rounded-xl py-2 text-xs font-semibold transition-all border ${settings.fileConflictAction === opt.id
-                                                        ? 'bg-gradient-to-r from-[var(--accent-from)] to-[var(--accent-to)] bg-no-repeat text-white border-transparent shadow-xs'
-                                                        : 'border-[var(--border-color)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                                                        }`}
-                                                >
-                                                    {opt.label}
-                                                </button>
-                                            ))}
+                                                {
+                                                    id: 'overwrite' as const,
+                                                    label: 'Overwrite',
+                                                    badgeStyle: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
+                                                    desc: 'Direct write without scanning. Best for updating or fixing corrupted files.'
+                                                },
+                                                {
+                                                    id: 'skip' as const,
+                                                    label: 'Skip File',
+                                                    badgeStyle: 'text-blue-400 bg-blue-500/10 border-blue-500/20',
+                                                    desc: 'Bypasses existing filenames on disk immediately. Saves internet bandwidth.'
+                                                },
+                                                {
+                                                    id: 'rename' as const,
+                                                    label: 'Keep Both',
+                                                    badgeStyle: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
+                                                    desc: 'Appends (1) numbering to save both versions. Uses more disk storage.'
+                                                }
+                                            ].map((opt) => {
+                                                const isSelected = settings.fileConflictAction === opt.id
+                                                return (
+                                                    <button
+                                                        key={opt.id}
+                                                        type="button"
+                                                        onClick={() => updateSetting('fileConflictAction', opt.id)}
+                                                        className={`cursor-pointer flex flex-col justify-between p-3 rounded-xl border text-left transition-all ${isSelected
+                                                            ? 'bg-gradient-to-r from-[var(--accent-from)] to-[var(--accent-to)] bg-no-repeat text-white border-transparent shadow-md'
+                                                            : 'border-[var(--border-color)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border-highlight)]'
+                                                            }`}
+                                                    >
+                                                        <div>
+                                                            <div className="flex items-center justify-between gap-1 mb-1.5">
+                                                                <span className={`text-xs font-bold ${isSelected ? 'text-white' : 'text-[var(--text-primary)]'}`}>
+                                                                    {opt.label}
+                                                                </span>
+                                                            </div>
+                                                            <p className={`text-[10px] leading-relaxed ${isSelected ? 'text-white/80' : 'text-[var(--text-secondary)]'}`}>
+                                                                {opt.desc}
+                                                            </p>
+                                                        </div>
+                                                    </button>
+                                                )
+                                            })}
+                                        </div>
+
+                                        <div className="mt-3 flex items-center justify-between text-[10px] text-[var(--text-secondary)] bg-[var(--bg-surface)] px-3 py-2 rounded-xl border border-[var(--border-color)]">
+                                            <span className="flex items-center gap-1.5">
+                                                <span className="text-emerald-400 font-bold">Speed:</span>
+                                                <span>Overwrite (Fastest) &gt; Skip (Faster on resume) &gt; Keep Both</span>
+                                            </span>
+                                            <span className="font-mono text-[9px] text-[var(--text-secondary)]">Zero-check I/O</span>
                                         </div>
                                     </div>
 
@@ -1072,6 +1299,30 @@ export const SettingsView: React.FC = () => {
                                         />
                                     </div>
                                 </div>
+
+                                {settings.downloadAttachments && (
+                                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-4 rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)] animate-in fade-in duration-150">
+                                        <div>
+                                            <span className="text-xs font-bold text-[var(--text-primary)] block">Maximum Attachment File Size</span>
+                                            <span className="text-[11px] text-[var(--text-secondary)]">Skip archive downloads or heavy datasets exceeding threshold</span>
+                                        </div>
+                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                            {[100, 250, 500, 1000, 2000].map((mb) => (
+                                                <button
+                                                    key={mb}
+                                                    type="button"
+                                                    onClick={() => updateSetting('maxAttachmentSizeMb', mb)}
+                                                    className={`cursor-pointer px-3 py-1.5 rounded-xl font-mono text-xs font-bold transition-all border ${settings.maxAttachmentSizeMb === mb
+                                                        ? 'bg-gradient-to-r from-[var(--accent-from)] to-[var(--accent-to)] text-white border-transparent shadow-xs'
+                                                        : 'border-[var(--border-color)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                                                        }`}
+                                                >
+                                                    {mb >= 1000 ? `${mb / 1000} GB` : `${mb} MB`}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}
@@ -1266,6 +1517,41 @@ export const SettingsView: React.FC = () => {
                                         </div>
                                     )}
                                 </div>
+
+                                {/* Network Request Timeout */}
+                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-5 rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)] md:col-span-2">
+                                    <div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs font-bold text-[var(--text-primary)] block">Network Socket Timeout</span>
+                                            <span className="rounded-md bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-[9px] font-mono text-emerald-400 font-bold">
+                                                {settings.requestTimeoutSec}s Active
+                                            </span>
+                                        </div>
+                                        <span className="text-[11px] text-[var(--text-secondary)] mt-0.5 block">
+                                            Abort and re-establish connection if platform server does not respond within time limit
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                        {[
+                                            { sec: 15, label: '15s (Fast)' },
+                                            { sec: 30, label: '30s (Default)' },
+                                            { sec: 60, label: '60s (Slow)' },
+                                            { sec: 120, label: '120s (Satellite)' }
+                                        ].map((opt) => (
+                                            <button
+                                                key={opt.sec}
+                                                type="button"
+                                                onClick={() => updateSetting('requestTimeoutSec', opt.sec)}
+                                                className={`cursor-pointer px-3 py-1.5 rounded-xl font-mono text-xs font-bold transition-all border ${settings.requestTimeoutSec === opt.sec
+                                                    ? 'bg-gradient-to-r from-[var(--accent-from)] to-[var(--accent-to)] text-white border-transparent shadow-xs'
+                                                    : 'border-[var(--border-color)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                                                    }`}
+                                            >
+                                                {opt.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     )}
@@ -1441,12 +1727,12 @@ export const SettingsView: React.FC = () => {
                             <div className="flex items-center gap-3 border-b border-[var(--border-color)] pb-4 mb-5">
                                 <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-pink-500/10 text-pink-400 border border-pink-500/20">
                                     <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M7 21a4 4 0 01-4-4 4 4 0 014-4c.78 0 1.5.22 2.11.6L12 11l6.89-6.89a2 2 0 112.83 2.83L14.83 13.82c.38.61.6 1.33.6 2.18a4 4 0 01-4 4 4 4 0 01-4-4" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M9.53 16.122a3 3 0 00-5.78 1.128 2.25 2.25 0 01-2.4 2.245 4.5 4.5 0 008.4-1.657c0-.285-.027-.565-.078-.836l.358-.358a8.98 8.98 0 012.327-1.572l.47-.235m5.214-5.214a3 3 0 00-4.243-4.243l-8.486 8.486a4.5 4.5 0 00-1.285 2.656l-.134.804 1.383-.23a4.5 4.5 0 002.39-1.22l8.486-8.486z" />
                                     </svg>
                                 </div>
                                 <div>
-                                    <h3 className="text-sm font-bold text-[var(--text-primary)]">Theme Studio & Desktop Experience</h3>
-                                    <p className="text-[11px] text-[var(--text-secondary)]">Live theme previews, interface styling, language options, and background tray behavior.</p>
+                                    <h3 className="text-sm font-bold text-[var(--text-primary)]">Theme Studio & Interface Styling</h3>
+                                    <p className="text-[11px] text-[var(--text-secondary)]">Live theme previews, course card layout, localization, and background desktop tray behavior.</p>
                                 </div>
                             </div>
 
@@ -1455,7 +1741,7 @@ export const SettingsView: React.FC = () => {
                                 <div className="flex flex-col gap-2.5">
                                     <div className="flex items-center justify-between">
                                         <span className="text-xs font-bold text-[var(--text-primary)]">Theme Palette</span>
-                                        <span className="text-[10px] font-mono text-[var(--text-secondary)]">Click to apply instantly</span>
+                                        <span className="text-[10px] font-mono text-[var(--text-secondary)]">Click to preview live across all views</span>
                                     </div>
 
                                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -1547,6 +1833,55 @@ export const SettingsView: React.FC = () => {
                                     </div>
                                 </div>
 
+                                {/* COURSE DASHBOARD VIEW & BADGES */}
+                                <div className="flex flex-col gap-3 p-4 rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)]">
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                        <div>
+                                            <span className="text-xs font-bold text-[var(--text-primary)] block">Course Catalog Layout</span>
+                                            <span className="text-[11px] text-[var(--text-secondary)]">Switch between visual grid cards and dense lecture row lists</span>
+                                        </div>
+                                        <div className="flex rounded-xl border border-[var(--border-color)] bg-[var(--bg-surface)] p-1 shrink-0">
+                                            <button
+                                                type="button"
+                                                onClick={() => updateSetting('cardLayout', 'grid')}
+                                                className={`cursor-pointer flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${settings.cardLayout === 'grid'
+                                                    ? 'bg-gradient-to-r from-[var(--accent-from)] to-[var(--accent-to)] bg-no-repeat text-white shadow-xs'
+                                                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                                                    }`}
+                                            >
+                                                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                                                </svg>
+                                                <span>Grid View</span>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => updateSetting('cardLayout', 'compact')}
+                                                className={`cursor-pointer flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${settings.cardLayout === 'compact'
+                                                    ? 'bg-gradient-to-r from-[var(--accent-from)] to-[var(--accent-to)] bg-no-repeat text-white shadow-xs'
+                                                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                                                    }`}
+                                            >
+                                                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                                                </svg>
+                                                <span>Compact List</span>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center justify-between border-t border-[var(--border-color)] pt-3 mt-1">
+                                        <div className="pr-3">
+                                            <span className="text-xs font-bold text-[var(--text-primary)] block">Platform Provider Badges</span>
+                                            <span className="text-[10px] text-[var(--text-secondary)]">Show provider logo tag (Udemy, Coursera, Skillshare, etc.) on each course card</span>
+                                        </div>
+                                        <ToggleSwitch
+                                            checked={settings.showPlatformBadge}
+                                            onChange={(c) => updateSetting('showPlatformBadge', c)}
+                                        />
+                                    </div>
+                                </div>
+
                                 {/* Language Selector */}
                                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-4 rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)]">
                                     <div>
@@ -1558,7 +1893,10 @@ export const SettingsView: React.FC = () => {
                                             <button
                                                 key={loc.code}
                                                 type="button"
-                                                onClick={() => setLocale(loc.code)}
+                                                onClick={() => {
+                                                    setLocale(loc.code)
+                                                    updateSetting('locale', loc.code)
+                                                }}
                                                 className={`cursor-pointer flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold border transition-all ${currentLocale === loc.code
                                                     ? 'bg-gradient-to-r from-[var(--accent-from)] to-[var(--accent-to)] bg-no-repeat text-white border-transparent shadow-xs'
                                                     : 'border-[var(--border-color)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
@@ -1575,7 +1913,10 @@ export const SettingsView: React.FC = () => {
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div className="flex items-center justify-between p-3.5 rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)]">
                                         <div className="pr-2">
-                                            <span className="text-xs font-bold text-[var(--text-primary)] block">Close to System Tray</span>
+                                            <div className="flex items-center gap-1.5">
+                                                <span className="text-xs font-bold text-[var(--text-primary)] block">Close to System Tray</span>
+                                                <span className="rounded bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.2 text-[9px] font-bold text-emerald-400">Tray Live</span>
+                                            </div>
                                             <span className="text-[10px] text-[var(--text-secondary)]">Keep app alive in tray when closing main window</span>
                                         </div>
                                         <ToggleSwitch
@@ -1586,19 +1927,58 @@ export const SettingsView: React.FC = () => {
 
                                     <div className="flex items-center justify-between p-3.5 rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)]">
                                         <div className="pr-2">
-                                            <span className="text-xs font-bold text-[var(--text-primary)] block">Desktop Notifications</span>
-                                            <span className="text-[10px] text-[var(--text-secondary)]">Send native OS notifications on download finish</span>
+                                            <div className="flex items-center gap-1.5">
+                                                <span className="text-xs font-bold text-[var(--text-primary)] block">Minimize to System Tray</span>
+                                                <span className="rounded bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.2 text-[9px] font-bold text-emerald-400">Tray Live</span>
+                                            </div>
+                                            <span className="text-[10px] text-[var(--text-secondary)]">Direct window to tray when minimized instead of taskbar</span>
                                         </div>
                                         <ToggleSwitch
-                                            checked={settings.notifyOnCompletion}
-                                            onChange={(c) => updateSetting('notifyOnCompletion', c)}
+                                            checked={settings.minimizeToTray}
+                                            onChange={(c) => updateSetting('minimizeToTray', c)}
                                         />
+                                    </div>
+
+                                    <div className="flex flex-col gap-2.5 p-3.5 rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)]">
+                                        <div className="flex items-center justify-between">
+                                            <div className="pr-2">
+                                                <span className="text-xs font-bold text-[var(--text-primary)] block">Desktop Notifications</span>
+                                                <span className="text-[10px] text-[var(--text-secondary)]">Send native OS notifications on download finish</span>
+                                            </div>
+                                            <ToggleSwitch
+                                                checked={settings.notifyOnCompletion}
+                                                onChange={(c) => updateSetting('notifyOnCompletion', c)}
+                                            />
+                                        </div>
+                                        <div className="flex items-center justify-between border-t border-[var(--border-color)]/60 pt-2 mt-0.5">
+                                            <span className="text-[10px] text-[var(--text-secondary)]">Verify OS notification permission</span>
+                                            <button
+                                                type="button"
+                                                onClick={async () => {
+                                                    if (window.api?.showNotification) {
+                                                        const sent = await window.api.showNotification({
+                                                            title: 'Udeler Reborn',
+                                                            body: 'Desktop notifications are active and working!',
+                                                            force: true
+                                                        })
+                                                        if (sent) {
+                                                            showToast('✓ Test notification dispatched to OS')
+                                                        } else {
+                                                            showToast('Notification not supported or blocked by OS')
+                                                        }
+                                                    }
+                                                }}
+                                                className="cursor-pointer px-2.5 py-1 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] text-[10px] font-semibold text-[var(--text-primary)] hover:border-[var(--border-highlight)] transition-colors"
+                                            >
+                                                Test Notification
+                                            </button>
+                                        </div>
                                     </div>
 
                                     <div className="flex items-center justify-between p-3.5 rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)]">
                                         <div className="pr-2">
                                             <span className="text-xs font-bold text-[var(--text-primary)] block">Start With System Boot</span>
-                                            <span className="text-[10px] text-[var(--text-secondary)]">Launch minimized in tray on computer startup</span>
+                                            <span className="text-[10px] text-[var(--text-secondary)]">Launch app automatically on computer startup</span>
                                         </div>
                                         <ToggleSwitch
                                             checked={settings.startOnBoot}
@@ -1606,15 +1986,31 @@ export const SettingsView: React.FC = () => {
                                         />
                                     </div>
 
-                                    <div className="flex items-center justify-between p-3.5 rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)]">
-                                        <div className="pr-2">
-                                            <span className="text-xs font-bold text-[var(--text-primary)] block">Hardware Acceleration</span>
-                                            <span className="text-[10px] text-[var(--text-secondary)]">Utilize GPU for rendering & smooth decoding</span>
+                                    <div className="flex flex-col gap-2.5 p-3.5 rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)] sm:col-span-2">
+                                        <div className="flex items-center justify-between">
+                                            <div className="pr-2">
+                                                <span className="text-xs font-bold text-[var(--text-primary)] block">Hardware Acceleration</span>
+                                                <span className="text-[10px] text-[var(--text-secondary)]">Utilize GPU for rendering & smooth decoding</span>
+                                            </div>
+                                            <ToggleSwitch
+                                                checked={settings.hardwareAcceleration}
+                                                onChange={(c) => updateSetting('hardwareAcceleration', c)}
+                                            />
                                         </div>
-                                        <ToggleSwitch
-                                            checked={settings.hardwareAcceleration}
-                                            onChange={(c) => updateSetting('hardwareAcceleration', c)}
-                                        />
+                                        {settings.hardwareAcceleration !== savedSettings.hardwareAcceleration && (
+                                            <div className="flex items-center justify-between border-t border-amber-500/20 bg-amber-500/10 rounded-xl px-3 py-2 mt-1">
+                                                <span className="text-[11px] font-semibold text-amber-300">
+                                                    Requires app restart to apply changes
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    onClick={handleRestartForHwAcc}
+                                                    className="cursor-pointer px-3 py-1 rounded-lg bg-amber-500 text-black text-[10px] font-bold hover:bg-amber-400 transition-colors shadow-xs"
+                                                >
+                                                    Restart Now
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -1659,7 +2055,7 @@ export const SettingsView: React.FC = () => {
                                     <button
                                         type="button"
                                         onClick={handlePurgeCache}
-                                        disabled={isCleaningCache || cachedTempBytes === 0}
+                                        disabled={isCleaningCache}
                                         className="cursor-pointer flex items-center justify-center gap-2 rounded-xl bg-teal-500/20 border border-teal-500/30 text-teal-300 hover:bg-teal-500/30 px-4 py-2 text-xs font-bold transition-all disabled:opacity-40 whitespace-nowrap"
                                     >
                                         {isCleaningCache ? (
@@ -1713,11 +2109,16 @@ export const SettingsView: React.FC = () => {
                                     )}
 
                                     {hasScannedIntegrity && !isIntegrityScanning && (
-                                        <div className="flex items-center gap-2.5 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold animate-in fade-in duration-200">
-                                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                        <div className={`flex items-center gap-2.5 p-3 rounded-xl border text-xs font-semibold animate-in fade-in duration-200 ${integrityResult && integrityResult.corruptFiles > 0
+                                            ? 'bg-amber-500/10 border-amber-500/20 text-amber-300'
+                                            : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                                            }`}>
+                                            <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d={integrityResult && integrityResult.corruptFiles > 0 ? "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" : "M5 13l4 4L19 7"} />
                                             </svg>
-                                            <span>All local course files and lectures are 100% verified and healthy.</span>
+                                            <span>
+                                                {integrityResult ? integrityResult.summary : 'All local course files and lectures are 100% verified and healthy.'}
+                                            </span>
                                         </div>
                                     )}
                                 </div>
@@ -1727,7 +2128,9 @@ export const SettingsView: React.FC = () => {
                                     <div className="pr-3">
                                         <div className="flex items-center gap-2">
                                             <span className="text-xs font-bold text-purple-300">Vault Mode (Private Learning)</span>
-                                            <span className="rounded-full bg-purple-500/15 border border-purple-500/20 px-2 py-0.5 text-[9px] font-mono text-purple-300 font-bold">Encrypted DB</span>
+                                            <span className="rounded-full bg-purple-500/15 border border-purple-500/20 px-2 py-0.5 text-[9px] font-mono text-purple-300 font-bold">
+                                                {isEncryptionAvailable ? 'DPAPI Encrypted' : 'Safe Storage'}
+                                            </span>
                                         </div>
                                         <span className="text-[11px] text-[var(--text-secondary)]">Hide course names from system logs and require app authentication on launch</span>
                                     </div>

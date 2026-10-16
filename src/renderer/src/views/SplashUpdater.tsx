@@ -15,11 +15,43 @@ export const SplashUpdater: React.FC<SplashUpdaterProps> = ({ onLaunchMainApp })
     const [percentage, setPercentage] = useState<number>(0)
     const [speed, setSpeed] = useState<string>('0 MB/s')
     const [version, setVersion] = useState<string>('4.0.0')
-    const [theme, setTheme] = useState<AppTheme>('violet')
+    const [theme, setTheme] = useState<AppTheme>(
+        (document.documentElement.getAttribute('data-theme') as AppTheme) || 'violet'
+    )
 
     useEffect(() => {
-        document.documentElement.setAttribute('data-theme', theme)
-    }, [theme])
+        let mounted = true
+        if (window.api?.getSettings) {
+            window.api.getSettings().then((s) => {
+                if (mounted && s?.theme) {
+                    setTheme(s.theme)
+                    document.documentElement.setAttribute('data-theme', s.theme)
+                }
+            }).catch(() => { })
+        }
+
+        const unsubscribe = window.api?.onSettingsChanged?.((settings) => {
+            if (mounted && settings?.theme) {
+                setTheme(settings.theme)
+                document.documentElement.setAttribute('data-theme', settings.theme)
+            }
+        })
+
+        return () => {
+            mounted = false
+            unsubscribe?.()
+        }
+    }, [])
+
+    const handleThemeChange = (newTheme: AppTheme): void => {
+        setTheme(newTheme)
+        document.documentElement.setAttribute('data-theme', newTheme)
+        if (window.api?.updateSettings) {
+            window.api.updateSettings({ theme: newTheme }).catch((err) => {
+                console.error('Failed to persist theme:', err)
+            })
+        }
+    }
 
     // IPC listener for real backend updates
     useEffect(() => {
@@ -95,10 +127,10 @@ export const SplashUpdater: React.FC<SplashUpdaterProps> = ({ onLaunchMainApp })
                             <button
                                 key={thm}
                                 type="button"
-                                onClick={() => setTheme(thm)}
+                                onClick={() => handleThemeChange(thm)}
                                 className={`h-3 w-3 cursor-pointer rounded-full transition-all ${theme === thm
-                                        ? 'scale-125 ring-2 ring-white/70 ring-offset-1 ring-offset-black/40'
-                                        : 'opacity-40 hover:opacity-90'
+                                    ? 'scale-125 ring-2 ring-white/70 ring-offset-1 ring-offset-black/40'
+                                    : 'opacity-40 hover:opacity-90'
                                     }`}
                                 style={{
                                     backgroundColor:

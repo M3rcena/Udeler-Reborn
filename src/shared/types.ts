@@ -113,3 +113,161 @@ export interface AppVersionInfo {
   node?: string
   chrome?: string
 }
+
+// ============= Settings Types ===============
+export type PlatformFolderStrategy = 'subfolder' | 'prefix' | 'flat'
+export type FileConflictAction = 'skip' | 'overwrite' | 'rename'
+export type VideoQuality = 'Auto' | 'Highest' | '1080p' | '720p' | '480p' | '360p' | 'Lowest'
+export type VideoFormat = 'mp4' | 'mkv'
+export type SubtitleFormat = 'srt' | 'vtt'
+export type ProxyMode = 'none' | 'system' | 'custom'
+export type AppTheme = 'violet' | 'midnight' | 'cyberpunk' | 'light'
+export type CardLayout = 'grid' | 'compact'
+
+export interface AppSettings {
+  // Downloads & Storage
+  downloadPath: string
+  organizeByPlatform: boolean
+  platformFolderStrategy: PlatformFolderStrategy
+  createSectionFolders: boolean
+  autoNumberLectures: boolean
+  zeroPadLectures: boolean
+  fileConflictAction: FileConflictAction
+  organizeByInstructor: boolean
+
+  // Video & Audio Quality
+  videoQuality: VideoQuality
+  qualityFallback: boolean
+  videoFormat: VideoFormat
+  extractAudioOnly: boolean
+
+  // Subtitles & Attachments
+  downloadSubtitles: boolean
+  subtitleLanguage: string
+  downloadAllSubtitles: boolean
+  subtitleFormat: SubtitleFormat
+  downloadAttachments: boolean
+  downloadDescriptions: boolean
+  downloadSyllabus: boolean
+  maxAttachmentSizeMb: number
+
+  // Network & Bandwidth
+  maxConcurrentDownloads: number
+  enableSpeedLimit: boolean
+  maxDownloadSpeedKbps: number
+  autoRetry: boolean
+  maxRetryAttempts: number
+  requestTimeoutSec: number
+  proxyMode: ProxyMode
+  proxyHost: string
+  proxyPort: string
+
+  // Scheduler
+  scheduleEnabled: boolean
+  scheduleStart: string
+  scheduleEnd: string
+  scheduleDays: string[]
+  pauseOutsideSchedule: boolean
+  preventSleepWhileDownloading: boolean
+
+  // Interface & Appearance
+  theme: AppTheme
+  locale: string
+  cardLayout: CardLayout
+  showPlatformBadge: boolean
+  startOnBoot: boolean
+  closeToTray: boolean
+  minimizeToTray: boolean
+  notifyOnCompletion: boolean
+  hardwareAcceleration: boolean
+
+  // Maintenance & Security
+  vaultMode: boolean
+}
+
+export interface CategorizedSettings {
+  downloads: Pick<
+    AppSettings,
+    | 'downloadPath'
+    | 'organizeByPlatform'
+    | 'platformFolderStrategy'
+    | 'createSectionFolders'
+    | 'autoNumberLectures'
+    | 'zeroPadLectures'
+    | 'fileConflictAction'
+    | 'organizeByInstructor'
+  >
+  media: Pick<
+    AppSettings,
+    | 'videoQuality'
+    | 'qualityFallback'
+    | 'videoFormat'
+    | 'extractAudioOnly'
+    | 'downloadSubtitles'
+    | 'subtitleLanguage'
+    | 'downloadAllSubtitles'
+    | 'subtitleFormat'
+    | 'downloadAttachments'
+    | 'downloadDescriptions'
+    | 'downloadSyllabus'
+    | 'maxAttachmentSizeMb'
+  >
+  network: Pick<
+    AppSettings,
+    | 'maxConcurrentDownloads'
+    | 'enableSpeedLimit'
+    | 'maxDownloadSpeedKbps'
+    | 'autoRetry'
+    | 'maxRetryAttempts'
+    | 'requestTimeoutSec'
+    | 'proxyMode'
+    | 'proxyHost'
+    | 'proxyPort'
+  >
+  scheduler: Pick<
+    AppSettings,
+    | 'scheduleEnabled'
+    | 'scheduleStart'
+    | 'scheduleEnd'
+    | 'scheduleDays'
+    | 'pauseOutsideSchedule'
+    | 'preventSleepWhileDownloading'
+  >
+  interface: Pick<
+    AppSettings,
+    | 'theme'
+    | 'locale'
+    | 'cardLayout'
+    | 'showPlatformBadge'
+    | 'startOnBoot'
+    | 'closeToTray'
+    | 'minimizeToTray'
+    | 'notifyOnCompletion'
+    | 'hardwareAcceleration'
+  >
+  security: Pick<AppSettings, 'vaultMode'>
+}
+
+export interface PersistedSettingsEnvelope {
+  schemaVersion: number
+  updatedAt: string
+  isEncrypted: boolean
+  settings?: CategorizedSettings
+  encryptedData?: string
+}
+
+export interface DiskSpaceInfo {
+  freeBytes: number
+  totalBytes: number
+}
+
+export interface CacheClearResult {
+  reclaimedBytes: number
+}
+
+export interface IntegrityCheckResult {
+  totalFiles: number
+  healthyFiles: number
+  corruptFiles: number
+  summary: string
+}

@@ -72,9 +72,40 @@ function interpolate(
 export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [currentLocale, setCurrentLocale] = useState<string>(defaultLocaleCode)
 
+    useEffect(() => {
+        let mounted = true
+        if (window.api?.getSettings) {
+            window.api.getSettings().then((s) => {
+                if (mounted && s?.locale && dictionaries[s.locale]) {
+                    setCurrentLocale(s.locale)
+                }
+            }).catch(() => {
+                // Ignore fallback
+            })
+        }
+
+        const unsubscribe = window.api?.onSettingsChanged?.((settings) => {
+            if (mounted && settings?.locale && dictionaries[settings.locale]) {
+                setCurrentLocale(settings.locale)
+            }
+        })
+
+        return () => {
+            mounted = false
+            unsubscribe?.()
+        }
+    }, [])
+
     const setLocale = async (code: string): Promise<void> => {
         if (dictionaries[code]) {
             setCurrentLocale(code)
+            if (window.api?.updateSettings) {
+                try {
+                    await window.api.updateSettings({ locale: code })
+                } catch (err) {
+                    console.error('Failed to persist locale setting:', err)
+                }
+            }
         }
     }
 

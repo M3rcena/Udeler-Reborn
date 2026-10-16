@@ -10,11 +10,57 @@ export default function App(): React.JSX.Element {
   const isMainView = new URLSearchParams(window.location.search).get('view') === 'main'
   const [stage] = useState<'splash' | 'main'>(isMainView ? 'main' : 'splash')
   const [selectedSession, setSelectedSession] = useState<PlatformSession | null>(null)
+  const [initialDashboardTab, setInitialDashboardTab] = useState<'courses' | 'downloads' | 'settings' | 'about' | undefined>(undefined)
 
   const { t } = useI18n()
   const [showDevToast, setShowDevToast] = useState<boolean>(false)
   const [devVersion, setDevVersion] = useState<string>('')
   const [releasedVersion, setReleasedVersion] = useState<string>('')
+
+  // Jump List task navigation listener (Udemy, Downloads, Settings)
+  useEffect(() => {
+    if (!window.api?.onJumpListNavigate) return
+
+    const unsubscribe = window.api.onJumpListNavigate(async (target) => {
+      const sessions = window.api.getSessions ? await window.api.getSessions() : []
+
+      if (target.platform) {
+        const match = sessions.find((s) => s.platformId === target.platform)
+        if (match) {
+          setSelectedSession(match)
+        }
+      }
+
+      if (target.view) {
+        if (target.view === 'downloads' || target.view === 'settings' || target.view === 'courses') {
+          if (!selectedSession && sessions.length > 0) {
+            setSelectedSession(sessions[0])
+          }
+          setInitialDashboardTab(target.view as 'courses' | 'downloads' | 'settings' | 'about')
+        }
+      }
+    })
+
+    return () => {
+      unsubscribe?.()
+    }
+  }, [selectedSession])
+
+  // Load and apply saved theme on app launch
+  useEffect(() => {
+    if (window.api?.getSettings) {
+      window.api
+        .getSettings()
+        .then((settings) => {
+          if (settings?.theme) {
+            document.documentElement.setAttribute('data-theme', settings.theme)
+          }
+        })
+        .catch((err) => {
+          console.error('Failed to load initial settings theme:', err)
+        })
+    }
+  }, [])
 
   useEffect(() => {
     if (stage !== 'main') return
@@ -77,6 +123,7 @@ export default function App(): React.JSX.Element {
       {selectedSession ? (
         <PlatformDashboardView
           session={selectedSession}
+          initialTab={initialDashboardTab}
           onBackToPlatforms={() => setSelectedSession(null)}
           onSelectCourse={(course: CourseItem) => {
             console.log('Open course curriculum drawer:', course)
