@@ -100,6 +100,11 @@ export class SettingsManager {
       notifyOnCompletion: true,
       hardwareAcceleration: true,
 
+      // Discord Rich Presence
+      enableDiscordPresence: false,
+      showCourseTitleOnDiscord: true,
+      discordClientId: '1560723113468239942',
+
       // Maintenance & Security
       vaultMode: false
     }
@@ -190,6 +195,11 @@ export class SettingsManager {
         notifyOnCompletion: flat.notifyOnCompletion,
         hardwareAcceleration: flat.hardwareAcceleration
       },
+      discord: {
+        enableDiscordPresence: flat.enableDiscordPresence ?? false,
+        showCourseTitleOnDiscord: flat.showCourseTitleOnDiscord ?? true,
+        discordClientId: flat.discordClientId || '1560723113468239942'
+      },
       security: {
         vaultMode: flat.vaultMode
       }
@@ -210,6 +220,7 @@ export class SettingsManager {
       ...(cat.network || {}),
       ...(cat.scheduler || {}),
       ...(cat.interface || {}),
+      ...(cat.discord || {}),
       ...(cat.security || {})
     }
   }

@@ -1,4 +1,4 @@
-import type { AppSettings, AppTheme, DiskSpaceInfo, IntegrityCheckResult } from '@shared/types'
+import type { AppSettings, AppTheme, DiscordPresenceStatus, DiskSpaceInfo, IntegrityCheckResult } from '@shared/types'
 import React, { useEffect, useRef, useState } from 'react'
 import { useI18n } from '../contexts/I18nContext'
 
@@ -62,6 +62,10 @@ const DEFAULT_SETTINGS: AppSettingsState = {
     minimizeToTray: false,
     notifyOnCompletion: true,
     hardwareAcceleration: true,
+
+    enableDiscordPresence: false,
+    showCourseTitleOnDiscord: true,
+    discordClientId: '1560723113468239942',
 
     vaultMode: false
 }
@@ -376,6 +380,42 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     const [diskSpace, setDiskSpace] = useState<DiskSpaceInfo | null>(null)
     const [isEncryptionAvailable, setIsEncryptionAvailable] = useState<boolean>(false)
     const [showResetModal, setShowResetModal] = useState<boolean>(false)
+    const [discordStatus, setDiscordStatus] = useState<DiscordPresenceStatus>({
+        isConnected: false,
+        isEnabled: false
+    })
+
+    useEffect(() => {
+        let isMounted = true
+
+        const updateStatusIfChanged = (next: DiscordPresenceStatus | null | undefined): void => {
+            if (!next || !isMounted) return
+            setDiscordStatus((prev) => {
+                if (
+                    prev.isConnected === next.isConnected &&
+                    prev.isEnabled === next.isEnabled &&
+                    prev.username === next.username &&
+                    prev.activityDetails === next.activityDetails
+                ) {
+                    return prev
+                }
+                return next
+            })
+        }
+
+        if (window.api?.getDiscordStatus) {
+            window.api.getDiscordStatus().then(updateStatusIfChanged).catch(() => { })
+        }
+
+        const cleanup = window.api?.onDiscordStatusChanged?.((status) => {
+            updateStatusIfChanged(status)
+        })
+
+        return () => {
+            isMounted = false
+            cleanup?.()
+        }
+    }, [])
 
     const isDirty = JSON.stringify(settings) !== JSON.stringify(savedSettings)
 
@@ -2010,6 +2050,113 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                                                     Restart Now
                                                 </button>
                                             </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* ========================================================
+                                    DISCORD RICH PRESENCE INTEGRATION
+                                ======================================================== */}
+                                <div className="border-t border-[var(--border-color)] pt-5 mt-2">
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 mb-4">
+                                        <div className="flex items-center gap-2.5">
+                                            <div className="h-8 w-8 rounded-xl bg-[#5865F2]/15 border border-[#5865F2]/30 flex items-center justify-center text-[#5865F2] shadow-xs">
+                                                <svg className="h-4 w-4 fill-current" viewBox="0 0 16 16">
+                                                    <path d="M13.545 2.907a13.2 13.2 0 0 0-3.257-1.011.05.05 0 0 0-.052.025c-.141.25-.297.577-.406.833a12.2 12.2 0 0 0-3.658 0 8 8 0 0 0-.412-.833.05.05 0 0 0-.052-.025c-1.125.194-2.22.534-3.257 1.011a.04.04 0 0 0-.021.018C.356 6.024-.213 9.047.066 12.032q.003.022.021.037a13.3 13.3 0 0 0 3.995 2.02.05.05 0 0 0 .056-.019q.463-.63.818-1.329a.05.05 0 0 0-.01-.059l-.018-.011a9 9 0 0 1-1.248-.595.05.05 0 0 1-.02-.066l.015-.019q.127-.095.248-.195a.05.05 0 0 1 .051-.007c2.619 1.196 5.454 1.196 8.041 0a.05.05 0 0 1 .053.007q.121.1.248.195a.05.05 0 0 1-.004.085 8 8 0 0 1-1.249.594.05.05 0 0 0-.03.03.05.05 0 0 0 .003.041c.24.465.515.909.817 1.329a.05.05 0 0 0 .056.019 13.2 13.2 0 0 0 4.001-2.02.05.05 0 0 0 .021-.037c.334-3.451-.559-6.449-2.366-9.106a.03.03 0 0 0-.02-.019m-8.198 7.307c-.789 0-1.438-.724-1.438-1.612s.637-1.613 1.438-1.613c.807 0 1.45.73 1.438 1.613 0 .888-.637 1.612-1.438 1.612m5.316 0c-.788 0-1.438-.724-1.438-1.612s.637-1.613 1.438-1.613c.807 0 1.451.73 1.438 1.613 0 .888-.631 1.612-1.438 1.612" />
+                                                </svg>
+                                            </div>
+                                            <div>
+                                                <h4 className="text-xs font-black text-[var(--text-primary)] uppercase tracking-wide">
+                                                    Discord Rich Presence
+                                                </h4>
+                                                <p className="text-[10px] text-[var(--text-secondary)]">
+                                                    Broadcast learning activity, courses &amp; download progress to your Discord profile
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* Status Pill */}
+                                        <div className="flex items-center gap-1.5 self-start sm:self-auto">
+                                            {settings.enableDiscordPresence ? (
+                                                discordStatus.isConnected ? (
+                                                    <span className="flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-bold text-emerald-400 shadow-xs">
+                                                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                                        Connected {discordStatus.username ? `(@${discordStatus.username})` : ''}
+                                                    </span>
+                                                ) : (
+                                                    <span className="flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[10px] font-bold text-amber-300">
+                                                        <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                                                        Discord Not Detected
+                                                    </span>
+                                                )
+                                            ) : (
+                                                <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-bold text-[var(--text-secondary)]">
+                                                    Disabled
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Settings Controls Card */}
+                                    <div className="flex flex-col gap-3 rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)] p-4 shadow-sm">
+                                        <div className="flex items-center justify-between">
+                                            <div className="pr-3">
+                                                <span className="text-xs font-bold text-[var(--text-primary)] block">
+                                                    Enable Discord Presence
+                                                </span>
+                                                <span className="text-[10px] text-[var(--text-secondary)]">
+                                                    Display &quot;Playing Udeler Reborn&quot; with active learning progress on your profile
+                                                </span>
+                                            </div>
+                                            <ToggleSwitch
+                                                checked={settings.enableDiscordPresence}
+                                                onChange={(c) => updateSetting('enableDiscordPresence', c)}
+                                            />
+                                        </div>
+
+                                        {settings.enableDiscordPresence && (
+                                            <>
+                                                <div className="border-t border-white/5 pt-3 flex items-center justify-between">
+                                                    <div className="pr-3">
+                                                        <span className="text-xs font-bold text-[var(--text-primary)] block">
+                                                            Share Course Titles on Profile
+                                                        </span>
+                                                        <span className="text-[10px] text-[var(--text-secondary)]">
+                                                            Show specific course names (e.g. &quot;Full Stack React Bootcamp&quot;). Turn off to only display platform name for privacy.
+                                                        </span>
+                                                    </div>
+                                                    <ToggleSwitch
+                                                        checked={settings.showCourseTitleOnDiscord}
+                                                        onChange={(c) => updateSetting('showCourseTitleOnDiscord', c)}
+                                                    />
+                                                </div>
+
+                                                <div className="border-t border-white/5 pt-3">
+                                                    <label className="text-[11px] font-bold text-[var(--text-primary)] block mb-1">
+                                                        Discord Application Client ID
+                                                    </label>
+                                                    <div className="flex items-center gap-2">
+                                                        <input
+                                                            type="text"
+                                                            value={settings.discordClientId}
+                                                            onChange={(e) => updateSetting('discordClientId', e.target.value.trim())}
+                                                            placeholder="1560723113468239942"
+                                                            className="flex-1 rounded-xl border border-[var(--border-color)] bg-[var(--bg-surface)] px-3 py-1.5 font-mono text-xs text-[var(--text-primary)] focus:border-[var(--border-highlight)] focus:outline-none"
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => updateSetting('discordClientId', '1560723113468239942')}
+                                                            className="cursor-pointer px-3 py-1.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-surface)] text-[10px] font-bold text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+                                                            title="Reset to official Udeler Reborn client ID"
+                                                        >
+                                                            Default
+                                                        </button>
+                                                    </div>
+                                                    <span className="text-[9px] text-[var(--text-secondary)] block mt-1">
+                                                        Uses Udeler Reborn Application ID by default. You can specify a custom Discord Developer App ID if desired.
+                                                    </span>
+                                                </div>
+                                            </>
                                         )}
                                     </div>
                                 </div>

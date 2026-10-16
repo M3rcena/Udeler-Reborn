@@ -181,6 +181,11 @@ export interface AppSettings {
   notifyOnCompletion: boolean
   hardwareAcceleration: boolean
 
+  // Discord Rich Presence
+  enableDiscordPresence: boolean
+  showCourseTitleOnDiscord: boolean
+  discordClientId: string
+
   // Maintenance & Security
   vaultMode: boolean
 }
@@ -245,7 +250,29 @@ export interface CategorizedSettings {
     | 'notifyOnCompletion'
     | 'hardwareAcceleration'
   >
+  discord: Pick<
+    AppSettings,
+    'enableDiscordPresence' | 'showCourseTitleOnDiscord' | 'discordClientId'
+  >
   security: Pick<AppSettings, 'vaultMode'>
+}
+
+export interface DiscordPresenceStatus {
+  isConnected: boolean
+  isEnabled: boolean
+  username?: string
+  activityDetails?: string
+}
+
+export interface DiscordActivityPayload {
+  platformId?: PlatformId
+  courseTitle?: string
+  totalLectures?: number
+  currentLecture?: number
+  progressPercent?: number
+  status?: 'browsing' | 'downloading' | 'idle' | 'settings'
+  stateText?: string
+  detailsText?: string
 }
 
 export interface PersistedSettingsEnvelope {

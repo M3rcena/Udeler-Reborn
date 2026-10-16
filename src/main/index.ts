@@ -4,6 +4,7 @@ import { app, BrowserWindow, ipcMain, nativeImage, screen, shell } from 'electro
 import * as fs from 'node:fs'
 import { join } from 'path'
 import { AuthManager, registerAuthIpc } from './auth'
+import { DiscordRpcManager, registerDiscordIpc } from './services/DiscordRpcManager'
 import { NotificationManager } from './services/NotificationManager'
 import {
   applyProxySettings,
@@ -18,6 +19,7 @@ const updater = new AppUpdater()
 const authManager = new AuthManager()
 const settingsManager = SettingsManager.getInstance()
 const trayManager = TrayManager.getInstance()
+const discordRpcManager = DiscordRpcManager.getInstance()
 
 // Set product branding name early
 app.name = 'Udeler Reborn'
@@ -309,19 +311,23 @@ app.whenReady().then(() => {
   registerUpdaterIpc(updater)
   registerAuthIpc(authManager)
   registerSettingsIpc(settingsManager)
+  registerDiscordIpc(discordRpcManager)
 
   trayManager.init(mainWindow || splashWindow!)
   applyLoginItemSettings(startupSettings.startOnBoot)
   applyProxySettings(startupSettings)
+  discordRpcManager.applySettings(startupSettings)
 
   settingsManager.onSettingsChange((settings) => {
     applyLoginItemSettings(settings.startOnBoot)
     trayManager.updateContextMenu()
     applyProxySettings(settings)
+    discordRpcManager.applySettings(settings)
   })
 
   app.on('before-quit', () => {
     trayManager.setQuitting(true)
+    discordRpcManager.destroy()
   })
 
   ipcMain.handle('app:resize-to-main', () => {
@@ -402,6 +408,7 @@ app.whenReady().then(() => {
   ipcMain.handle('app:relaunch', () => {
     trayManager.setQuitting(true)
     trayManager.destroy()
+    discordRpcManager.destroy()
 
     if (is.dev) {
       app.relaunch({ args: process.argv.slice(1) })

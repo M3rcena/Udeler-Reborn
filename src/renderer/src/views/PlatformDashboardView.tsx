@@ -113,6 +113,37 @@ export const PlatformDashboardView: React.FC<PlatformDashboardViewProps> = ({
         }
     }, [])
 
+    // Update Discord Presence when active dashboard tab or platform changes
+    useEffect(() => {
+        if (!window.api?.updateDiscordActivity) return
+
+        if (activeTab === 'courses') {
+            window.api.updateDiscordActivity({
+                platformId: session.platformId,
+                status: 'browsing',
+                stateText: 'Course Library'
+            })
+        } else if (activeTab === 'downloads') {
+            window.api.updateDiscordActivity({
+                platformId: session.platformId,
+                status: 'downloading',
+                stateText: 'Downloads Manager'
+            })
+        } else if (activeTab === 'settings') {
+            window.api.updateDiscordActivity({
+                platformId: session.platformId,
+                status: 'settings',
+                stateText: 'Configuring Preferences'
+            })
+        } else {
+            window.api.updateDiscordActivity({
+                platformId: session.platformId,
+                status: 'idle',
+                stateText: 'Viewing Diagnostics'
+            })
+        }
+    }, [activeTab, session.platformId])
+
     const handleSelectTab = (tab: DashboardTab): void => {
         if (tab === activeTab) return
         if (activeTab === 'settings' && isSettingsDirty) {

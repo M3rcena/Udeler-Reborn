@@ -59,6 +59,11 @@ export const PlatformSelectView: React.FC<PlatformSelectViewProps> = ({ onSelect
 
     useEffect(() => {
         loadActiveSessions()
+        window.api?.updateDiscordActivity?.({
+            status: 'idle',
+            detailsText: 'Udeler Reborn',
+            stateText: 'Selecting Learning Platform'
+        })
     }, [])
 
     useEffect(() => {

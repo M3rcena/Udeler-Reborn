@@ -5,6 +5,8 @@ import type {
   AuthResult,
   CacheClearResult,
   CourseItem,
+  DiscordActivityPayload,
+  DiscordPresenceStatus,
   DiskSpaceInfo,
   IntegrityCheckResult,
   LogEntry,
@@ -52,6 +54,11 @@ export interface AppApiBridge {
     callback: (target: { platform?: string; view?: string }) => void
   ) => () => void
   onSettingsChanged?: (callback: (settings: AppSettings) => void) => () => void
+
+  getDiscordStatus: () => Promise<DiscordPresenceStatus>
+  onDiscordStatusChanged?: (callback: (status: DiscordPresenceStatus) => void) => () => void
+  updateDiscordActivity: (payload?: DiscordActivityPayload) => Promise<void>
+  clearDiscordActivity: () => Promise<void>
 }
 
 declare global {

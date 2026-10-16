@@ -6,6 +6,8 @@ import type {
   AuthResult,
   CacheClearResult,
   CourseItem,
+  DiscordActivityPayload,
+  DiscordPresenceStatus,
   DiskSpaceInfo,
   IntegrityCheckResult,
   LogEntry,
@@ -98,7 +100,21 @@ const api = {
     return () => {
       ipcRenderer.removeListener('settings:changed', handler)
     }
-  }
+  },
+
+  getDiscordStatus: (): Promise<DiscordPresenceStatus> => ipcRenderer.invoke('discord:get-status'),
+  onDiscordStatusChanged: (callback: (status: DiscordPresenceStatus) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, status: DiscordPresenceStatus): void => {
+      callback(status)
+    }
+    ipcRenderer.on('discord:status-changed', handler)
+    return () => {
+      ipcRenderer.removeListener('discord:status-changed', handler)
+    }
+  },
+  updateDiscordActivity: (payload?: DiscordActivityPayload): Promise<void> =>
+    ipcRenderer.invoke('discord:update-activity', payload),
+  clearDiscordActivity: (): Promise<void> => ipcRenderer.invoke('discord:clear-activity')
 }
 
 if (process.contextIsolated) {
