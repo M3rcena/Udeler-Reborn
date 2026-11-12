@@ -603,6 +603,8 @@ app.whenReady().then(() => {
       if (!token) throw new Error('No token found')
       if (!settings || !settings.downloadPath) throw new Error('No download path set in settings!')
 
+      await syncTokenToSessionCookies(token, subdomain)
+
       const volumeMappings = getCourseVolumeMappings()
       const courseVolume = volumeMappings[req.courseId]
       let finalDownloadPath = settings.downloadPath

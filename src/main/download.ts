@@ -1,5 +1,5 @@
 import * as crypto from 'crypto'
-import { BrowserWindow } from 'electron'
+import { BrowserWindow, net } from 'electron'
 import * as fs from 'fs'
 import * as http from 'http'
 import type { ClientRequest, IncomingMessage } from 'http'
@@ -11,7 +11,7 @@ import { addReclaimedBytes, checkBlobExists, insertBlob, recordLectureLink } fro
 import { store } from './database/store'
 import { ThrottleStream } from './network/throttle'
 import { encryptAndWriteFileSync, getVaultKey, VaultEncryptStream } from './security/vault'
-import { sanitizeToken } from './udemy'
+import { getHeaders } from './udemy'
 
 const activeStreams = new Map<
   number,
@@ -25,8 +25,10 @@ const sanitizeName = (name: string): string => {
 
 const DownloadUrlSchema = z
   .object({
-    file: z.string(),
-    label: z.string().optional().nullable()
+    file: z.string().optional().nullable(),
+    src: z.string().optional().nullable(),
+    label: z.string().optional().nullable(),
+    type: z.string().optional().nullable()
   })
   .loose()
 
@@ -55,6 +57,16 @@ const UdemyAssetResponseSchema = z
           .loose()
           .optional()
           .nullable(),
+        stream_urls: z
+          .object({
+            Video: z.array(DownloadUrlSchema).optional().nullable(),
+            File: z.array(DownloadUrlSchema).optional().nullable(),
+            'E-Book': z.array(DownloadUrlSchema).optional().nullable()
+          })
+          .loose()
+          .optional()
+          .nullable(),
+        media_sources: z.array(DownloadUrlSchema).optional().nullable(),
         captions: z.array(CaptionSchema).optional().nullable()
       })
       .loose()
@@ -203,6 +215,77 @@ function downloadExtraFile(url: string, destPath: string): Promise<void> {
   })
 }
 
+async function fetchLectureAsset(
+  req: DownloadRequest,
+  baseUrl: string,
+  headers: Record<string, string>
+): Promise<unknown> {
+  const primaryUrl = `${baseUrl}/api-2.0/users/me/subscribed-courses/${req.courseId}/lectures/${req.lectureId}/?fields[lecture]=asset,supplementary_assets&fields[asset]=@min,download_urls,stream_urls,media_sources,external_url,body,filename,captions`
+  const fallbackLectureUrl = `${baseUrl}/api-2.0/courses/${req.courseId}/lectures/${req.lectureId}/?fields[lecture]=asset,supplementary_assets&fields[asset]=@min,download_urls,stream_urls,media_sources,external_url,body,filename,captions`
+
+  // 1. Try net.fetch on primary URL
+  try {
+    const res = await net.fetch(primaryUrl, { method: 'GET', headers })
+    if (res.ok) {
+      return await res.json()
+    }
+    console.warn(`Primary lecture endpoint returned ${res.status} for lecture ${req.lectureId}`)
+    if (res.status === 403 || res.status === 404) {
+      // 2. Try fallback lecture URL (supported for subscription and standard courses)
+      const fbRes = await net.fetch(fallbackLectureUrl, { method: 'GET', headers })
+      if (fbRes.ok) {
+        return await fbRes.json()
+      }
+      console.warn(
+        `Fallback lecture endpoint returned ${fbRes.status} for lecture ${req.lectureId}`
+      )
+    }
+  } catch (netErr) {
+    console.warn(`net.fetch failed for lecture ${req.lectureId}:`, netErr)
+  }
+
+  // 3. Fallback to subscriber-curriculum-items query (covers all enrollment types, including subscription/Personal Plan)
+  try {
+    const curriculumUrl = `${baseUrl}/api-2.0/courses/${req.courseId}/subscriber-curriculum-items/?curriculum_types=lecture&page_size=200&fields[lecture]=title,object_index,asset,supplementary_assets&fields[asset]=@min,download_urls,stream_urls,media_sources,external_url,body,filename,captions`
+    let nextUrl: string | null = curriculumUrl
+    while (nextUrl) {
+      const curRes = await net.fetch(nextUrl, { method: 'GET', headers })
+      if (!curRes.ok) break
+      const curData = (await curRes.json()) as {
+        results?: Array<{ id?: number; asset?: unknown; supplementary_assets?: unknown }>
+        next?: string | null
+      }
+      if (Array.isArray(curData.results)) {
+        const matching = curData.results.find((item) => item.id === req.lectureId)
+        if (matching && matching.asset) {
+          return {
+            asset: matching.asset,
+            supplementary_assets: matching.supplementary_assets || []
+          }
+        }
+      }
+      if (typeof curData.next === 'string' && curData.next.trim()) {
+        try {
+          nextUrl = new URL(curData.next, baseUrl).href
+        } catch {
+          nextUrl = null
+        }
+      } else {
+        nextUrl = null
+      }
+    }
+  } catch (curErr) {
+    console.warn(`Curriculum fallback search failed for lecture ${req.lectureId}:`, curErr)
+  }
+
+  // 4. Fallback to Node requestJson in case net.fetch had network issues
+  try {
+    return await requestJson<unknown>(primaryUrl, headers)
+  } catch {
+    return await requestJson<unknown>(fallbackLectureUrl, headers)
+  }
+}
+
 export async function processDownload(req: DownloadRequest): Promise<string> {
   canceledDownloads.delete(req.lectureId)
 
@@ -240,18 +323,7 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
     return filePath
   }
 
-  const apiUrl = `${baseUrl}/api-2.0/users/me/subscribed-courses/${req.courseId}/lectures/${req.lectureId}/?fields[lecture]=asset,supplementary_assets&fields[asset]=@min,download_urls,external_url,body,filename,captions`
-
-  const cleanToken = sanitizeToken(req.token)
-  const apiHeaders: Record<string, string> = {
-    Authorization: `Bearer ${cleanToken}`,
-    Cookie: `access_token=${cleanToken}`,
-    Accept: 'application/json, text/plain, */*',
-    'User-Agent':
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    Origin: baseUrl,
-    Referer: `${baseUrl}/`
-  }
+  const apiHeaders = getHeaders(req.token, baseUrl)
 
   let rawData: unknown = null
   let attempt = 0
@@ -261,8 +333,9 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
     if (canceledDownloads.has(req.lectureId)) return 'USER_CANCELED'
 
     try {
-      rawData = await requestJson<unknown>(apiUrl, apiHeaders)
-      break
+      rawData = await fetchLectureAsset(req, baseUrl, apiHeaders)
+      if (rawData) break
+      throw new Error('Lecture details empty')
     } catch (err: unknown) {
       attempt++
       const errMsg = err instanceof Error ? err.message : String(err)
@@ -312,10 +385,21 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
           continue
         }
 
-        const capText = await requestText(subtitleUrl, {
-          'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-        })
+        let capText: string
+        try {
+          const capRes = await net.fetch(subtitleUrl)
+          if (capRes.ok) {
+            capText = await capRes.text()
+          } else {
+            throw new Error(`Subtitle HTTP status: ${capRes.status}`)
+          }
+        } catch {
+          capText = await requestText(subtitleUrl, {
+            'User-Agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+          })
+        }
+
         if (isVaultMode && vaultKey) {
           encryptAndWriteFileSync(
             path.join(targetDir, `${cleanLecture}_${localeName}.vtt`),
@@ -334,7 +418,8 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
   if (!req.skipAttachments && data.supplementary_assets && data.supplementary_assets.length > 0) {
     for (const supp of data.supplementary_assets) {
       if (canceledDownloads.has(req.lectureId)) return 'USER_CANCELED'
-      const fileUrl = supp.download_urls?.File?.[0]?.file
+      const fileEntry = supp.download_urls?.File?.[0]
+      const fileUrl = fileEntry?.file || fileEntry?.src
       if (fileUrl && supp.filename) {
         const safeSuppFilename = sanitizeName(supp.filename)
         await downloadExtraFile(fileUrl, path.join(targetDir, safeSuppFilename))
@@ -375,24 +460,33 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
   let downloadUrl = ''
   let fileExtension = '.mp4'
 
-  if (asset.download_urls) {
-    const videoUrls = asset.download_urls.Video
-    if (videoUrls && videoUrls.length > 0) {
-      const sortedVideos = [...videoUrls].sort(
-        (a, b) => parseInt(b.label || '0') - parseInt(a.label || '0')
-      )
+  const videoUrls = [
+    ...(asset.download_urls?.Video || []),
+    ...(asset.stream_urls?.Video || []),
+    ...(asset.media_sources || [])
+  ].filter((v) => Boolean(v.file || v.src))
 
-      if (req.videoQuality === 'Highest' || req.videoQuality === 'Auto') {
-        downloadUrl = sortedVideos[0].file
-      } else if (req.videoQuality === 'Lowest') {
-        downloadUrl = sortedVideos[sortedVideos.length - 1].file
-      } else {
-        const exactMatch = sortedVideos.find((v) => v.label === req.videoQuality)
-        downloadUrl = exactMatch ? exactMatch.file : sortedVideos[0].file
-      }
+  if (videoUrls.length > 0) {
+    const sortedVideos = [...videoUrls].sort(
+      (a, b) => parseInt(b.label || '0') - parseInt(a.label || '0')
+    )
+
+    let selectedVideo: (typeof videoUrls)[0] | undefined
+    if (req.videoQuality === 'Highest' || req.videoQuality === 'Auto') {
+      selectedVideo = sortedVideos[0]
+    } else if (req.videoQuality === 'Lowest') {
+      selectedVideo = sortedVideos[sortedVideos.length - 1]
     } else {
-      const otherUrls = asset.download_urls.File || asset.download_urls['E-Book']
-      if (otherUrls && otherUrls.length > 0) downloadUrl = otherUrls[0].file
+      const exactMatch = sortedVideos.find((v) => v.label === req.videoQuality)
+      selectedVideo = exactMatch || sortedVideos[0]
+    }
+    if (selectedVideo) {
+      downloadUrl = (selectedVideo.file || selectedVideo.src)!
+    }
+  } else if (asset.download_urls?.File || asset.download_urls?.['E-Book']) {
+    const other = asset.download_urls.File || asset.download_urls['E-Book']
+    if (other && other.length > 0) {
+      downloadUrl = (other[0].file || other[0].src)!
     }
   } else if (asset.external_url) {
     downloadUrl = asset.external_url
