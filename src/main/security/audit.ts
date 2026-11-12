@@ -11,6 +11,7 @@ const IPC_MANIFEST: Record<keyof IpcChannels, IpcManifestEntry> = {
   'fetch-courses': { tier: 'network', maxCallsPerSecond: 10 },
   'fetch-curriculum': { tier: 'network', maxCallsPerSecond: 20 },
   'select-folder': { tier: 'read-only-metadata', maxCallsPerSecond: 10 },
+  'get-default-download-path': { tier: 'read-only-metadata', maxCallsPerSecond: 20 },
   'start-download': { tier: 'network', maxCallsPerSecond: 50 },
   'get-all-downloads': { tier: 'read-only-metadata', maxCallsPerSecond: 20 },
   'check-local-downloads': { tier: 'read-only-metadata', maxCallsPerSecond: 50 },

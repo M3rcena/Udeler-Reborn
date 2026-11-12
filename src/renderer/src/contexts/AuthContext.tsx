@@ -3,6 +3,17 @@ import { AuthContextType } from 'src/preload/types/ipc-types'
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
+const cleanToken = (input: string): string => {
+  if (!input) return ''
+  let cleaned = input.trim()
+  cleaned = cleaned.replace(/^["']|["']$/g, '').trim()
+  cleaned = cleaned.replace(/^Bearer\s+/i, '').trim()
+  cleaned = cleaned.replace(/^access_token\s*=\s*/i, '').trim()
+  cleaned = cleaned.split(';')[0].trim()
+  cleaned = cleaned.replace(/[^\x20-\x7E]/g, '').trim()
+  return cleaned
+}
+
 export const AuthProvider = ({ children }: { children: ReactNode }): React.JSX.Element => {
   const [token, setToken] = useState<string>('')
   const [authStatus, setAuthStatus] = useState<'idle' | 'validating' | 'success' | 'error'>('idle')
@@ -29,9 +40,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }): React.JSX.E
   }, [])
 
   const handleLogin = async (tokenInput: string): Promise<void> => {
-    if (!tokenInput.trim()) {
+    const sanitized = cleanToken(tokenInput)
+    if (!sanitized) {
       setAuthStatus('error')
-      setAuthErrorMsg('Please paste a token before authenticating.')
+      setAuthErrorMsg('Please paste a valid token before authenticating.')
       return
     }
 
@@ -39,10 +51,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }): React.JSX.E
     setAuthErrorMsg('')
 
     try {
-      await window.api.invoke('store-set', 'udemy_token', tokenInput)
+      await window.api.invoke('store-set', 'udemy_token', sanitized)
       // Test the token by fetching courses
       await window.api.invoke('fetch-courses')
 
+      setToken(sanitized)
       setAuthStatus('success')
       setTimeout(() => {
         setIsLoggedIn(true)

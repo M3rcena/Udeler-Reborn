@@ -2,7 +2,17 @@ import { LibraryHealthPanel } from '@renderer/components/LibraryHealthPanel'
 import { useI18n } from '@renderer/contexts/I18nContext'
 import { useEffect, useState } from 'react'
 
-export const SettingsTab: React.FC = () => {
+export interface SettingsTabProps {
+  onDirtyChange?: (isDirty: boolean) => void
+  registerSaveRef?: (save: () => Promise<boolean>) => void
+  registerResetRef?: (reset: () => void) => void
+}
+
+export const SettingsTab: React.FC<SettingsTabProps> = ({
+  onDirtyChange,
+  registerSaveRef,
+  registerResetRef
+}) => {
   // --- STATES ---
   const [appSettings, setAppSettings] = useState({
     downloadPath: '',
@@ -17,6 +27,7 @@ export const SettingsTab: React.FC = () => {
     closeToTray: false,
     vaultMode: false
   })
+  const [savedSettings, setSavedSettings] = useState<typeof appSettings | null>(null)
   const { currentLocale, setLocale, availableLocales, t } = useI18n()
   const [isSavingSettings, setIsSavingSettings] = useState<boolean>(false)
   const [isQualityMenuOpen, setIsQualityMenuOpen] = useState<boolean>(false)
@@ -49,15 +60,56 @@ export const SettingsTab: React.FC = () => {
   // --- INITIALIZATION ---
   useEffect(() => {
     const loadSettings = async (): Promise<void> => {
-      const savedSettings = (await window.api.invoke('store-get', 'app_settings')) as
-        typeof appSettings | undefined
-      if (savedSettings) {
-        setAppSettings(savedSettings)
+      let current = (await window.api.invoke('store-get', 'app_settings')) as
+        | {
+            downloadPath: string
+            videoQuality: string
+            skipAttachments: boolean
+            skipSubtitles: boolean
+            autoRetry: boolean
+            maxKbps: number
+            scheduleEnabled: boolean
+            scheduleStart: string
+            scheduleEnd: string
+            closeToTray: boolean
+            vaultMode: boolean
+          }
+        | undefined
+      if (!current || !current.downloadPath) {
+        try {
+          const defaultPath = (await window.api.invoke('get-default-download-path')) as string
+          current = {
+            downloadPath: defaultPath,
+            videoQuality: 'Auto',
+            skipAttachments: false,
+            skipSubtitles: false,
+            autoRetry: false,
+            maxKbps: 0,
+            scheduleEnabled: false,
+            scheduleStart: '01:00',
+            scheduleEnd: '06:00',
+            closeToTray: false,
+            vaultMode: false,
+            ...(current || {})
+          }
+        } catch (e) {
+          console.warn('Could not retrieve default download path', e)
+        }
+      }
+      if (current) {
+        setAppSettings(current)
+        setSavedSettings(current)
       }
     }
     loadSettings()
     window.api.invoke('get-storage-stats').then(setReclaimedBytes)
   }, [])
+
+  useEffect(() => {
+    if (!savedSettings) return
+    const isDirty = JSON.stringify(appSettings) !== JSON.stringify(savedSettings)
+    onDirtyChange?.(isDirty)
+  }, [appSettings, savedSettings, onDirtyChange])
 
   // --- HANDLERS ---
   const handleExportLogs = async (): Promise<void> => {
@@ -108,22 +160,40 @@ export const SettingsTab: React.FC = () => {
 
     const updatedSettings = { ...appSettings, downloadPath: pendingPath }
     setAppSettings(updatedSettings)
+    setSavedSettings(updatedSettings)
+    onDirtyChange?.(false)
     setIsMoveModalOpen(false)
     setPendingPath('')
 
     await window.api.invoke('store-set', 'app_settings', updatedSettings)
   }
 
-  const handleSaveSettings = async (): Promise<void> => {
+  const handleSaveSettings = async (): Promise<boolean> => {
     setIsSavingSettings(true)
     try {
       await window.api.invoke('store-set', 'app_settings', appSettings)
+      setSavedSettings(appSettings)
+      onDirtyChange?.(false)
       setTimeout(() => setIsSavingSettings(false), 1000)
+      return true
     } catch (error) {
       console.error('Failed to save settings', error)
       setIsSavingSettings(false)
+      return false
     }
   }
+
+  const handleResetSettings = (): void => {
+    if (savedSettings) {
+      setAppSettings(savedSettings)
+      onDirtyChange?.(false)
+    }
+  }
+
+  useEffect(() => {
+    registerSaveRef?.(handleSaveSettings)
+    registerResetRef?.(handleResetSettings)
+  })
 
   const formatBytes = (bytes: number): string => {
     if (bytes === 0) return '0 B'

@@ -1,4 +1,8 @@
-import type { DownloadedFile, IntegrityProgress, IpcChannels } from '../../../preload/types/ipc-types';
+import type {
+  DownloadedFile,
+  IntegrityProgress,
+  IpcChannels
+} from '../../../preload/types/ipc-types'
 
 declare global {
   interface Window {

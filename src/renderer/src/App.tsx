@@ -1,12 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { DownloadedFile } from 'src/preload/types/ipc-types'
 import { GlobalDownloadWidget } from './components/GlobalDownloadWidget'
 import { PathAlertModal } from './components/PathAlertModal'
 import { SearchModal } from './components/SearchModal'
 import { Sidebar } from './components/Sidebar'
+import { UnsavedSettingsModal } from './components/UnsavedSettingsModal'
 import { UpdateToast } from './components/UpdateToast'
 import { WhatsNewModal } from './components/WhatsNewModal'
 import { useAuth } from './contexts/AuthContext'
+import { useDownload } from './contexts/DownloadContext'
 import { useI18n } from './contexts/I18nContext'
 import { AboutTab } from './views/AboutTab'
 import { DownloadsTab } from './views/DownloadsTab'
@@ -14,21 +16,29 @@ import { LoginView } from './views/LoginView'
 import { MyCoursesTab } from './views/MyCoursesTab'
 import { SettingsTab } from './views/SettingsTab'
 
+type TabType = 'courses' | 'downloads' | 'settings' | 'about'
+
 function App(): React.JSX.Element {
   const { t } = useI18n()
 
   const { isLoggedIn, isAuthLoading, handleLogout } = useAuth()
-  const [isPathAlertOpen, setIsPathAlertOpen] = useState<boolean>(false)
+  const { isPathAlertOpen, setIsPathAlertOpen } = useDownload()
 
   const [isDarkMode, setIsDarkMode] = useState<boolean>(true)
   const [isAppLoading, setIsAppLoading] = useState<boolean>(true)
   const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false)
-  const [activeTab, setActiveTab] = useState<'courses' | 'downloads' | 'settings' | 'about'>(
-    'courses'
-  )
+  const [activeTab, setActiveTab] = useState<TabType>('courses')
   const [navCourseId, setNavCourseId] = useState<number | null>(null)
   const [playMediaItem, setPlayMediaItem] = useState<DownloadedFile | null>(null)
   const [searchLectureId, setSearchLectureId] = useState<number | null>(null)
+
+  // --- UNSAVED SETTINGS STATE ---
+  const [isSettingsDirty, setIsSettingsDirty] = useState<boolean>(false)
+  const [showUnsavedModal, setShowUnsavedModal] = useState<boolean>(false)
+  const [pendingTab, setPendingTab] = useState<TabType | null>(null)
+  const [isSavingUnsaved, setIsSavingUnsaved] = useState<boolean>(false)
+  const saveSettingsRef = useRef<(() => Promise<boolean>) | null>(null)
+  const resetSettingsRef = useRef<(() => void) | null>(null)
 
   useEffect((): void => {
     const initializeApp = async (): Promise<void> => {
@@ -46,14 +56,59 @@ function App(): React.JSX.Element {
     initializeApp()
   }, [])
 
+  const handleTabChange = useCallback(
+    (targetTab: TabType): void => {
+      if (targetTab === activeTab) return
+      if (activeTab === 'settings' && isSettingsDirty) {
+        setPendingTab(targetTab)
+        setShowUnsavedModal(true)
+        return
+      }
+      setActiveTab(targetTab)
+    },
+    [activeTab, isSettingsDirty]
+  )
+
+  const handleSaveAndLeave = async (): Promise<void> => {
+    if (saveSettingsRef.current) {
+      setIsSavingUnsaved(true)
+      const success = await saveSettingsRef.current()
+      setIsSavingUnsaved(false)
+      if (!success) return
+    }
+    setIsSettingsDirty(false)
+    setShowUnsavedModal(false)
+    if (pendingTab) {
+      setActiveTab(pendingTab)
+      setPendingTab(null)
+    }
+  }
+
+  const handleDiscardAndLeave = (): void => {
+    if (resetSettingsRef.current) {
+      resetSettingsRef.current()
+    }
+    setIsSettingsDirty(false)
+    setShowUnsavedModal(false)
+    if (pendingTab) {
+      setActiveTab(pendingTab)
+      setPendingTab(null)
+    }
+  }
+
+  const handleCancelLeave = (): void => {
+    setShowUnsavedModal(false)
+    setPendingTab(null)
+  }
+
   useEffect(() => {
     const unsubMedia = window.api.onPlayRecentMedia((file) => {
-      setActiveTab('downloads')
+      handleTabChange('downloads')
       setPlayMediaItem(file)
     })
 
     const unsubNav = window.api.onNavigateCourse((courseId) => {
-      setActiveTab('courses')
+      handleTabChange('courses')
       setNavCourseId(courseId)
     })
 
@@ -61,7 +116,7 @@ function App(): React.JSX.Element {
       unsubMedia()
       unsubNav()
     }
-  }, [])
+  }, [handleTabChange])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent): void => {
@@ -113,7 +168,7 @@ function App(): React.JSX.Element {
       {/* --- SIDEBAR --- */}
       <Sidebar
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={handleTabChange}
         isDarkMode={isDarkMode}
         toggleTheme={toggleTheme}
         handleLogout={handleLogout}
@@ -137,7 +192,17 @@ function App(): React.JSX.Element {
         )}
 
         {/* Settings View */}
-        {activeTab === 'settings' && <SettingsTab />}
+        <div className={activeTab === 'settings' ? 'block' : 'hidden'}>
+          <SettingsTab
+            onDirtyChange={setIsSettingsDirty}
+            registerSaveRef={(save) => {
+              saveSettingsRef.current = save
+            }}
+            registerResetRef={(reset) => {
+              resetSettingsRef.current = reset
+            }}
+          />
+        </div>
 
         {/* About View */}
         {activeTab === 'about' && <AboutTab />}
@@ -145,6 +210,15 @@ function App(): React.JSX.Element {
 
       {/* --- MISSING PATH ALERT MODAL --- */}
       <PathAlertModal isOpen={isPathAlertOpen} onClose={() => setIsPathAlertOpen(false)} />
+
+      {/* --- UNSAVED SETTINGS POPUP MODAL --- */}
+      <UnsavedSettingsModal
+        isOpen={showUnsavedModal}
+        onSaveAndLeave={handleSaveAndLeave}
+        onDiscardAndLeave={handleDiscardAndLeave}
+        onCancel={handleCancelLeave}
+        isSaving={isSavingUnsaved}
+      />
 
       {/* --- GLOBAL NOTIFICATIONS --- */}
       <UpdateToast />
@@ -158,7 +232,7 @@ function App(): React.JSX.Element {
         isOpen={isSearchOpen}
         onClose={() => setIsSearchOpen(false)}
         onSelectResult={(lectureId) => {
-          setActiveTab('downloads')
+          handleTabChange('downloads')
           setSearchLectureId(lectureId)
         }}
       />

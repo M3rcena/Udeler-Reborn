@@ -99,6 +99,7 @@ export interface DownloadRequest {
   type: 'Video' | 'Article' | 'Quiz' | 'File' | 'E-Book'
   timeEstimation?: number
   maxKbps?: number
+  subdomain?: string
 }
 
 export interface SubtitleTrack {
@@ -138,7 +139,7 @@ export interface AppSettings {
 // ---- Sidebar Types
 interface SidebarProps {
   activeTab: 'courses' | 'downloads' | 'settings' | 'about'
-  setActiveTab: React.Dispatch<React.SetStateAction<'courses' | 'downloads' | 'settings' | 'about'>>
+  setActiveTab: (tab: 'courses' | 'downloads' | 'settings' | 'about') => void
   isDarkMode: boolean
   toggleTheme: () => Promise<void>
   handleLogout: () => Promise<void>
@@ -287,6 +288,7 @@ export interface IpcChannels {
   'fetch-courses': { args: []; returns: Course[] }
   'fetch-curriculum': { args: [courseId: number]; returns: CurriculumItem[] }
   'select-folder': { args: []; returns: string | null }
+  'get-default-download-path': { args: []; returns: string }
   'start-download': {
     args: [
       req: Omit<

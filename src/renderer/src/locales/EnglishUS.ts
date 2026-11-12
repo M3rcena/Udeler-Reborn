@@ -308,6 +308,13 @@ export const EnglishUS = {
       error: {
         migrationFailed: 'Migration Failed'
       },
+      unsavedModal: {
+        title: 'Unsaved Changes',
+        message: 'You have unsaved changes in Settings. Do you want to save them before leaving?',
+        saveAndLeave: 'Save & Continue',
+        discardAndLeave: 'Discard Changes',
+        stay: 'Keep Editing'
+      },
       buttons: {
         savedSuccess: 'Settings Saved Successfully!',
         saveAll: 'Save All Settings',

@@ -57,8 +57,52 @@ import {
   VAULT_MAGIC_HEADER,
   VaultDecryptStream
 } from './security/vault'
-import { fetchCourseCurriculum, fetchSubscribedCourses } from './udemy'
+import { fetchCourseCurriculum, fetchSubscribedCourses, sanitizeToken } from './udemy'
 import { startVolumeWatcher } from './workers/volume-watcher'
+
+export function getStoredToken(): string | undefined {
+  const raw = store.get('udemy_token') as string | undefined
+  if (!raw) return undefined
+  const decrypted = decryptToken(raw)
+  return sanitizeToken(decrypted)
+}
+
+export function setStoredToken(token: string): void {
+  const sanitized = sanitizeToken(token)
+  if (!sanitized) {
+    store.delete('udemy_token')
+  } else {
+    store.set('udemy_token', encryptToken(sanitized))
+  }
+}
+
+export async function syncTokenToSessionCookies(token: string, subdomain?: string): Promise<void> {
+  const clean = sanitizeToken(token)
+  if (!clean) return
+  const domains = ['.udemy.com', 'www.udemy.com']
+  if (subdomain) {
+    domains.push(`${subdomain}.udemy.com`)
+  }
+  for (const domain of domains) {
+    try {
+      await session.defaultSession.cookies.set({
+        url: domain.startsWith('.') ? `https://www${domain}` : `https://${domain}`,
+        name: 'access_token',
+        value: clean,
+        domain: domain.startsWith('.') ? domain : undefined,
+        path: '/',
+        secure: true,
+        httpOnly: true
+      })
+    } catch (e) {
+      console.warn('Failed to set session cookie for domain:', domain, e)
+    }
+  }
+}
+
+export function getDefaultDownloadPath(): string {
+  return path.join(app.getPath('downloads'), 'Udeler')
+}
 
 async function moveCourseFiles(
   courseId: number,
@@ -355,22 +399,26 @@ app.whenReady().then(() => {
   })
 
   registerSecureIpc('store-get', (_event, key: string): unknown => {
-    const value = store.get(key)
-    if (key === 'udemy_token' && typeof value === 'string') {
-      return decryptToken(value)
+    if (key === 'udemy_token') {
+      return getStoredToken()
     }
-    return value
+    return store.get(key)
   })
 
-  registerSecureIpc('store-set', (_event, key: string, value: unknown): void => {
+  registerSecureIpc('store-set', async (_event, key: string, value: unknown): Promise<void> => {
     if (key === 'udemy_token' && typeof value === 'string') {
-      store.set(key, encryptToken(value))
+      setStoredToken(value)
+      const subdomain = store.get('udemy_subdomain') as string | undefined
+      await syncTokenToSessionCookies(value, subdomain)
     } else {
       store.set(key, value)
     }
     if (key === 'app_settings') {
       const s = value as AppSettings
-      if (s.downloadPath) initDb(s.downloadPath)
+      if (s.downloadPath) {
+        fs.ensureDirSync(s.downloadPath)
+        initDb(s.downloadPath)
+      }
     }
   })
 
@@ -392,11 +440,16 @@ app.whenReady().then(() => {
     }
   )
 
+  registerSecureIpc('get-default-download-path', (): string => {
+    return getDefaultDownloadPath()
+  })
+
   registerSecureIpc('fetch-courses', async (): Promise<Course[]> => {
-    const token = store.get('udemy_token') as string | undefined
+    const token = getStoredToken()
     const subdomain = store.get('udemy_subdomain') as string | undefined
     if (!token) throw new Error('No token found')
 
+    await syncTokenToSessionCookies(token, subdomain)
     const rawCourses = await fetchSubscribedCourses(token, subdomain)
 
     return rawCourses.map((c) => ({
@@ -410,10 +463,11 @@ app.whenReady().then(() => {
   registerSecureIpc(
     'fetch-curriculum',
     async (_event, courseId: number): Promise<CurriculumItem[]> => {
-      const token = store.get('udemy_token') as string | undefined
+      const token = getStoredToken()
       const subdomain = store.get('udemy_subdomain') as string | undefined
       if (!token) throw new Error('No token found')
 
+      await syncTokenToSessionCookies(token, subdomain)
       const rawItems = await fetchCourseCurriculum(token, courseId, subdomain)
 
       return rawItems.map((item): CurriculumItem => {
@@ -542,7 +596,8 @@ app.whenReady().then(() => {
         | 'autoRetry'
       >
     ): Promise<string> => {
-      const token = store.get('udemy_token') as string | undefined
+      const token = getStoredToken()
+      const subdomain = store.get('udemy_subdomain') as string | undefined
       const settings = store.get('app_settings') as AppSettings | undefined
 
       if (!token) throw new Error('No token found')
@@ -560,6 +615,7 @@ app.whenReady().then(() => {
       const fullRequest: DownloadRequest = {
         ...req,
         token,
+        subdomain,
         downloadPath: finalDownloadPath,
         videoQuality: settings.videoQuality || 'Auto',
         skipAttachments: settings.skipAttachments ?? false,
@@ -1025,12 +1081,13 @@ app.whenReady().then(() => {
           if (cookies && cookies.length > 0) {
             const token = cookies[0].value
 
-            store.set('udemy_token', token)
+            setStoredToken(token)
             if (subdomain) {
               store.set('udemy_subdomain', subdomain)
             } else {
               store.delete('udemy_subdomain')
             }
+            await syncTokenToSessionCookies(token, subdomain)
 
             clearInterval(cookieInterval)
             loginWindow.close()
@@ -1124,9 +1181,37 @@ app.whenReady().then(() => {
     })
   })
 
-  const settings = store.get('app_settings') as AppSettings | undefined
-  if (settings?.downloadPath) {
-    initDb(settings.downloadPath)
+  const defaultPath = getDefaultDownloadPath()
+  const defaultSettings: AppSettings = {
+    downloadPath: defaultPath,
+    videoQuality: 'Auto',
+    skipAttachments: false,
+    skipSubtitles: false,
+    autoRetry: false,
+    maxKbps: 0,
+    scheduleEnabled: false,
+    scheduleStart: '01:00',
+    scheduleEnd: '06:00',
+    closeToTray: false,
+    vaultMode: false
+  }
+
+  let settings = store.get('app_settings') as AppSettings | undefined
+  if (!settings) {
+    store.set('app_settings', defaultSettings)
+    settings = defaultSettings
+  } else if (!settings.downloadPath) {
+    settings = { ...defaultSettings, ...settings, downloadPath: defaultPath }
+    store.set('app_settings', settings)
+  }
+
+  if (settings.downloadPath) {
+    try {
+      fs.ensureDirSync(settings.downloadPath)
+      initDb(settings.downloadPath)
+    } catch (dirErr) {
+      console.error('Failed to initialize default download path:', dirErr)
+    }
   }
 
   if (is.dev) {

@@ -1,6 +1,7 @@
 import * as crypto from 'crypto'
-import { BrowserWindow, net } from 'electron'
+import { BrowserWindow } from 'electron'
 import * as fs from 'fs'
+import * as http from 'http'
 import type { ClientRequest, IncomingMessage } from 'http'
 import * as https from 'https'
 import * as path from 'path'
@@ -10,6 +11,7 @@ import { addReclaimedBytes, checkBlobExists, insertBlob, recordLectureLink } fro
 import { store } from './database/store'
 import { ThrottleStream } from './network/throttle'
 import { encryptAndWriteFileSync, getVaultKey, VaultEncryptStream } from './security/vault'
+import { sanitizeToken } from './udemy'
 
 const activeStreams = new Map<
   number,
@@ -80,6 +82,92 @@ const UdemyAssetResponseSchema = z
 
 type UdemyAssetResponse = z.infer<typeof UdemyAssetResponseSchema>
 
+function requestJson<T>(
+  targetUrl: string,
+  headers: Record<string, string>,
+  redirectCount = 0
+): Promise<T> {
+  return new Promise((resolve, reject) => {
+    if (redirectCount > 5) return reject(new Error('Too many redirects'))
+    const urlObj = new URL(targetUrl)
+    const client = urlObj.protocol === 'http:' ? http : https
+    const req = client.get(
+      targetUrl,
+      {
+        headers,
+        agent: false
+      },
+      (res) => {
+        if (
+          res.statusCode &&
+          res.statusCode >= 300 &&
+          res.statusCode < 400 &&
+          res.headers.location
+        ) {
+          const redirectUrl = new URL(res.headers.location, targetUrl).href
+          return requestJson<T>(redirectUrl, headers, redirectCount + 1).then(resolve, reject)
+        }
+        if (res.statusCode && (res.statusCode < 200 || res.statusCode >= 300)) {
+          return reject(new Error(`HTTP status: ${res.statusCode}`))
+        }
+        let data = ''
+        res.setEncoding('utf8')
+        res.on('data', (chunk) => {
+          data += chunk
+        })
+        res.on('end', () => {
+          try {
+            resolve(JSON.parse(data))
+          } catch (e) {
+            reject(e)
+          }
+        })
+      }
+    )
+    req.on('error', reject)
+  })
+}
+
+function requestText(
+  targetUrl: string,
+  headers: Record<string, string> = {},
+  redirectCount = 0
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    if (redirectCount > 5) return reject(new Error('Too many redirects'))
+    const urlObj = new URL(targetUrl)
+    const client = urlObj.protocol === 'http:' ? http : https
+    const req = client.get(
+      targetUrl,
+      {
+        headers,
+        agent: false
+      },
+      (res) => {
+        if (
+          res.statusCode &&
+          res.statusCode >= 300 &&
+          res.statusCode < 400 &&
+          res.headers.location
+        ) {
+          const redirectUrl = new URL(res.headers.location, targetUrl).href
+          return requestText(redirectUrl, headers, redirectCount + 1).then(resolve, reject)
+        }
+        if (res.statusCode && (res.statusCode < 200 || res.statusCode >= 300)) {
+          return reject(new Error(`HTTP status: ${res.statusCode}`))
+        }
+        let data = ''
+        res.setEncoding('utf8')
+        res.on('data', (chunk) => {
+          data += chunk
+        })
+        res.on('end', () => resolve(data))
+      }
+    )
+    req.on('error', reject)
+  })
+}
+
 function downloadExtraFile(url: string, destPath: string): Promise<void> {
   return new Promise((resolve): void => {
     const file = fs.createWriteStream(destPath)
@@ -133,11 +221,13 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
     fs.mkdirSync(targetDir, { recursive: true })
   }
 
+  const baseUrl = req.subdomain ? `https://${req.subdomain}.udemy.com` : 'https://www.udemy.com'
+
   if (req.type === 'Quiz') {
     const filePath = path.join(targetDir, `${cleanLecture}.html`)
     const htmlShortcut = `
       <html>
-        <head><meta http-equiv="refresh" content="0; url=https://www.udemy.com/course/${req.courseId}/learn/quiz/${req.lectureId}" /></head>
+        <head><meta http-equiv="refresh" content="0; url=${baseUrl}/course/${req.courseId}/learn/quiz/${req.lectureId}" /></head>
         <body>Redirecting to Udemy Quiz...</body>
       </html>
     `
@@ -150,36 +240,50 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
     return filePath
   }
 
-  const apiUrl = `https://www.udemy.com/api-2.0/users/me/subscribed-courses/${req.courseId}/lectures/${req.lectureId}/?fields[lecture]=asset,supplementary_assets&fields[asset]=@min,download_urls,external_url,body,filename,captions`
+  const apiUrl = `${baseUrl}/api-2.0/users/me/subscribed-courses/${req.courseId}/lectures/${req.lectureId}/?fields[lecture]=asset,supplementary_assets&fields[asset]=@min,download_urls,external_url,body,filename,captions`
 
-  let response: Response | null = null
+  const cleanToken = sanitizeToken(req.token)
+  const apiHeaders: Record<string, string> = {
+    Authorization: `Bearer ${cleanToken}`,
+    Cookie: `access_token=${cleanToken}`,
+    Accept: 'application/json, text/plain, */*',
+    'User-Agent':
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    Origin: baseUrl,
+    Referer: `${baseUrl}/`
+  }
+
+  let rawData: unknown = null
   let attempt = 0
   const maxAttempts = req.autoRetry ? 5 : 1
 
   while (attempt < maxAttempts) {
     if (canceledDownloads.has(req.lectureId)) return 'USER_CANCELED'
 
-    response = await net.fetch(apiUrl, {
-      headers: { Authorization: `Bearer ${req.token}` }
-    })
-
-    if (response.ok) break
-
-    if (response.status === 429 || response.status >= 500) {
+    try {
+      rawData = await requestJson<unknown>(apiUrl, apiHeaders)
+      break
+    } catch (err: unknown) {
       attempt++
-      if (attempt >= maxAttempts)
-        throw new Error(`API failed after ${maxAttempts} retries: ${response.status}`)
+      const errMsg = err instanceof Error ? err.message : String(err)
+      console.warn(
+        `Lecture details fetch attempt ${attempt} failed for ${req.lectureId}: ${errMsg}`
+      )
+
+      if (attempt >= maxAttempts) {
+        throw new Error(`Failed to fetch lecture details after ${maxAttempts} attempts: ${errMsg}`)
+      }
 
       await new Promise<void>((resolve): void => {
         setTimeout(resolve, attempt * 2000)
       })
-      continue
     }
-
-    throw new Error(`Failed to fetch lecture details: ${response.status}`)
   }
 
-  const rawData = await response!.json()
+  if (!rawData) {
+    throw new Error('Failed to fetch lecture details: empty response')
+  }
+
   let data: UdemyAssetResponse
 
   try {
@@ -208,18 +312,18 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
           continue
         }
 
-        const capRes = await net.fetch(subtitleUrl)
-        if (capRes.ok) {
-          const capText = await capRes.text()
-          if (isVaultMode && vaultKey) {
-            encryptAndWriteFileSync(
-              path.join(targetDir, `${cleanLecture}_${localeName}.vtt`),
-              capText,
-              vaultKey
-            )
-          } else {
-            fs.writeFileSync(path.join(targetDir, `${cleanLecture}_${localeName}.vtt`), capText)
-          }
+        const capText = await requestText(subtitleUrl, {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        })
+        if (isVaultMode && vaultKey) {
+          encryptAndWriteFileSync(
+            path.join(targetDir, `${cleanLecture}_${localeName}.vtt`),
+            capText,
+            vaultKey
+          )
+        } else {
+          fs.writeFileSync(path.join(targetDir, `${cleanLecture}_${localeName}.vtt`), capText)
         }
       } catch (err) {
         console.warn(`Failed to download subtitle: ${cap.locale || cap.title}`, err)
@@ -232,7 +336,8 @@ export async function processDownload(req: DownloadRequest): Promise<string> {
       if (canceledDownloads.has(req.lectureId)) return 'USER_CANCELED'
       const fileUrl = supp.download_urls?.File?.[0]?.file
       if (fileUrl && supp.filename) {
-        await downloadExtraFile(fileUrl, path.join(targetDir, supp.filename))
+        const safeSuppFilename = sanitizeName(supp.filename)
+        await downloadExtraFile(fileUrl, path.join(targetDir, safeSuppFilename))
       }
     }
   }
