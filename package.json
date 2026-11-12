@@ -35,10 +35,10 @@
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
     "better-sqlite3": "^13.0.2",
-    "dompurify": "^3.4.14",
+    "dompurify": "^3.4.17",
     "electron-store": "^11.0.2",
-    "electron-updater": "^6.8.9",
-    "zod": "^4.4.3"
+    "electron-updater": "^6.8.11",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@electron-toolkit/eslint-config-prettier": "^3.0.0",
@@ -54,14 +54,14 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.2.0",
     "autoprefixer": "^10.5.4",
-    "electron": "^43.1.1",
-    "electron-builder": "^26.15.3",
+    "electron": "^43.8.8",
+    "electron-builder": "^26.18.0",
     "electron-vite": "^5.0.0",
     "eslint": "^9.39.5",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.3",
-    "happy-dom": "^20.11.6",
+    "happy-dom": "^21.0.4",
     "postcss": "^8.5.26",
     "prettier": "^3.9.5",
     "react": "^19.2.7",
@@ -69,7 +69,21 @@
     "tailwindcss": "^4.3.3",
     "tsx": "^4.23.4",
     "typescript": "~5.7.2",
-    "vite": "^7.3.6",
-    "vitest": "^4.1.11"
+    "vite": "^7.3.8",
+    "vitest": "^4.1.12"
+  },
+  "overrides": {
+    "undici": "^7.30.2",
+    "fast-uri": "^3.1.9",
+    "source-map-js": "^1.2.2",
+    "js-yaml": "^4.3.2",
+    "minimatch": "^11.0.8",
+    "brace-expansion": "$brace-expansion",
+    "eslint": {
+      "brace-expansion": "^1.1.22"
+    },
+    "eslint-plugin-react": {
+      "brace-expansion": "^1.1.22"
+    }
   }
 }
