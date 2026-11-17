@@ -1,0 +1,22 @@
+[package]
+name = "udeler-core"
+version = "4.0.0"
+edition = "2021"
+authors = ["M3rcena"]
+description = "Core library for Udeler: Udemy API client, models, authentication, and settings"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+reqwest = { version = "0.12", features = ["json", "cookies", "stream", "gzip", "brotli"] }
+tokio = { version = "1", features = ["sync", "time", "fs", "io-util", "rt-multi-thread", "macros"] }
+thiserror = "2.0"
+url = "2.5"
+directories = "6.0"
+tracing = "0.1"
+aes-gcm = "0.10"
+sha2 = "0.10"
+base64 = "0.22"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full"] }

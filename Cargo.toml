@@ -1,0 +1,9 @@
+[workspace]
+members = [
+    "crates/udeler-core",
+    "crates/udeler-downloader",
+    "crates/udeler-auth-webview",
+    "crates/udeler-ui",
+]
+default-members = ["crates/udeler-ui"]
+resolver = "2"

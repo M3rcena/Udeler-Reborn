@@ -1,0 +1,114 @@
+{
+    "_meta": {
+      "name": "English (US)",
+      "countryCode": "us",
+      "dir": "ltr"
+    },
+    "words": {
+      "unlimited": "Unlimited",
+      "cancel": "Cancel",
+      "done": "DONE",
+      "pro": "PRO"
+    },
+    "components": {
+      "sidebar": {
+        "courses": "My Courses",
+        "downloads": "Downloads",
+        "settings": "Settings",
+        "about": "About",
+        "lightMode": "Light Mode",
+        "darkMode": "Dark Mode",
+        "logout": "Switch Profile",
+        "support": "Support me"
+      },
+      "helpModal": {
+        "locateToken": "Locate Your Token",
+        "followSteps": "Follow these 4 steps in your browser to link your account.",
+        "step1": "Open your web browser and log in to your Udemy account.",
+        "step2": "Press F12 (or right-click and select 'Inspect') to open Developer Tools.",
+        "step3": "Navigate to the Application tab (Chrome/Edge) or Storage tab (Firefox).",
+        "step4": "Expand Cookies -> click https://www.udemy.com -> copy the value of access_token.",
+        "gotToken": "I've got my token"
+      }
+    },
+    "views": {
+      "login": {
+        "theme": "Theme",
+        "whosLearning": "Who's learning today?",
+        "selectProfileSub": "Select your profile to load your courses immediately.",
+        "manageTitle": "Manage Accounts",
+        "manageSub": "Click any profile circle to remove it from this device.",
+        "manageBtn": "MANAGE PROFILES",
+        "personalAccount": "Personal Account",
+        "addAccount": "Add Account",
+        "slotsUsed": "of 5 slots used",
+        "backToProfiles": "Back to Profiles",
+        "linkAccountSub": "Link a Udemy account (up to 5 profiles supported)",
+        "businessAccount": "Udemy Business Account",
+        "orgSubdomain": "ORGANIZATION SUBDOMAIN",
+        "waitingLogin": "Waiting for sign-in in popup...",
+        "signInBusiness": "Sign in via Udemy Business",
+        "signInNormal": "Sign in securely via Udemy",
+        "manualToken": "OR MANUAL TOKEN",
+        "udemyAccessToken": "Udemy Access Token",
+        "tokenPlaceholder": "Paste your token here (Ctrl+V)...",
+        "howTo": "How to find your token",
+        "connecting": "Saving & Connecting...",
+        "manualLogin": "Save Profile & Login",
+        "endToEnd": "END-TO-END ENCRYPTED STORAGE • UP TO 5 ACCOUNTS"
+      },
+      "settings": {
+        "title": "Application Settings",
+        "location": {
+          "downloadLocation": "Download Location",
+          "orgLabel": "Multi-Account Folder Organization",
+          "modeShared": "Shared Pool (All Accounts Together)",
+          "modeSubfolders": "Organized by Profile Subfolder",
+          "modeSeparate": "Separate Custom Path per Profile",
+          "baseFolderHint": "Base Folder (Saves into <Base Folder>/<Profile>/<Course>)",
+          "globalFolder": "Global Download Folder",
+          "dedicatedFolder": "Dedicated Folder for Active Profile",
+          "browse": "Browse..."
+        },
+        "language": {
+          "title": "Application Language & Theme",
+          "select": "Interface Language (Auto-discovered from locales/)",
+          "accentPalette": "Accent Theme Palette"
+        },
+        "preferences": {
+          "downloadPref": "Download Preferences",
+          "videoQual": "Preferred Video Quality",
+          "skipAttachments": "Skip Course Supplementary Attachments",
+          "skipSub": "Skip Subtitles / Closed Captions (.vtt)",
+          "autoRetry": "Auto-Retry on Network Error (up to 5x)",
+          "runBackground": "Keep running in background when closed (Close to Tray)"
+        },
+        "network": {
+          "title": "Network, Concurrency & Scheduling",
+          "maxDownload": "Max Download Speed (KB/s)",
+          "maxConcurrency": "Max Concurrent Downloads",
+          "maxConcurrencySub": "Simultaneous active lecture downloads (1 - 10)"
+        },
+        "schedule": {
+          "enable": "Enable Scheduled Downloads",
+          "startTime": "Start Time (HH:MM)",
+          "endTime": "End Time (HH:MM)"
+        },
+        "vault": {
+          "title": "Vault Mode (AES-256-GCM Encrypted Storage)",
+          "subtitle": "Encrypts downloaded videos, subtitles, and auth tokens on disk."
+        },
+        "unsavedModal": {
+          "banner": "You have unsaved changes",
+          "title": "Unsaved Changes",
+          "message": "You have unsaved changes in Settings. Do you want to discard them and switch tabs?",
+          "discardAndLeave": "Discard & Switch",
+          "stay": "Keep Editing"
+        },
+        "buttons": {
+          "savedSuccess": "Settings Saved Successfully!",
+          "saveAll": "Save All Settings"
+        }
+      }
+    }
+  }
